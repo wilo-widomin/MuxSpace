@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
+}
+
+/* Mientras se arrastra un divisor del sidebar: cursor de redimensionado en
+   toda la página y sin selección de texto para que el arrastre sea fluido. */
+body.tmux-panel-resizing,
+body.tmux-panel-resizing * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
+body.tmux-panel-resizing-col,
+body.tmux-panel-resizing-col * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}

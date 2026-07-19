@@ -1,0 +1,598 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Sidebar, { Resizer } from './components/Sidebar.jsx'
+import SessionGrid from './components/SessionGrid.jsx'
+import LoginScreen from './components/LoginScreen.jsx'
+import { api, ApiError } from './api.js'
+import { LEGACY_ALL_SPACES, UNASSIGNED } from './spaces.js'
+import { useT } from './i18n/index.jsx'
+
+// ---- Espacios y visibilidad ----
+// Un **espacio** agrupa sesiones (un cliente, una categoría). Cada sesión
+// pertenece como mucho a uno; las que no, caen en el espacio virtual
+// "Sin asignar". El pseudo-espacio "Todas" muestra el conjunto entero.
+//
+// El reparto de estado es deliberado, y es lo que permite tener dos
+// pestañas con vistas distintas:
+//
+//   - QUÉ espacios existen y de quién es cada sesión -> servidor
+//     (`spaces.json`), porque es organización duradera y compartida entre
+//     dispositivos.
+//   - QUÉ espacio mira ESTA pestaña -> sessionStorage, propio de la
+//     pestaña. Antes esto vivía en un registro global del backend
+//     (`open_registry`), así que abrir una terminal en una pestaña la
+//     hacía aparecer en la otra al siguiente sondeo.
+//   - QUÉ tiles ocultó el usuario -> localStorage, para que ocultar una
+//     ventana sobreviva a recargar la página.
+const ACTIVE_SPACE_KEY = 'tmux-panel:active-space'
+const HIDDEN_KEY = 'tmux-panel:hidden-sessions'
+const ORDER_KEY = 'tmux-panel:session-order'
+
+// Lectura tolerante: si el almacenamiento no está disponible (modo privado)
+// o el valor está corrupto, se sigue con el valor por defecto.
+function readJSON(storage, key, fallback) {
+  try {
+    const raw = storage.getItem(key)
+    if (!raw) return fallback
+    const value = JSON.parse(raw)
+    return Array.isArray(value) ? value : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writeJSON(storage, key, value) {
+  try {
+    storage.setItem(key, JSON.stringify(value))
+  } catch {
+    /* sin almacenamiento: la preferencia solo dura lo que la pestaña */
+  }
+}
+
+export default function App() {
+  const { t, tError } = useT()
+  const [authed, setAuthed] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
+  const [loginError, setLoginError] = useState(null)
+
+  const [sessions, setSessions] = useState([])
+  const [commands, setCommands] = useState([])
+  const [projects, setProjects] = useState([])
+  const [spaces, setSpaces] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  // Espacio que mira esta pestaña. En sessionStorage: cada pestaña elige el
+  // suyo y lo recuerda al recargar, pero no se lo impone a las demás.
+  // «Todas» ya no se ofrece en el selector, así que un valor guardado de una
+  // sesión anterior se degrada a «Sin asignar».
+  const [activeSpace, setActiveSpace] = useState(() => {
+    const saved = sessionStorage.getItem(ACTIVE_SPACE_KEY)
+    return !saved || saved === LEGACY_ALL_SPACES ? UNASSIGNED : saved
+  })
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(ACTIVE_SPACE_KEY, activeSpace)
+    } catch {
+      /* sin sessionStorage: se pierde al recargar, nada más */
+    }
+  }, [activeSpace])
+
+  // Sesiones que el usuario ocultó del grid. La sesión de tmux sigue viva y
+  // sigue en el sidebar; simplemente no se renderiza su terminal.
+  const [hidden, setHidden] = useState(
+    () => new Set(readJSON(localStorage, HIDDEN_KEY, [])),
+  )
+  const hideSession = useCallback((name) => {
+    setHidden((prev) => {
+      const next = new Set(prev)
+      next.add(name)
+      writeJSON(localStorage, HIDDEN_KEY, [...next])
+      return next
+    })
+  }, [])
+  const unhideSession = useCallback((name) => {
+    setHidden((prev) => {
+      if (!prev.has(name)) return prev
+      const next = new Set(prev)
+      next.delete(name)
+      writeJSON(localStorage, HIDDEN_KEY, [...next])
+      return next
+    })
+  }, [])
+
+  // Orden manual de los tiles (drag & drop). Es una única lista global de
+  // nombres: como cada sesión está en un solo espacio, filtrarla por espacio
+  // da el orden de ese espacio sin necesidad de una lista por espacio.
+  const [order, setOrder] = useState(() => readJSON(localStorage, ORDER_KEY, []))
+  const persistOrder = useCallback((next) => {
+    writeJSON(localStorage, ORDER_KEY, next)
+    return next
+  }, [])
+
+  // Nombre de la sesión/tile con foco (la última clicada). Destino de los
+  // comandos ejecutados desde el sidebar. null => "abrir en sesión nueva".
+  const [activeName, setActiveName] = useState(null)
+
+  // Colapsar/expandir el sidebar para ganar espacio en el grid. Persiste
+  // la preferencia en localStorage para que sobreviva a recargas.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem('sidebarCollapsed') === '1',
+  )
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((c) => {
+      const next = !c
+      localStorage.setItem('sidebarCollapsed', next ? '1' : '0')
+      return next
+    })
+  }, [])
+
+  // Ancho del sidebar arrastrable (divisor vertical en su borde derecho).
+  // Persiste el valor en localStorage para que sobreviva a recargas.
+  const clampSidebarWidth = (w) => {
+    const maxByWin =
+      (typeof window !== 'undefined' ? window.innerWidth : 1280) - 420
+    return Math.max(220, Math.min(w, Math.min(760, Math.max(220, maxByWin))))
+  }
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const stored = Number(localStorage.getItem('tmux-panel-sidebar-width'))
+    return Number.isFinite(stored) && stored > 0
+      ? clampSidebarWidth(stored)
+      : clampSidebarWidth(300)
+  })
+  const resizeSidebar = useCallback((dx) => {
+    setSidebarWidth((w) => clampSidebarWidth(w + dx))
+  }, [])
+  useEffect(() => {
+    localStorage.setItem('tmux-panel-sidebar-width', String(sidebarWidth))
+  }, [sidebarWidth])
+
+  // Sesiones del espacio activo que no están ocultas: exactamente lo que
+  // se renderiza en el grid. Es un valor DERIVADO, no un estado propio; por
+  // eso el sondeo periódico ya no puede reañadir nada a la vista.
+  const openSessions = useMemo(() => {
+    const inSpace = sessions.filter((s) =>
+      activeSpace === UNASSIGNED ? !s.space : s.space === activeSpace,
+    )
+    const visible = inSpace.filter((s) => !hidden.has(s.name))
+    // Orden manual primero; las que no aparecen en él (sesiones nuevas) van
+    // al final, alfabéticamente, en vez de en un orden arbitrario.
+    const rank = new Map(order.map((name, i) => [name, i]))
+    return visible
+      .slice()
+      .sort((a, b) => {
+        const ra = rank.has(a.name) ? rank.get(a.name) : Infinity
+        const rb = rank.has(b.name) ? rank.get(b.name) : Infinity
+        if (ra !== rb) return ra - rb
+        return a.name.localeCompare(b.name)
+      })
+      .map((s) => ({ name: s.name }))
+  }, [sessions, activeSpace, hidden, order])
+
+  // ---- Carga de los espacios ----
+  // Declarado junto al resto de cargadores y ANTES del efecto que los
+  // dispara: un `const` referenciado en el array de dependencias de un
+  // useEffect se evalúa en cada render, así que declararlo más abajo
+  // reventaba con un ReferenceError de zona muerta temporal.
+  const loadSpaces = useCallback(async () => {
+    try {
+      setSpaces(await api.listSpaces())
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) handleAuthFailure()
+      // Sin espacios seguimos funcionando: todo cae en "Sin asignar".
+    }
+  }, [])
+
+  // ---- Carga de la biblioteca (comandos + proyectos) ----
+  // Se cargan de forma independiente: si uno falla (p. ej. el backend
+  // aún no expone /api/projects tras una actualización), el otro sigue
+  // visible en vez de caer ambos.
+  const loadCommands = useCallback(async () => {
+    const tasks = [
+      { key: 'commands', fn: () => api.listCommands(), set: setCommands },
+      { key: 'projects', fn: () => api.listProjects(), set: setProjects },
+    ]
+    await Promise.all(
+      tasks.map(async (t) => {
+        try {
+          t.set(await t.fn())
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 401) {
+            handleAuthFailure()
+          }
+          // Error no fatal: dejamos la otra mitad de la biblioteca intacta.
+        }
+      }),
+    )
+  }, [])
+
+  // Evita apilar sondeos: si la petición anterior de /api/sessions sigue
+  // en vuelo (red lenta, diálogo de certificado mTLS, backend caído), el
+  // siguiente tick del intervalo no lanza otra idéntica encima.
+  const sessionsInFlightRef = useRef(false)
+
+  // ---- Carga de sesiones desde el backend ----
+  // `background` true => encuesta periódica en segundo plano: no togglear
+  // `loading` para que el sidebar no parpadee con el "Cargando…" cada 8 s.
+  // Los sondeos de fondo se descartan si hay otra petición pendiente o la
+  // pestaña está oculta; las cargas manuales (acciones del usuario) siempre
+  // se ejecutan.
+  const loadSessions = useCallback(async (background = false) => {
+    if (background && (sessionsInFlightRef.current || document.hidden)) return
+    sessionsInFlightRef.current = true
+    if (!background) setLoading(true)
+    setError(null)
+    try {
+      // El sondeo solo refresca el catálogo. Qué se ve en el grid se deriva
+      // de aquí más el espacio activo y las ocultas (ambos, del cliente):
+      // ninguna respuesta del servidor puede reabrir una ventana.
+      const data = await api.listSessions()
+      setSessions(data)
+      // Una sesión que ya no existe deja de estar oculta: si más adelante
+      // se crea otra con el mismo nombre, debe aparecer.
+      setHidden((prev) => {
+        const alive = new Set(data.map((s) => s.name))
+        const next = new Set([...prev].filter((name) => alive.has(name)))
+        if (next.size === prev.size) return prev
+        writeJSON(localStorage, HIDDEN_KEY, [...next])
+        return next
+      })
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        handleAuthFailure()
+      } else {
+        setError(tError(err))
+      }
+    } finally {
+      sessionsInFlightRef.current = false
+      if (!background) setLoading(false)
+    }
+  }, [])
+
+  const handleAuthFailure = () => {
+    setAuthed(false)
+    setLoginError(t('app.session_expired'))
+  }
+
+  // Si la tile con foco desaparece del grid (cierre/kill), liberamos el foco.
+  useEffect(() => {
+    if (activeName && !openSessions.some((s) => s.name === activeName)) {
+      setActiveName(null)
+    }
+  }, [openSessions, activeName])
+
+  // ---- Comprobación inicial de autenticación ----
+  // Si hay una cookie de sesión válida (de un login anterior), /api/me
+  // responde 200 y entramos directos; si no, se muestra el login.
+  useEffect(() => {
+    api
+      .me()
+      .then(() => setAuthed(true))
+      .catch(() => {})
+      .finally(() => setAuthChecked(true))
+  }, [])
+
+  // ---- Carga periódica una vez autenticado ----
+  useEffect(() => {
+    if (!authed) return
+    loadSessions()
+    loadCommands()
+    loadSpaces()
+    const interval = setInterval(() => loadSessions(true), 8000)
+    return () => clearInterval(interval)
+  }, [authed, loadSessions, loadCommands, loadSpaces])
+
+  // ---- Login ----
+  // El backend valida y deja la sesión en una cookie HttpOnly; aquí no se
+  // retiene la contraseña en ningún momento.
+  const handleLogin = async (username, password) => {
+    setLoginError(null)
+    try {
+      await api.login(username, password)
+      setAuthed(true)
+    } catch (err) {
+      // Un fallo de red no llega como ApiError: su `message` lo redacta el
+      // navegador en SU idioma, así que ahí ponemos texto propio.
+      setLoginError(
+        err instanceof ApiError ? tError(err) : t('app.server_unreachable'),
+      )
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await api.logout()
+    } catch {
+      // Aunque el logout falle (p. ej. sin red), cerramos la vista local.
+    }
+    setSessions([])
+    setSpaces([])
+    setActiveName(null)
+    setAuthed(false)
+    setLoginError(null)
+  }
+
+  // ---- Crear una nueva sesión de tmux desde el sidebar ----
+  // Crea la sesión (opcionalmente con un comando de la biblioteca),
+  // refresca el listado y la abre en el grid. Propaga el error (p. ej.
+  // nombre duplicado/invalido) para que el sidebar lo muestre sin cerrar
+  // el formulario.
+  const handleCreateSession = async (name, command) => {
+    // `command` (opcional) viene del form de nueva sesión del sidebar y
+    // puede llevar un comando de arranque y un directorio inicial propios.
+    const body = command ? { command: command.command, cwd: command.cwd } : {}
+    await api.createSession(name, body)
+    // Crear estando dentro de un espacio mete ahí la sesión: si no, la
+    // recién creada aparecería en "Sin asignar" y no en el grid que miras.
+    await assignToActiveSpace(name)
+    await loadSessions()
+    await handleSelect(name)
+  }
+
+  // Asigna una sesión recién creada al espacio que mira esta pestaña. En
+  // "Sin asignar" no hay a dónde asignar, así que se queda suelta.
+  const assignToActiveSpace = async (name) => {
+    if (activeSpace === UNASSIGNED) return
+    try {
+      await api.assignSessionSpace(name, activeSpace)
+    } catch {
+      // Que falle la asignación no debe abortar la creación de la sesión:
+      // la terminal ya existe y aparecerá en "Sin asignar".
+    }
+  }
+
+  // ---- Renombrar una sesión existente ----
+  // Renombra en tmux y refresca el listado. El tile del grid NO hay que
+  // tocarlo: `openSessions` es un valor derivado de `sessions`, así que se
+  // recalcula solo con el nombre nuevo. Lo que sí hay que arrastrar a mano
+  // es el estado de cliente que guarda el nombre viejo como clave —foco,
+  // orden manual y ocultas—, o la sesión perdería su sitio en el grid.
+  const handleRenameSession = async (oldName, newName) => {
+    await api.renameSession(oldName, newName)
+    setActiveName((current) => (current === oldName ? newName : current))
+    setOrder((current) =>
+      current.includes(oldName)
+        ? persistOrder(current.map((n) => (n === oldName ? newName : n)))
+        : current,
+    )
+    // Sin esto, `loadSessions` daría el nombre viejo por muerto, lo quitaría
+    // de `hidden` y la ventana que el usuario había cerrado reaparecería.
+    setHidden((prev) => {
+      if (!prev.has(oldName)) return prev
+      const next = new Set(prev)
+      next.delete(oldName)
+      next.add(newName)
+      writeJSON(localStorage, HIDDEN_KEY, [...next])
+      return next
+    })
+    await loadSessions()
+  }
+
+  // ---- Lanzar un comando de la biblioteca como nueva sesión ----
+  // El backend elige el nombre (el del comando, con sufijo incremental si
+  // ya existe). Refrescamos y abrimos la nueva sesión en el grid.
+  const handleLaunchCommand = async (id) => {
+    const res = await api.launchCommand(id)
+    await assignToActiveSpace(res.name)
+    await loadSessions()
+    await handleSelect(res.name)
+  }
+
+  // ---- Guardar un comando nuevo en la biblioteca ----
+  // Devuelve el comando creado para que el sidebar pueda seleccionarlo.
+  const handleSaveCommand = async (label, command) => {
+    const created = await api.createCommand(label, command)
+    await loadCommands()
+    return created
+  }
+
+  // ---- Editar un comando existente de la biblioteca ----
+  // Actualiza label/comando y refresca el listado.
+  const handleUpdateCommand = async (id, label, command) => {
+    const updated = await api.updateCommand(id, label, command)
+    await loadCommands()
+    return updated
+  }
+
+  // ---- Eliminar un comando de la biblioteca ----
+  const handleDeleteCommand = async (id) => {
+    await api.deleteCommand(id)
+    await loadCommands()
+  }
+
+  // ---- Ejecutar un Comando (una línea) ----
+  // Si hay una terminal con foco, se le envía vía send-keys. Si no hay
+  // foco, se abre una sesión nueva y se ejecuta ahí (reutiliza el launch).
+  const handleRunCommand = async (cmd) => {
+    if (activeName && openSessions.some((s) => s.name === activeName)) {
+      try {
+        await api.sendCommand(activeName, cmd.command)
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) handleAuthFailure()
+        else setError(tError(err))
+      }
+      return
+    }
+    // Sin foco: abrir sesión nueva y ejecutar.
+    await handleLaunchCommand(cmd.id)
+  }
+
+  // ---- Guardar / editar / eliminar un Proyecto ----
+  const handleSaveProject = async (title, cwd, commands) => {
+    const created = await api.createProject(title, cwd, commands)
+    await loadCommands()
+    return created
+  }
+
+  const handleUpdateProject = async (id, title, cwd, commands) => {
+    const updated = await api.updateProject(id, title, cwd, commands)
+    await loadCommands()
+    return updated
+  }
+
+  const handleDeleteProject = async (id) => {
+    await api.deleteProject(id)
+    await loadCommands()
+  }
+
+  // ---- Ejecutar un Proyecto: sesión nueva + cd + secuencia ----
+  const handleRunProject = async (id) => {
+    const res = await api.runProject(id)
+    await assignToActiveSpace(res.name)
+    await loadSessions(true)
+    await handleSelect(res.name)
+  }
+
+  // ---- Mostrar una sesión en el grid ----
+  // Ya no hay nada que "arrancar" en el servidor: la terminal se conecta
+  // sola al puente PTY cuando se monta el tile. Mostrar una sesión es
+  // des-ocultarla y, si vive en otro espacio, saltar a ese espacio para que
+  // el clic en el sidebar nunca resulte en "no pasa nada visible".
+  const handleSelect = async (name) => {
+    unhideSession(name)
+    const session = sessions.find((s) => s.name === name)
+    // Si aún no conocemos la sesión (recién creada: `sessions` se actualiza
+    // en el siguiente render) no tocamos el espacio: cambiarlo aquí nos
+    // llevaría a "Sin asignar" por creer que no tiene espacio.
+    if (session) {
+      const target = session.space || UNASSIGNED
+      if (activeSpace !== target) {
+        setActiveSpace(target)
+      }
+    }
+    setActiveName(name)
+  }
+
+  // ---- Quitar una ventana del grid ----
+  // La sesión de tmux sigue viva y en el sidebar: solo deja de renderizarse
+  // su terminal. Antes esto además paraba un proceso ttyd en el servidor;
+  // hoy es puramente una preferencia de vista de este navegador.
+  const handleClose = (name) => {
+    hideSession(name)
+  }
+
+  // ---- Terminar la sesión de tmux (kill-session) desde el panel ----
+  const handleKillSession = async (name) => {
+    try {
+      await api.killSession(name)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        handleAuthFailure()
+      } else {
+        setError(tError(err))
+      }
+    } finally {
+      // La lista de sesiones cambió: al refrescarla, el tile desaparece
+      // solo del grid (que se deriva de ella).
+      loadSessions()
+    }
+  }
+
+  // ---- Reordenar ventanas arrastrando (drag & drop) ----
+  // El orden vive en una lista global de nombres. Al arrastrar, arrancamos
+  // de cómo está ordenado el grid AHORA y reinsertamos: así las sesiones
+  // que aún no tenían orden manual quedan fijadas en el sitio que ocupaban.
+  const handleReorder = (fromName, toName) => {
+    setOrder((current) => {
+      const visible = openSessions.map((s) => s.name)
+      const rest = current.filter((n) => !visible.includes(n))
+      const from = visible.indexOf(fromName)
+      const to = visible.indexOf(toName)
+      if (from === -1 || to === -1 || from === to) return current
+      const next = [...visible]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return persistOrder([...next, ...rest])
+    })
+  }
+
+  // ---- Espacios ----
+  const handleCreateSpace = async (title) => {
+    const created = await api.createSpace(title)
+    await loadSpaces()
+    return created
+  }
+
+  const handleRenameSpace = async (id, title) => {
+    const updated = await api.updateSpace(id, title)
+    await loadSpaces()
+    return updated
+  }
+
+  // Borrar un espacio devuelve sus sesiones a "Sin asignar" sin tocar tmux.
+  // Si la pestaña lo estaba mirando, la mandamos allí para no dejarla
+  // apuntando a un espacio que ya no existe (grid vacío sin explicación).
+  const handleDeleteSpace = async (id) => {
+    await api.deleteSpace(id)
+    if (activeSpace === id) setActiveSpace(UNASSIGNED)
+    await loadSpaces()
+    await loadSessions()
+  }
+
+  const handleAssignSpace = async (name, spaceId) => {
+    await api.assignSessionSpace(name, spaceId === UNASSIGNED ? null : spaceId)
+    await loadSessions()
+  }
+
+  if (!authChecked) {
+    return (
+      <div className="flex h-full items-center justify-center bg-panel-bg text-panel-muted">
+        {t('app.loading')}
+      </div>
+    )
+  }
+
+  if (!authed) {
+    return <LoginScreen onSubmit={handleLogin} error={loginError} />
+  }
+
+  return (
+    <div className="flex h-full w-full bg-panel-bg">
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+        width={sidebarWidth}
+        sessions={sessions}
+        commands={commands}
+        projects={projects}
+        openNames={openSessions.map((s) => s.name)}
+        activeName={activeName}
+        spaces={spaces}
+        activeSpace={activeSpace}
+        onSetActiveSpace={setActiveSpace}
+        onCreateSpace={handleCreateSpace}
+        onRenameSpace={handleRenameSpace}
+        onDeleteSpace={handleDeleteSpace}
+        onAssignSpace={handleAssignSpace}
+        loading={loading}
+        error={error}
+        onSelect={handleSelect}
+        onHideTile={handleClose}
+        onCreate={handleCreateSession}
+        onRenameSession={handleRenameSession}
+        onKillSession={handleKillSession}
+        onRunCommand={handleRunCommand}
+        onRunProject={handleRunProject}
+        onSaveCommand={handleSaveCommand}
+        onUpdateCommand={handleUpdateCommand}
+        onDeleteCommand={handleDeleteCommand}
+        onSaveProject={handleSaveProject}
+        onUpdateProject={handleUpdateProject}
+        onDeleteProject={handleDeleteProject}
+        onRefresh={loadSessions}
+        onLogout={handleLogout}
+      />
+      {!sidebarCollapsed && <Resizer orientation="vertical" onDrag={resizeSidebar} />}
+      <main className="h-full flex-1 overflow-hidden">
+        <SessionGrid
+          openSessions={openSessions}
+          activeName={activeName}
+          onSetActive={setActiveName}
+          onClose={handleClose}
+          onKill={handleKillSession}
+          onReorder={handleReorder}
+          commands={commands}
+        />
+      </main>
+    </div>
+  )
+}

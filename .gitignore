@@ -1,0 +1,33 @@
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+
+# Configuración local
+.env
+.env.*
+!.env.example
+backend/.env
+
+# Material criptográfico (la CA de mTLS vive fuera del repo; esto es red de seguridad)
+*.p12
+*.pfx
+*.pem
+*.key
+*.crt
+*.csr
+certs/
+*.log
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Editores / SO
+.DS_Store
+.vscode/
+.idea/
+
+# Datos de runtime (biblioteca de comandos/proyectos del usuario)
+backend/data/*
+!backend/data/banned_ips.json.example

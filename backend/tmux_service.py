@@ -5,6 +5,7 @@ servidor. No mantiene estado: simplemente consulta el sistema.
 """
 from __future__ import annotations
 
+import shlex
 import subprocess
 from dataclasses import dataclass
 
@@ -153,7 +154,11 @@ def create_session(
         # Si hay directorio, lo plegamos en el propio comando en lugar de
         # usar `new-session -c`, de modo que el cd y el comando corren en
         # el mismo shell.
-        full = f"cd {cwd} && {command}" if cwd else command
+        # `cwd` va entrecomillado: es una ruta, no shell. Sin esto un
+        # directorio con espacios rompe el `cd`, y uno con `;` o `$()`
+        # ejecutaría lo que llevara dentro. `command` sí es shell por
+        # diseño y se pasa tal cual.
+        full = f"cd {shlex.quote(cwd)} && {command}" if cwd else command
         # send-keys interpreta el último argumento como tecla; "Enter" es
         # el nombre legible de tmux para C-m.
         send = _run_tmux(["send-keys", "-t", name, full, "Enter"])
@@ -166,7 +171,7 @@ def create_session(
     elif cwd:
         # Solo directorio, sin comando: un cd simple para dejar la sesión
         # posicionada donde el usuario espera.
-        send = _run_tmux(["send-keys", "-t", name, f"cd {cwd}", "Enter"])
+        send = _run_tmux(["send-keys", "-t", name, f"cd {shlex.quote(cwd)}", "Enter"])
         if send.returncode != 0:
             raise TmuxError("err.session_cwd_failed", technical=send.stderr)
     return True

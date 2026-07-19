@@ -162,10 +162,10 @@ tmux-panel/
 │   ├── config.py          # Configuración por entorno (carga backend/.env)
 │   ├── tmux_service.py    # Encapsula la CLI de tmux (list/new/kill/...)
 │   ├── pty_bridge.py      # Puente WebSocket ↔ PTY (tmux attach)
-│   ├── open_registry.py   # Registro en memoria de sesiones abiertas en el grid
-│   ├── auth.py            # Autenticación HTTP Basic (+ token del WebSocket)
-│   ├── command_store.py   # Persistencia de la biblioteca de comandos (JSON)
-│   ├── library_store.py   # Persistencia de la biblioteca de proyectos (JSON)
+│   ├── auth.py            # Autenticación (sesión por cookie + guard del WebSocket)
+│   ├── space_store.py     # Persistencia de espacios y asignación de sesiones (JSON)
+│   ├── errors.py          # AppError: códigos traducibles + detalle técnico
+│   ├── library_store.py   # Persistencia de la biblioteca de comandos y proyectos (JSON)
 │   ├── dir_suggestions.py # Autocompletado de directorios acotado a raíces
 │   ├── data/              # JSON de la biblioteca (se crea sola; fuera de git)
 │   ├── requirements.txt

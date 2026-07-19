@@ -5,6 +5,7 @@ servidor. No mantiene estado: simplemente consulta el sistema.
 """
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
 from dataclasses import dataclass
@@ -106,6 +107,21 @@ def session_exists(name: str) -> bool:
     return any(s.name == name for s in list_sessions())
 
 
+def _quote_path(path: str) -> str:
+    """Prepara una ruta para inyectarla en el shell con `cd`.
+
+    Expande `~` ANTES de entrecomillar: shlex.quote envuelve la ruta en
+    comillas simples, y dentro de comillas el shell no expande la virgulilla
+    (`cd '~/proyectos/x'` busca un directorio llamado literalmente `~`). Las
+    rutas de la biblioteca se guardan como `~/...`, así que citarlas sin
+    expandir primero rompe el `cd` de todos los proyectos del usuario.
+
+    El quoting se mantiene: es lo que impide que un directorio con espacios
+    parta el comando, o que uno con `;`/`$()` ejecute lo que lleve dentro.
+    """
+    return shlex.quote(os.path.expanduser(path))
+
+
 def _run_tmux(args: list[str]) -> subprocess.CompletedProcess[str]:
     """Ejecuta un comando de tmux y devuelve el resultado en crudo."""
     try:
@@ -158,7 +174,7 @@ def create_session(
         # directorio con espacios rompe el `cd`, y uno con `;` o `$()`
         # ejecutaría lo que llevara dentro. `command` sí es shell por
         # diseño y se pasa tal cual.
-        full = f"cd {shlex.quote(cwd)} && {command}" if cwd else command
+        full = f"cd {_quote_path(cwd)} && {command}" if cwd else command
         # send-keys interpreta el último argumento como tecla; "Enter" es
         # el nombre legible de tmux para C-m.
         send = _run_tmux(["send-keys", "-t", name, full, "Enter"])
@@ -171,7 +187,7 @@ def create_session(
     elif cwd:
         # Solo directorio, sin comando: un cd simple para dejar la sesión
         # posicionada donde el usuario espera.
-        send = _run_tmux(["send-keys", "-t", name, f"cd {shlex.quote(cwd)}", "Enter"])
+        send = _run_tmux(["send-keys", "-t", name, f"cd {_quote_path(cwd)}", "Enter"])
         if send.returncode != 0:
             raise TmuxError("err.session_cwd_failed", technical=send.stderr)
     return True

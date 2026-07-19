@@ -46,7 +46,7 @@ from config import (
 )
 
 # Nombre de la cookie de sesión que emite /api/login.
-SESSION_COOKIE = "tmux_panel_session"
+SESSION_COOKIE = "muxspace_session"
 
 # token -> (username, expira_epoch). Protegido por lock porque los endpoints
 # síncronos de FastAPI corren en un threadpool.

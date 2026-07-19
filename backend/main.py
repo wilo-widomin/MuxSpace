@@ -8,7 +8,7 @@ Expone la API REST que el frontend consume para:
 La terminal se sirve por el puente PTY (`pty_bridge`, endpoint
 `/api/terminal/{name}`) con xterm.js en el cliente.
 
-Ver `docs/tmux_panel.md` para la especificación completa.
+Ver `docs/muxspace.md` para la especificación completa.
 """
 from __future__ import annotations
 
@@ -256,7 +256,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Tmux Panel API",
+    title="MuxSpace API",
     description="Dashboard dinámico para gestionar sesiones de tmux.",
     version="1.0.0",
     lifespan=lifespan,
@@ -372,7 +372,7 @@ def dir_suggestions(q: str = "", user: str = _auth) -> DirSuggestionsResponse:
 
     Devuelve los subdirectorios inmediatos que coinciden con el prefijo `q`,
     pero solo cuando el directorio a listar cae bajo una de las raíces
-    configuradas (`TMUX_PANEL_DIR_SUGGESTION_ROOTS`, con `~` expandido al
+    configuradas (`MUXSPACE_DIR_SUGGESTION_ROOTS`, con `~` expandido al
     home del usuario que ejecuta el backend).
     """
     return DirSuggestionsResponse(items=suggest_dirs(q))

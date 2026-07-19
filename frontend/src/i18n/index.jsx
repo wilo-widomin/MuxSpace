@@ -37,7 +37,7 @@ export const LANGUAGES = [
   { code: 'it', label: 'Italiano' },
 ]
 
-const STORAGE_KEY = 'tmux-panel:lang'
+const STORAGE_KEY = 'muxspace:lang'
 
 /** Idioma a usar: elección explícita → idioma del navegador → base. */
 export function resolveLang() {

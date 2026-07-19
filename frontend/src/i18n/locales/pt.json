@@ -1,6 +1,6 @@
 {
-  "app.title": "Tmux Panel — Painel de Sessões",
-  "app.brand": "Tmux Panel",
+  "app.title": "MuxSpace — Painel de Sessões",
+  "app.brand": "MuxSpace",
   "app.loading": "A carregar…",
   "app.session_expired": "Sessão expirada. Inicia sessão novamente.",
   "app.server_unreachable": "Não foi possível ligar ao servidor.",

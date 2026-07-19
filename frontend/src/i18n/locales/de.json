@@ -1,6 +1,6 @@
 {
-  "app.title": "Tmux Panel – Sessions-Dashboard",
-  "app.brand": "Tmux Panel",
+  "app.title": "MuxSpace – Sessions-Dashboard",
+  "app.brand": "MuxSpace",
   "app.loading": "Lädt…",
   "app.session_expired": "Sitzung abgelaufen. Melde dich erneut an.",
   "app.server_unreachable": "Keine Verbindung zum Server möglich.",

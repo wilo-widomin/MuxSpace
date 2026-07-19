@@ -23,9 +23,9 @@ import { useT } from './i18n/index.jsx'
 //     hacía aparecer en la otra al siguiente sondeo.
 //   - QUÉ tiles ocultó el usuario -> localStorage, para que ocultar una
 //     ventana sobreviva a recargar la página.
-const ACTIVE_SPACE_KEY = 'tmux-panel:active-space'
-const HIDDEN_KEY = 'tmux-panel:hidden-sessions'
-const ORDER_KEY = 'tmux-panel:session-order'
+const ACTIVE_SPACE_KEY = 'muxspace:active-space'
+const HIDDEN_KEY = 'muxspace:hidden-sessions'
+const ORDER_KEY = 'muxspace:session-order'
 
 // Lectura tolerante: si el almacenamiento no está disponible (modo privado)
 // o el valor está corrupto, se sigue con el valor por defecto.
@@ -134,7 +134,7 @@ export default function App() {
     return Math.max(220, Math.min(w, Math.min(760, Math.max(220, maxByWin))))
   }
   const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const stored = Number(localStorage.getItem('tmux-panel-sidebar-width'))
+    const stored = Number(localStorage.getItem('muxspace-sidebar-width'))
     return Number.isFinite(stored) && stored > 0
       ? clampSidebarWidth(stored)
       : clampSidebarWidth(300)
@@ -143,7 +143,7 @@ export default function App() {
     setSidebarWidth((w) => clampSidebarWidth(w + dx))
   }, [])
   useEffect(() => {
-    localStorage.setItem('tmux-panel-sidebar-width', String(sidebarWidth))
+    localStorage.setItem('muxspace-sidebar-width', String(sidebarWidth))
   }, [sidebarWidth])
 
   // Sesiones del espacio activo que no están ocultas: exactamente lo que

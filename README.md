@@ -1,4 +1,4 @@
-# Tmux Panel — Dashboard Dinámico de Sesiones Tmux
+# MuxSpace — Dashboard Dinámico de Sesiones Tmux
 
 Interfaz web para gestionar, visualizar y organizar múltiples sesiones de
 tmux de forma simultánea desde el navegador. No es un emulador de terminal:
@@ -23,7 +23,7 @@ Un único proceso sirve la API, el WebSocket de las terminales y el frontend
 compilado, todo en un **solo puerto local**. No depende de systemd, Docker ni
 de ningún proxy (opcionales para exponerlo al exterior).
 
-Especificación completa en [`docs/tmux_panel.md`](docs/tmux_panel.md).
+Especificación completa en [`docs/muxspace.md`](docs/muxspace.md).
 
 > **¿Empezar desde cero?** Sigue la guía de
 > [`docs/onboarding.md`](docs/onboarding.md): clonar, configurar, arrancar
@@ -79,13 +79,13 @@ cp backend/.env.example backend/.env
 
 | Variable | Por defecto | Descripción |
 |----------|-------------|-------------|
-| `TMUX_PANEL_AUTH_ENABLED` | `true` | Activa la autenticación HTTP Basic |
-| `TMUX_PANEL_USERNAME` / `TMUX_PANEL_PASSWORD` | `admin` / `admin` | Credenciales del dashboard |
-| `TMUX_PANEL_PORT` | `8000` | Puerto del backend |
-| `TMUX_PANEL_HOST` | `127.0.0.1` | Interfaz de enlace (`0.0.0.0` si lo pones tras un reverse proxy) |
-| `TMUX_PANEL_TMUX_BINARY` | `tmux` | Ruta al binario de tmux (si no está en el PATH) |
-| `TMUX_PANEL_CORS_ORIGINS` | `localhost:5173` | Orígenes CORS permitidos (casi irrelevante en producción: mismo origen) |
-| `TMUX_PANEL_DIR_SUGGESTION_ROOTS` | `["~"]` | Raíces para el autocompletado de directorios (`~` = home del usuario que corre el backend) |
+| `MUXSPACE_AUTH_ENABLED` | `true` | Activa la autenticación HTTP Basic |
+| `MUXSPACE_USERNAME` / `MUXSPACE_PASSWORD` | `admin` / `admin` | Credenciales del dashboard |
+| `MUXSPACE_PORT` | `8000` | Puerto del backend |
+| `MUXSPACE_HOST` | `127.0.0.1` | Interfaz de enlace (`0.0.0.0` si lo pones tras un reverse proxy) |
+| `MUXSPACE_TMUX_BINARY` | `tmux` | Ruta al binario de tmux (si no está en el PATH) |
+| `MUXSPACE_CORS_ORIGINS` | `localhost:5173` | Orígenes CORS permitidos (casi irrelevante en producción: mismo origen) |
+| `MUXSPACE_DIR_SUGGESTION_ROOTS` | `["~"]` | Raíces para el autocompletado de directorios (`~` = home del usuario que corre el backend) |
 
 ## API
 
@@ -156,7 +156,7 @@ aunque se recargue la web: solo se cierra la "ventana" de visualización.
 ## Estructura del proyecto
 
 ```
-tmux-panel/
+muxspace/
 ├── backend/
 │   ├── main.py            # App FastAPI y endpoints (sesiones + biblioteca)
 │   ├── config.py          # Configuración por entorno (carga backend/.env)
@@ -183,7 +183,7 @@ tmux-panel/
 │   └── dev.sh             # Arranca backend + frontend (Vite HMR)
 └── docs/
     ├── onboarding.md     # Guía de puesta en marcha paso a paso
-    └── tmux_panel.md     # Especificación
+    └── muxspace.md     # Especificación
 ```
 
 ## Seguridad
@@ -208,10 +208,10 @@ tmux-panel/
 - **Sin puertos extra ni iframes**: las terminales viajan por el mismo
   origen que la API (`/api/terminal/...`); no se abren puertos
   adicionales por sesión.
-- **Bind local por defecto** (`TMUX_PANEL_HOST=127.0.0.1`). Usa `0.0.0.0`
+- **Bind local por defecto** (`MUXSPACE_HOST=127.0.0.1`). Usa `0.0.0.0`
   solo si vas a poner un proxy delante.
 - **Autocompletado acotado**: las sugerencias de directorios solo listan
-  bajo las raíces configuradas (`TMUX_PANEL_DIR_SUGGESTION_ROOTS`, `~` =
+  bajo las raíces configuradas (`MUXSPACE_DIR_SUGGESTION_ROOTS`, `~` =
   home del usuario que corre el backend).
 - **Portapapeles**: xterm.js propio + OSC 52. El backend activa en cada
   sesión, *best-effort*, `allow-passthrough on` y `set-clipboard on`

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Arranque en producción del Tmux Panel.
+# Arranque en producción del MuxSpace.
 #
 # Levanta el backend FastAPI (que además sirve el frontend ya compilado
 # en frontend/dist) en el host/puerto configurados en backend/.env.
@@ -25,8 +25,8 @@ _env_val() {  # $1 = clave ; devuelve el valor tal cual en .env
   [ -f backend/.env ] || return 0
   grep -E "^[[:space:]]*$1=" backend/.env 2>/dev/null | tail -1 | cut -d= -f2- | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' || true
 }
-HOST="$(_env_val TMUX_PANEL_HOST)"; HOST="${HOST:-127.0.0.1}"
-PORT="$(_env_val TMUX_PANEL_PORT)"; PORT="${PORT:-8000}"
+HOST="$(_env_val MUXSPACE_HOST)"; HOST="${HOST:-127.0.0.1}"
+PORT="$(_env_val MUXSPACE_PORT)"; PORT="${PORT:-8000}"
 
 # --- Requisitos del sistema ---
 need() {
@@ -53,7 +53,7 @@ if [ ! -f frontend/dist/index.html ]; then
   (cd frontend && npm run build)
 fi
 
-echo "Arrancando Tmux Panel en http://${HOST}:${PORT} …"
+echo "Arrancando MuxSpace en http://${HOST}:${PORT} …"
 exec backend/venv/bin/python -m uvicorn main:app \
   --app-dir backend \
   --host "$HOST" \

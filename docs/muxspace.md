@@ -1,8 +1,8 @@
-# Documento de Especificación: Tmux Panel
+# Documento de Especificación: MuxSpace
 
 ## 1. Visión General
 
-Tmux Panel es una interfaz web centralizada para gestionar, visualizar y
+MuxSpace es una interfaz web centralizada para gestionar, visualizar y
 organizar múltiples sesiones de **tmux** de forma simultánea desde el
 navegador. No es un emulador de terminal propio: es un panel de control
 sobre el servidor tmux del usuario que ejecuta el backend.
@@ -155,17 +155,17 @@ Navegador ──HTTP──────> FastAPI (API + frontend estático)
 
 Dado que el panel expone terminales por web, se aplica:
 
-- **Autenticación HTTP Basic** opcional (`TMUX_PANEL_AUTH_ENABLED`). El
+- **Autenticación HTTP Basic** opcional (`MUXSPACE_AUTH_ENABLED`). El
   WebSocket del puente PTY valida el mismo token base64 por *query param*
   `?token=` (el navegador no permite fijar cabeceras en el *handshake* WS).
 - **Sin puertos extra ni iframes:** todo por el mismo origen
   (`/api/terminal/...`).
-- **Bind local por defecto** (`TMUX_PANEL_HOST=127.0.0.1`). Para exponerlo
+- **Bind local por defecto** (`MUXSPACE_HOST=127.0.0.1`). Para exponerlo
   al exterior, pon un *reverse proxy* (Caddy/Nginx) delante con TLS y, si
   procede, deja que el proxy gestione la auth; entonces enlaza el backend a
   `0.0.0.0`.
 - **Autocompletado de directorios acotado:** las sugerencias solo listan
-  bajo las raíces configuradas (`TMUX_PANEL_DIR_SUGGESTION_ROOTS`, `~` =
+  bajo las raíces configuradas (`MUXSPACE_DIR_SUGGESTION_ROOTS`, `~` =
   home del usuario que corre el backend), no exponen zonas arbitrarias del
   sistema de ficheros.
 

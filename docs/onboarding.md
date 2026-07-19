@@ -1,8 +1,8 @@
-# Onboarding — Tmux Panel en 5 minutos
+# Onboarding — MuxSpace en 5 minutos
 
 Guía para recién llegados (o para ti mismo en otra máquina): clonar el
 repo y tener el panel funcionando en local. Si buscas el porqué del
-diseño, mira [`tmux_panel.md`](tmux_panel.md); la referencia de la API
+diseño, mira [`muxspace.md`](muxspace.md); la referencia de la API
 está en el [`README.md`](../README.md).
 
 ## 0. Qué vas a obtener
@@ -36,8 +36,8 @@ tmux -V && python3 --version && (command -v npm && npm -v) || true
 ## 2. Clonar y configurar
 
 ```bash
-git clone <url-del-repo> tmux-panel
-cd tmux-panel
+git clone <url-del-repo> muxspace
+cd muxspace
 
 # Configuración: copia la plantilla genérica y edítala si quieres
 cp backend/.env.example backend/.env
@@ -116,15 +116,15 @@ usuario. Ejemplo mínimo `~/.config/systemd/user/proj-tmux.service`:
 
 ```ini
 [Unit]
-Description=Tmux Panel
+Description=MuxSpace
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/proyectos/tmux-panel
+WorkingDirectory=%h/proyectos/muxspace
 Environment=PATH=/home/<tu-usuario>/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=%h/proyectos/tmux-panel/start.sh
+ExecStart=%h/proyectos/muxspace/start.sh
 Restart=always
 RestartSec=5
 
@@ -139,7 +139,7 @@ journalctl --user -u proj-tmux.service -f   # ver logs
 ```
 
 Para exponerlo al exterior con TLS, pon un *reverse proxy* (Caddy/Nginx)
-delante; entonces usa `TMUX_PANEL_HOST=0.0.0.0` en el `.env`. Eso queda
+delante; entonces usa `MUXSPACE_HOST=0.0.0.0` en el `.env`. Eso queda
 fuera del alcance del propio panel.
 
 ## 9. Troubleshooting
@@ -148,7 +148,7 @@ fuera del alcance del propio panel.
 |---------|------------------|
 | `Falta dependencia: tmux` | Instala `tmux` (tabla de requisitos). |
 | `ModuleNotFoundError` al crear el venv | En Debian/Ubuntu falta `python3-venv`: `apt install python3-venv`. |
-| El puerto 8000 está ocupado | Edita `TMUX_PANEL_PORT` en `backend/.env` o para lo que lo use. |
+| El puerto 8000 está ocupado | Edita `MUXSPACE_PORT` en `backend/.env` o para lo que lo use. |
 | No puedo acceder desde otro PC | Por defecto el backend enlaza a `127.0.0.1`. Usa `0.0.0.0` (+ proxy) solo si lo necesitas. |
 | El panel no ve mis sesiones | El backend corre como tu usuario; usa el mismo `tmux`. Si lo arranca otro usuario, verá **sus** sesiones, no las tuyas. |
 | La terminal no se redimensiona | Se ajusta al tile al abrir y al mover; comprueba que el tile tiene tamaño y que tu tmux ≥ 3.3 para el *passthrough* del portapapeles. |
@@ -158,6 +158,6 @@ fuera del alcance del propio panel.
 
 ## 10. Dónde seguir
 
-- Arquitectura y alcance: [`tmux_panel.md`](tmux_panel.md)
+- Arquitectura y alcance: [`muxspace.md`](muxspace.md)
 - Referencia de endpoints: [`README.md`](../README.md#api)
 - Código de entrada: `backend/main.py` (API) y `frontend/src/App.jsx` (UI).

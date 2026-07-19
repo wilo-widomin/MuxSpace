@@ -24,7 +24,7 @@ const GUTTER = 12
 // Peso mínimo de una pista para que un tile no se pueda aplastar a cero.
 const MIN_FR = 0.15
 
-const storageKey = (cols, rows) => `tmux-panel:grid-sizes:${cols}x${rows}`
+const storageKey = (cols, rows) => `muxspace:grid-sizes:${cols}x${rows}`
 
 // Pesos guardados para esta forma de rejilla, o reparto equitativo.
 function loadSizes(cols, rows) {

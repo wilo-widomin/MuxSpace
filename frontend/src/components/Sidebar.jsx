@@ -121,7 +121,7 @@ export default function Sidebar({
   // Los altos se persisten en localStorage para que el navegador los
   // recuerde entre sesiones y no haya que reajustarlos cada vez.
   const MIN_SECTION = 56
-  const HEIGHTS_KEY = 'tmux-panel-sidebar-heights'
+  const HEIGHTS_KEY = 'muxspace-sidebar-heights'
   const readHeights = () => {
     try {
       const raw = localStorage.getItem(HEIGHTS_KEY)
@@ -1052,7 +1052,7 @@ export default function Sidebar({
 
 // <input> de directorio con autocompletado: mientras el usuario escribe
 // (o al ganar el foco) pide al backend las subcarpetas que coinciden con el
-// prefijo bajo las raíces configuradas (ver `TMUX_PANEL_DIR_SUGGESTION_ROOTS`
+// prefijo bajo las raíces configuradas (ver `MUXSPACE_DIR_SUGGESTION_ROOTS`
 // y el endpoint /api/dir-suggestions). Las muestra en un <datalist> nativo.
 // Barra de espacios: elige cuál mira ESTA pestaña y permite crear,
 // renombrar y borrar. Dos entradas del selector no son espacios reales:
@@ -1460,13 +1460,13 @@ export function Resizer({ onDrag, orientation = 'horizontal' }) {
     const up = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
-      document.body.classList.remove('tmux-panel-resizing')
-      document.body.classList.remove('tmux-panel-resizing-col')
+      document.body.classList.remove('muxspace-resizing')
+      document.body.classList.remove('muxspace-resizing-col')
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
     document.body.classList.add(
-      horizontal ? 'tmux-panel-resizing' : 'tmux-panel-resizing-col',
+      horizontal ? 'muxspace-resizing' : 'muxspace-resizing-col',
     )
   }
   return horizontal ? (

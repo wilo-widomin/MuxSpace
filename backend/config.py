@@ -68,6 +68,22 @@ PAM_SERVICE: str = os.getenv("MUXSPACE_PAM_SERVICE", "login")
 AUTH_USERNAME: str = os.getenv("MUXSPACE_USERNAME", "admin")
 AUTH_PASSWORD: str = os.getenv("MUXSPACE_PASSWORD", "admin")
 
+# Quien entra al panel ejecuta comandos como el usuario que corre el
+# backend, y esta contraseña de ejemplo está publicada en el README y en
+# .env.example. Arrancar con ella sería dejar la puerta abierta, así que
+# no arrancamos. Solo aplica al modo env (en pam la contraseña la valida
+# el sistema) y con la auth activada.
+if AUTH_ENABLED and AUTH_MODE == "env" and AUTH_PASSWORD in {"admin", ""}:
+    raise ValueError(
+        "MUXSPACE_PASSWORD está vacía o es la contraseña de ejemplo "
+        "('admin'). Ponle una en backend/.env antes de arrancar: el panel "
+        "da acceso a "
+        "una shell como el usuario que ejecuta el backend. "
+        "(Alternativas: MUXSPACE_AUTH_MODE=pam para validar contra el "
+        "sistema, o MUXSPACE_AUTH_ENABLED=false si el acceso ya está "
+        "protegido por otra capa, p. ej. mTLS.)"
+    )
+
 # Horas de validez de la sesión iniciada en /api/login (cookie HttpOnly).
 SESSION_TTL_HOURS: int = int(os.getenv("MUXSPACE_SESSION_TTL_HOURS", "168"))
 
@@ -80,6 +96,20 @@ COOKIE_SECURE: bool = _get_bool("MUXSPACE_COOKIE_SECURE", False)
 # si vas a poner un reverse proxy delante para alcanzarlo desde fuera.
 HOST: str = os.getenv("MUXSPACE_HOST", "127.0.0.1")
 PORT: int = int(os.getenv("MUXSPACE_PORT", "8000"))
+
+# IPs de los reverse proxies en los que confiamos para leer la IP real del
+# cliente en la cabecera X-Forwarded-For (uvicorn --forwarded-allow-ips).
+# Por defecto 127.0.0.1: el caso normal, con el proxy en la misma máquina.
+# Si el proxy vive en OTRO host, tienes que añadir su IP aquí o el rate
+# limit y los baneos verán siempre la IP del proxy en vez de la del cliente:
+# dejarían de proteger, y los 5 fallos de un solo atacante bloquearían el
+# login de todo el mundo.
+# Añade solo IPs de proxies reales: quien esté en esta lista puede falsear
+# su IP a placer vía X-Forwarded-For y saltarse los baneos. Nunca uses '*'
+# si el backend es alcanzable sin pasar por el proxy.
+TRUSTED_PROXIES: list[str] = _get_str_list(
+    "MUXSPACE_TRUSTED_PROXIES", ["127.0.0.1"]
+)
 
 # Binario de tmux (por si no está en el PATH estándar).
 TMUX_BINARY: str = os.getenv("MUXSPACE_TMUX_BINARY", "tmux")

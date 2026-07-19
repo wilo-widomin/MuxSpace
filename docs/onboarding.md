@@ -44,9 +44,10 @@ cp backend/.env.example backend/.env
 ```
 
 `backend/.env` es lo único específico de tu máquina (está fuera de git).
-Valores por defecto suficientes para local: `127.0.0.1:8000`, auth
-`admin`/`admin`, raíces de directorios `["~"]`. Cambia la contraseña antes
-de exponerlo.
+Valores por defecto suficientes para local: `127.0.0.1:8000`, usuario
+`admin`, raíces de directorios `["~"]`. **Tienes que poner una contraseña**
+en `MUXSPACE_PASSWORD` (`openssl rand -base64 24`): el backend no arranca
+si la dejas vacía o en `admin`, porque el panel da acceso a una shell.
 
 ## 3. Arrancar
 
@@ -58,7 +59,8 @@ de exponerlo.
 deps de Python, compila el frontend si falta y arranca uvicorn sirviendo
 **API + frontend** en `http://127.0.0.1:8000`.
 
-Abre <http://127.0.0.1:8000> y entra con `admin` / `admin`.
+Abre <http://127.0.0.1:8000> y entra con `admin` y la contraseña que
+pusiste en `backend/.env`.
 
 ## 4. Tu primera sesión
 

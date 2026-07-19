@@ -27,7 +27,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Arrancando backend en http://localhost:8000 …"
-(cd backend && ./venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000) &
+(cd backend && ./venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000) &
 BACK_PID=$!
 
 echo "Arrancando frontend en http://localhost:5173 …"

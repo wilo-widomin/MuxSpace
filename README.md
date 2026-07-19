@@ -64,7 +64,11 @@ Navegador ──HTTP──────> FastAPI (API + frontend estático)
 - Producción (un solo puerto): <http://127.0.0.1:8000> (API + docs en `/docs`)
 - Desarrollo — Frontend: <http://localhost:5173>, Backend: <http://localhost:8000/docs>
 
-Credenciales por defecto: **admin / admin** (configurables, ver abajo).
+> **Antes del primer arranque**, pon una contraseña en `backend/.env`
+> (`MUXSPACE_PASSWORD`): el backend **se niega a arrancar** si la dejas
+> vacía o en `admin`. Quien entra al panel puede ejecutar comandos como el
+> usuario que corre el backend, así que no hay credenciales por defecto
+> que funcionen. Genera una con `openssl rand -base64 24`.
 
 > Crea alguna sesión de tmux para probar: `tmux new -d -s trabajo`.
 
@@ -80,9 +84,10 @@ cp backend/.env.example backend/.env
 | Variable | Por defecto | Descripción |
 |----------|-------------|-------------|
 | `MUXSPACE_AUTH_ENABLED` | `true` | Activa la autenticación HTTP Basic |
-| `MUXSPACE_USERNAME` / `MUXSPACE_PASSWORD` | `admin` / `admin` | Credenciales del dashboard |
+| `MUXSPACE_USERNAME` / `MUXSPACE_PASSWORD` | `admin` / *(sin valor)* | Credenciales del dashboard. La contraseña es obligatoria: el backend no arranca si está vacía o es `admin` |
 | `MUXSPACE_PORT` | `8000` | Puerto del backend |
 | `MUXSPACE_HOST` | `127.0.0.1` | Interfaz de enlace (`0.0.0.0` si lo pones tras un reverse proxy) |
+| `MUXSPACE_TRUSTED_PROXIES` | `127.0.0.1` | IPs de proxies de confianza para `X-Forwarded-For`. Si el reverse proxy está en **otra máquina**, añade su IP o el rate limit y los baneos verán la IP del proxy en vez de la del cliente |
 | `MUXSPACE_TMUX_BINARY` | `tmux` | Ruta al binario de tmux (si no está en el PATH) |
 | `MUXSPACE_CORS_ORIGINS` | `localhost:5173` | Orígenes CORS permitidos (casi irrelevante en producción: mismo origen) |
 | `MUXSPACE_DIR_SUGGESTION_ROOTS` | `["~"]` | Raíces para el autocompletado de directorios (`~` = home del usuario que corre el backend) |

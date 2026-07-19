@@ -52,9 +52,12 @@ rm -f "$NAME.csr"
 LEGACY_FLAG=""
 openssl pkcs12 -export -help 2>&1 | grep -q -- '-legacy' && LEGACY_FLAG="-legacy"
 if [[ -n "${P12_PASS:-}" ]]; then
+    # Se pasa por entorno (env:), no en la línea de comandos: los argumentos
+    # de openssl son visibles en `ps` para cualquier usuario de la máquina.
+    export P12_PASS
     openssl pkcs12 -export $LEGACY_FLAG -inkey "$NAME.key" -in "$NAME.crt" \
         -certfile ca.crt -name "muxspace $NAME" \
-        -out "$NAME.p12" -passout "pass:$P12_PASS"
+        -out "$NAME.p12" -passout env:P12_PASS
 else
     echo ">> Contraseña de exportación del .p12 (se pedirá dos veces):"
     openssl pkcs12 -export $LEGACY_FLAG -inkey "$NAME.key" -in "$NAME.crt" \

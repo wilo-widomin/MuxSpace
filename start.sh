@@ -27,6 +27,10 @@ _env_val() {  # $1 = clave ; devuelve el valor tal cual en .env
 }
 HOST="$(_env_val MUXSPACE_HOST)"; HOST="${HOST:-127.0.0.1}"
 PORT="$(_env_val MUXSPACE_PORT)"; PORT="${PORT:-8000}"
+# Proxies de confianza para X-Forwarded-For: de ahí sale la IP real del
+# cliente con la que trabajan el rate limit del login y los baneos de IP.
+# Ver MUXSPACE_TRUSTED_PROXIES en backend/.env.example.
+PROXIES="$(_env_val MUXSPACE_TRUSTED_PROXIES)"; PROXIES="${PROXIES:-127.0.0.1}"
 
 # --- Requisitos del sistema ---
 need() {
@@ -57,4 +61,6 @@ echo "Arrancando MuxSpace en http://${HOST}:${PORT} …"
 exec backend/venv/bin/python -m uvicorn main:app \
   --app-dir backend \
   --host "$HOST" \
-  --port "$PORT"
+  --port "$PORT" \
+  --proxy-headers \
+  --forwarded-allow-ips "$PROXIES"

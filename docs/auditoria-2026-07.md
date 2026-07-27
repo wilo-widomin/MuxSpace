@@ -42,6 +42,14 @@ De ahí salen las dos consecuencias que ordenan toda la auditoría:
 | S9 | Baja | Ficheros de datos con permisos 0644 | Por lectura |
 | S10 | Baja | Sesiones: sin caducidad por inactividad ni revocación global | Por lectura |
 | S11 | Informativo | `preexec_fn` en un proceso con hilos | Por lectura |
+| S12 | Media-baja | Documentación de la API publicada sin autenticación | CONFIRMADO |
+| S13 | Baja | `suggest`/`browse` listan rutas de fuera de las raíces | CONFIRMADO |
+| S14 | Baja | Un bucle de symlinks devuelve 500 en vez de rechazo | CONFIRMADO |
+
+Los tres últimos aparecieron **al escribir los tests de la fase 2**, no en la
+revisión inicial: S12 lo destapó el contrato de rutas de US-002 al preguntarse
+qué queda fuera de su propio filtro, y S13/S14 salieron de los casos de
+traversal de US-003. Es exactamente para lo que sirve la fase 2.
 
 ---
 
@@ -353,3 +361,85 @@ autenticación, rutas o ficheros, **un test de seguridad específico**.
 No hay logging estructurado ni métricas. Con el audit log de S8 y un
 `logging` con nivel por entorno se cubre lo mínimo para diagnosticar sin
 adjuntarse a la consola.
+
+---
+
+## S12 · MEDIA-BAJA — Documentación de la API sin autenticación · CONFIRMADO
+
+```console
+$ curl -s -o /dev/null -w '%{http_code} (%{size_download} bytes)\n' http://127.0.0.1:8000/openapi.json
+200 (26995 bytes)
+$ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8000/docs
+200
+```
+
+`FastAPI(...)` monta `/docs`, `/redoc` y `/openapi.json` con sus valores por
+defecto. Son `starlette.routing.Route`, no `APIRoute`: **no pasan por
+`require_auth` y el contrato de rutas de US-002 es ciego a ellas por
+construcción**. Publican el esquema completo —incluidos
+`/api/commands/{id}/launch`, `/api/projects/{id}/run` y
+`/api/send-command/{name}`, con sus parámetros— a cualquiera que alcance el
+puerto.
+
+No da acceso ni datos: da **reconocimiento**. En un panel que ejecuta comandos
+como el usuario que lo corre, es el índice de lo que hay que atacar. Hoy queda
+tras el mTLS, pero con la autenticación desactivada (S2) es directamente
+accionable desde cualquier proceso local.
+
+**Corrección** — `MUXSPACE_DOCS_ENABLED`, por defecto `false`, que pasa `None`
+a `docs_url`/`redoc_url`/`openapi_url` (que **desmonta** la ruta, no solo
+esconde el enlace). Regresión cubierta en `test_auth_contract.py`, con sus
+propias aserciones porque el censo no las ve.
+
+---
+
+## S13 · BAJA — `suggest`/`browse` listan rutas de fuera de las raíces
+
+Un symlink de directorio plantado dentro de una raíz y apuntando fuera **se
+lista**, y como la abreviatura resuelve el enlace, lo que se muestra es la ruta
+real del destino:
+
+```
+suggest('') -> ['/tmp/.../fuera', '/tmp/.../roots/home/sub']
+                 ^^^^^^^^^^^^^^ fuera de las raíces configuradas
+```
+
+**Entrar sigue bloqueado** (`resolve_within_roots` devuelve `None`), así que no
+permite leer ni escribir ahí: es filtración de rutas del sistema de ficheros.
+Efecto secundario del mismo fallo: un enlace y su destino salen **duplicados**
+en el desplegable.
+
+**Corrección** — aplicar `_is_within` a cada hijo antes de listarlo
+(`dir_suggestions.py`, el `items.append` de `suggest` y el `dirs` de `browse`).
+
+Cubierto por `test_dir_roots.py::test_suggest_nunca_ofrece_algo_de_fuera_de_las_raices`,
+marcado `xfail(strict=True)`: se pondrá en rojo el día que se arregle sin quitar
+la marca.
+
+---
+
+## S14 · BAJA — Un bucle de symlinks devuelve 500
+
+```
+resolve_within_roots(raiz/bucle) -> RuntimeError: Symlink loop from '.../bucle'
+browse(raiz/bucle)               -> RuntimeError: Symlink loop from '.../bucle'
+```
+
+`Path.resolve()` traduce el ELOOP a **`RuntimeError`**, no a `OSError`, que es
+lo único que `resolve_within_roots` captura. La excepción sube hasta el
+endpoint: **500** en vez del rechazo limpio que promete el contrato. Afecta a
+`resolve_within_roots`, `browse` y `create_dir`.
+
+Lo provoca cualquiera que pueda crear un enlace dentro de una raíz — incluido
+el propio usuario sin querer. Y si una **raíz configurada** fuera un bucle,
+`_resolve_roots` reventaría y se caerían a la vez el navegador de carpetas, las
+sugerencias y la subida de archivos.
+
+De paso explica por qué los `except OSError` de ese módulo no llegan a
+ejercitarse: están muertos justo para el caso que los justificaba.
+
+**Corrección** — capturar también `RuntimeError` (o `(OSError, RuntimeError)`)
+en los tres puntos.
+
+Cubierto por `test_dir_roots.py::test_un_bucle_de_symlinks_se_rechaza_sin_excepcion`,
+`xfail(strict=True)`.

@@ -36,7 +36,7 @@ ORIGIN = "http://testserver"
 for _var in [k for k in os.environ if k.startswith("MUXSPACE_")]:
     del os.environ[_var]
 
-# Se fijan LAS TRECE que lee config.py, no solo las que interesan a un test
+# Se fijan LAS CATORCE que lee config.py, no solo las que interesan a un test
 # concreto: cualquiera que se deje sin fijar la rellena el `backend/.env` del
 # usuario (que es su despliegue real) y los tests pasarían a comportarse
 # distinto según la máquina.
@@ -53,6 +53,11 @@ os.environ.update(
         # default de producción (true) el login devolvería 200, la cookie se
         # guardaría y la petición siguiente saldría 401.
         "MUXSPACE_COOKIE_SECURE": "false",
+        # Se prueba el default de producción (cerrado), que es lo que hay que
+        # proteger. El caso "abiertas" se cubre montando una app aparte en el
+        # test: `docs_url` se resuelve al construir la FastAPI, en import time,
+        # así que aquí no se puede cambiar de opinión luego.
+        "MUXSPACE_DOCS_ENABLED": "false",
         "MUXSPACE_HOST": "127.0.0.1",
         "MUXSPACE_PORT": "8000",
         "MUXSPACE_TRUSTED_PROXIES": "127.0.0.1",

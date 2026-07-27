@@ -95,6 +95,15 @@ SESSION_TTL_HOURS: int = int(os.getenv("MUXSPACE_SESSION_TTL_HOURS", "168"))
 # el login no llega a funcionar).
 COOKIE_SECURE: bool = _get_bool("MUXSPACE_COOKIE_SECURE", True)
 
+# Publica /docs, /redoc y /openapi.json. Default False: FastAPI las sirve
+# SIN autenticación (son rutas de Starlette, no del router de la API, así
+# que ni pasan por `require_auth` ni las ve el contrato de rutas), y lo que
+# ahí se publica es el mapa completo de un panel que ejecuta comandos como
+# el usuario que corre el backend: `send-command`, `launch`, `run` y las
+# rutas de subida, con sus esquemas. Es reconocimiento gratis para quien
+# llegue al puerto. Actívalo en desarrollo si te hace falta el explorador.
+DOCS_ENABLED: bool = _get_bool("MUXSPACE_DOCS_ENABLED", False)
+
 # --- Servidor ---
 # 127.0.0.1 = solo acceso local (default seguro). Usa 0.0.0.0 (via .env)
 # si vas a poner un reverse proxy delante para alcanzarlo desde fuera.

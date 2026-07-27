@@ -31,3 +31,14 @@ frontend/dist/
 # Datos de runtime (biblioteca de comandos/proyectos del usuario)
 backend/data/*
 !backend/data/banned_ips.json.example
+
+# Pipeline de historias de usuario: worktrees efímeros (uno por US) y el
+# estado del loop, que es local a cada máquina. La config SÍ se versiona.
+.trees/
+.claude/state/
+
+# Pruebas
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml

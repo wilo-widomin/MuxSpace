@@ -1,0 +1,30 @@
+{
+  "stories_dir": "docs/historias",
+  "phases": [
+    "fase-2-tests",
+    "fase-3-ci",
+    "fase-4-frontend",
+    "fase-5-deuda",
+    "fase-6-e2e"
+  ],
+  "story_glob": "US-*.md",
+  "branch_prefix": "feature/",
+  "worktree_dir": ".trees",
+  "roster": [
+    "Plan",
+    "general-purpose",
+    "general-purpose",
+    "general-purpose"
+  ],
+  "mold_skills": [],
+  "coauthors": [
+    "Co-authored-by: wilo-widomin <widomin@gmail.com>",
+    "Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
+  ],
+  "env_wrap": "",
+  "verify": {
+    "build": "cd frontend && bun run build",
+    "i18n": "cd frontend && bun run check-i18n"
+  },
+  "dod_ref": "docs/historias/contexto-tecnico.md#definition-of-done"
+}

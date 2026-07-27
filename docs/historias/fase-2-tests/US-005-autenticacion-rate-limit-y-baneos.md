@@ -109,3 +109,13 @@ US-001.
   `auth._sessions` son diccionarios de módulo. Limpia en un fixture o los
   tests se contaminan entre sí y fallarán en otro orden.
 - Objetivo de cobertura para `auth.py`: **≥85%**.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-27 16:21:28 UTC
+- Fin:    2026-07-27 16:40:45 UTC
+- Tiempo transcurrido: 00:19:18 (HH:mm:ss)
+- PR:     #9
+- Estado: in-review

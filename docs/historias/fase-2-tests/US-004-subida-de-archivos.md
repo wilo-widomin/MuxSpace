@@ -98,3 +98,13 @@ real.
 - La PoC original está en `docs/auditoria-2026-07.md`, sección S3, con los
   comandos exactos. Tradúcela a pytest tal cual.
 - Objetivo de cobertura para los endpoints de subida: **≥85%**.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-27 15:57:46 UTC
+- Fin:    2026-07-27 16:20:58 UTC
+- Tiempo transcurrido: 00:23:11 (HH:mm:ss)
+- PR:     #8
+- Estado: in-review

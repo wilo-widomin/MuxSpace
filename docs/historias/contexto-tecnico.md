@@ -132,6 +132,28 @@ Conforme una US cree uno, **añádelo a `verify` en
 `.claude/us-pipeline.config.json` en el mismo PR**. Ese es el mecanismo por el
 que el DoD se va apretando solo.
 
+### La cobertura de los endpoints `async` no se mide (US-004)
+
+`coverage.py` deja de trazar el frame de una corrutina en cuanto el bucle de
+eventos la suspende. Consecuencia medida: `upload_file` figura cubierto **hasta
+la línea del `await _read_capped(...)` y ni una más**, mientras que las
+funciones síncronas que llama justo después (`_unique_target`,
+`upload_store.add`) salen al 100 %. Por eso `main.py` no pasa del ~53 % aunque
+sus endpoints estén ejercitados a fondo.
+
+Probado y descartado: `concurrency = thread` en la config de coverage no lo
+cambia.
+
+Dos consecuencias prácticas:
+
+- Los objetivos «≥85 % en los endpoints de subida» de las US de la fase 2 **no
+  son medibles** tal y como están escritos. La garantía real de esas US son las
+  mutaciones documentadas en sus PR, no el porcentaje.
+- **US-009 tiene que tener esto en cuenta al fijar `--cov-fail-under`.** El
+  total global hoy es del 63 % con la fase 2 a medias, así que el 60 % del plan
+  se cumple; pero subirlo mucho más chocaría con este techo artificial, no con
+  la calidad de los tests.
+
 ### En un worktree del pipeline
 
 `backend/venv/` y `frontend/node_modules/` están en `.gitignore`, así que un

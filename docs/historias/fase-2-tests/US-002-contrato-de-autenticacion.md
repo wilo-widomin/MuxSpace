@@ -87,3 +87,13 @@ US-001.
 - El recorrido con `TestClient` es el que de verdad prueba el
   comportamiento; el de `app.routes` es el que da un mensaje legible. Los
   dos, no uno.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-27 14:49:29 UTC
+- Fin:    2026-07-27 15:09:51 UTC
+- Tiempo transcurrido: 00:20:22 (HH:mm:ss)
+- PR:     #4
+- Estado: in-review

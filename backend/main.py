@@ -35,7 +35,12 @@ from auth import (
     verify_credentials,
     ws_user,
 )
-from dir_suggestions import suggest as suggest_dirs
+from dir_suggestions import (
+    browse as browse_dir,
+    create_dir as create_dir_within_roots,
+    resolve_within_roots,
+    suggest as suggest_dirs,
+)
 from errors import http_error, http_from
 from pty_bridge import bridge, _prepare_session
 from library_store import (
@@ -52,6 +57,7 @@ from library_store import (
     update_project,
 )
 import space_store
+import upload_store
 from space_store import SpaceError
 from tmux_service import (
     TmuxError,
@@ -233,6 +239,33 @@ class PasteImageResponse(BaseModel):
 class PasteInfo(BaseModel):
     filename: str
     path: str
+
+
+class DirBrowseResponse(BaseModel):
+    path: str  # carpeta actual, en forma abreviada (~/...)
+    parent: str | None = None  # None si subir un nivel sale de las raíces
+    dirs: list[str]  # subcarpetas, en forma abreviada
+
+
+class DirCreateBody(BaseModel):
+    parent: str
+    name: str
+
+
+class DirPathResponse(BaseModel):
+    path: str  # ruta abreviada de la carpeta creada/elegida
+
+
+class UploadResponse(BaseModel):
+    name: str  # nombre final del archivo en disco (puede diferir si hubo choque)
+    path: str  # ruta absoluta en el host donde quedó guardado
+    dir: str  # carpeta destino, en forma abreviada
+
+
+class UploadInfo(BaseModel):
+    name: str
+    path: str
+    dir: str
 
 
 class LoginBody(BaseModel):
@@ -496,6 +529,124 @@ def delete_paste(filename: str, user: str = _auth) -> MessageResponse:
         except OSError as exc:
             raise http_error(500, "err.paste_delete_failed") from exc
     return MessageResponse(message="ok")
+
+
+# ----------------------------------------------------------------------
+# Subir archivos a una carpeta elegida (navegador de carpetas del panel).
+#
+# A diferencia de "pegar imagen" (destino fijo en data/pastes/), aquí el
+# usuario elige la carpeta con un modal tipo explorador. Por seguridad, toda
+# ruta —tanto la que se navega como la de destino de la subida— tiene que
+# caer bajo las raíces configuradas (`MUXSPACE_DIR_SUGGESTION_ROOTS`); de eso
+# se encarga `dir_suggestions.resolve_within_roots`. Los archivos subidos son
+# ficheros reales del usuario: nunca los borramos, solo guardamos un pequeño
+# historial (`upload_store`) para poder recopiar su ruta.
+# ----------------------------------------------------------------------
+
+# Tope de tamaño por archivo subido (se lee el cuerpo entero en memoria).
+_UPLOAD_MAX_BYTES = 100 * 1024 * 1024
+
+# Nombre de archivo válido: sin separadores de ruta ni componentes "." / "..".
+# Se aplica al nombre original que envía el navegador para evitar escapar de
+# la carpeta destino (path traversal).
+_UPLOAD_NAME_RE = re.compile(r"^[^/\\\x00]+$")
+
+# Nombre de carpeta válido al crear una subcarpeta desde el modal: un único
+# segmento, sin separadores, sin "." aislado ni "..", y que no empiece por
+# punto (nada de carpetas ocultas por accidente).
+_DIR_NAME_RE = re.compile(r"^(?!\.)[^/\\\x00]+$")
+
+
+def _unique_target(directory: Path, name: str) -> Path:
+    """Ruta destino que no pisa un archivo existente.
+
+    Si `name` ya existe en `directory`, inserta " (2)", " (3)"… antes de la
+    extensión, como haría un navegador al descargar dos veces lo mismo.
+    """
+    target = directory / name
+    if not target.exists():
+        return target
+    stem = target.stem
+    suffix = target.suffix
+    i = 2
+    while True:
+        candidate = directory / f"{stem} ({i}){suffix}"
+        if not candidate.exists():
+            return candidate
+        i += 1
+
+
+@app.get("/api/dir-browse", response_model=DirBrowseResponse)
+def dir_browse(path: str = "", user: str = _auth) -> DirBrowseResponse:
+    """Lista las subcarpetas de `path` para el navegador de carpetas.
+
+    `path` vacío arranca en la primera raíz configurada. 404 si la carpeta
+    no existe o cae fuera de las raíces permitidas.
+    """
+    result = browse_dir(path)
+    if result is None:
+        raise http_error(404, "err.dir_not_found")
+    return DirBrowseResponse(**result)
+
+
+@app.post("/api/dir-create", response_model=DirPathResponse)
+def dir_create(body: DirCreateBody, user: str = _auth) -> DirPathResponse:
+    """Crea una subcarpeta dentro de `parent` (ambos bajo una raíz)."""
+    name = (body.name or "").strip()
+    if not _DIR_NAME_RE.match(name) or name in (".", ".."):
+        raise http_error(400, "err.dir_name_invalid")
+    created = create_dir_within_roots(body.parent, name)
+    if created is None:
+        raise http_error(400, "err.dir_create_failed")
+    return DirPathResponse(path=created)
+
+
+@app.post("/api/upload", response_model=UploadResponse)
+async def upload_file(
+    request: Request, dir: str = "", name: str = "", user: str = _auth
+) -> UploadResponse:
+    """Guarda un archivo subido en la carpeta `dir` elegida por el usuario.
+
+    El cuerpo son los bytes crudos del archivo y `name` su nombre original.
+    Devuelve la ruta absoluta donde quedó guardado (para compartirla con
+    Claude) y la registra en el historial de subidas.
+    """
+    directory = resolve_within_roots(dir)
+    if directory is None:
+        raise http_error(400, "err.upload_dir_invalid")
+
+    filename = (name or "").strip()
+    if not filename or not _UPLOAD_NAME_RE.match(filename) or filename in (".", ".."):
+        raise http_error(400, "err.upload_name_invalid")
+
+    data = await request.body()
+    if not data:
+        raise http_error(400, "err.upload_missing")
+    if len(data) > _UPLOAD_MAX_BYTES:
+        raise http_error(
+            413, "err.upload_too_large", mb=_UPLOAD_MAX_BYTES // (1024 * 1024)
+        )
+
+    target = _unique_target(directory, filename)
+    try:
+        target.write_bytes(data)
+    except OSError as exc:
+        raise http_error(500, "err.upload_failed") from exc
+
+    upload_store.add(target.name, str(target), dir)
+    return UploadResponse(name=target.name, path=str(target), dir=dir)
+
+
+@app.get("/api/uploads", response_model=list[UploadInfo])
+def list_uploads(user: str = _auth) -> list[UploadInfo]:
+    """Historial de las últimas subidas (la más reciente primero)."""
+    return [UploadInfo(**item) for item in upload_store.list_recent()]
+
+
+@app.delete("/api/uploads", response_model=list[UploadInfo])
+def delete_upload(path: str, user: str = _auth) -> list[UploadInfo]:
+    """Quita una entrada del historial (NO borra el archivo real del disco)."""
+    return [UploadInfo(**item) for item in upload_store.remove(path)]
 
 
 @app.websocket("/api/terminal/{name}")

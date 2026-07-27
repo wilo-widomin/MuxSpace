@@ -133,3 +133,86 @@ def suggest(q: str, limit: int = 50) -> list[str]:
         if len(items) >= limit:
             break
     return items
+
+
+# ----------------------------------------------------------------------
+# Navegación de carpetas para el modal "subir archivo" (elegir destino).
+# Mismo criterio de seguridad que `suggest`: solo se opera dentro de las
+# raíces configuradas, con `~` anclado al home del backend.
+# ----------------------------------------------------------------------
+def resolve_within_roots(q: str) -> Path | None:
+    """Devuelve el `Path` real de `q` solo si es un directorio bajo una raíz.
+
+    `None` si queda fuera de las raíces, no existe o no es un directorio.
+    Es la puerta de seguridad que usan tanto el navegador como la subida:
+    ninguna escritura toca disco sin pasar antes por aquí.
+    """
+    roots = _resolve_roots()
+    raw = (q or "").strip()
+    if not raw:
+        # Sin ruta: arrancamos en la primera raíz existente.
+        return next((r for r in roots if r.is_dir()), None)
+    target = Path(_expand(raw))
+    try:
+        target = target.resolve()
+    except OSError:
+        return None
+    if _is_within(target, roots) and target.is_dir():
+        return target
+    return None
+
+
+def browse(q: str = "") -> dict | None:
+    """Contenido navegable de una carpeta destino (subdirectorios).
+
+    Devuelve `{path, parent, dirs}` en forma abreviada (con `~`), donde
+    `parent` es `None` cuando subir un nivel se saldría de las raíces. Los
+    directorios ocultos (empiezan por `.`) no se listan. `None` si `q` no
+    es una carpeta válida dentro de las raíces.
+    """
+    target = resolve_within_roots(q)
+    if target is None:
+        return None
+    roots = _resolve_roots()
+    try:
+        children = sorted(target.iterdir(), key=lambda c: c.name.lower())
+    except (OSError, PermissionError):
+        children = []
+    dirs = [
+        _abbreviate(c, roots)
+        for c in children
+        if c.is_dir() and not c.name.startswith(".")
+    ]
+    parent = target.parent
+    parent_abbr = (
+        _abbreviate(parent, roots)
+        if parent != target and _is_within(parent, roots)
+        else None
+    )
+    return {"path": _abbreviate(target, roots), "parent": parent_abbr, "dirs": dirs}
+
+
+def create_dir(parent_q: str, name: str) -> str | None:
+    """Crea la subcarpeta `name` dentro de `parent_q` (ambos bajo una raíz).
+
+    Devuelve la ruta abreviada de la carpeta creada, o `None` si el padre
+    queda fuera de las raíces o la creación falla. El nombre ya debe venir
+    validado (sin separadores) por quien llama.
+    """
+    parent = resolve_within_roots(parent_q)
+    if parent is None:
+        return None
+    target = parent / name
+    roots = _resolve_roots()
+    try:
+        resolved = target.resolve()
+    except OSError:
+        resolved = target
+    # Tras resolver enlaces/".." el destino debe seguir dentro de las raíces.
+    if not _is_within(resolved, roots):
+        return None
+    try:
+        target.mkdir(parents=False, exist_ok=True)
+    except OSError:
+        return None
+    return _abbreviate(target, roots)

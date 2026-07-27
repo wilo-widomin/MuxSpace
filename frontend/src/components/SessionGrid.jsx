@@ -11,12 +11,22 @@ import { useT } from '../i18n/index.jsx'
 // eje. Cada tamaño se recuerda por forma de rejilla (2x2, 3x2, ...) en
 // localStorage, porque al abrir o cerrar terminales el grid cambia de
 // forma y unos pesos de 3 columnas no significan nada en una de 2.
-function computeGrid(count) {
+//
+// La disposición tiene tres modos: 'auto' reparte en cuadrícula, 'cols'
+// pone todas las terminales en fila (una al lado de otra) y 'rows' las
+// apila (una encima de otra). El modo elegido se recuerda entre sesiones.
+function computeGrid(count, mode) {
   if (count <= 0) return { cols: 1, rows: 1 }
+  if (mode === 'cols') return { cols: count, rows: 1 }
+  if (mode === 'rows') return { cols: 1, rows: count }
   const cols = Math.ceil(Math.sqrt(count))
   const rows = Math.ceil(count / cols)
   return { cols, rows }
 }
+
+// El modo vive en App (los botones están en la cabecera de la barra
+// lateral), así que aquí solo se recibe como prop.
+export const LAYOUTS = ['auto', 'cols', 'rows']
 
 // Grosor del canal entre tiles: es a la vez la separación visual y la
 // zona de agarre del separador.
@@ -63,13 +73,18 @@ export default function SessionGrid({
   onKill,
   onReorder,
   commands,
+  layout,
+  focusedName,
+  onSetFocused,
+  focusName = null,
+  focusToken = 0,
 }) {
   const { t } = useT()
   // Nombre de la ventana que se arrastra y sobre cuál se está soltando.
   const [dragName, setDragName] = useState(null)
   const [overName, setOverName] = useState(null)
 
-  const { cols, rows } = computeGrid(openSessions.length)
+  const { cols, rows } = computeGrid(openSessions.length, layout)
   const gridRef = useRef(null)
   const [sizes, setSizes] = useState(() => loadSizes(cols, rows))
 
@@ -182,15 +197,53 @@ export default function SessionGrid({
   const trackLine = (i) => 2 * i + 1
   const gutterLine = (i) => 2 * i + 2
 
+  // Modo foco: una terminal ocupa todo el grid y las demás se esconden con
+  // CSS. Se ocultan, no se desmontan: al desmontarlas se cerraría su
+  // WebSocket y perderían el scrollback de xterm.
+  const isFocus = openSessions.some((s) => s.name === focusedName)
+
   return (
-    <div
-      ref={gridRef}
-      className="grid h-full w-full p-3"
-      style={{
-        gridTemplateColumns: toTemplate(sizes.colFr),
-        gridTemplateRows: toTemplate(sizes.rowFr),
-      }}
-    >
+    <div className="flex h-full w-full flex-col">
+      {isFocus && (
+        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-panel-border bg-panel-surface px-3 py-1">
+          {openSessions.map((session) => (
+            <button
+              key={session.name}
+              onClick={() => onSetFocused(session.name)}
+              title={session.name}
+              aria-pressed={session.name === focusedName}
+              className={`flex shrink-0 items-center gap-1.5 rounded px-2 py-1 text-xs transition ${
+                session.name === focusedName
+                  ? 'bg-panel-bg text-gray-100'
+                  : 'text-panel-muted hover:bg-panel-bg hover:text-gray-100'
+              }`}
+            >
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" />
+              <span className="max-w-[14ch] truncate">{session.name}</span>
+            </button>
+          ))}
+          <button
+            onClick={() => onSetFocused(null)}
+            title={t('grid.restore')}
+            aria-label={t('grid.restore')}
+            className="ml-auto shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+          >
+            <RestoreIcon />
+          </button>
+        </div>
+      )}
+      <div
+        ref={gridRef}
+        className="grid min-h-0 w-full flex-1 p-3"
+        style={
+          isFocus
+            ? { gridTemplateColumns: '1fr', gridTemplateRows: '1fr' }
+            : {
+                gridTemplateColumns: toTemplate(sizes.colFr),
+                gridTemplateRows: toTemplate(sizes.rowFr),
+              }
+        }
+      >
       {openSessions.map((session, i) => {
         const col = i % cols
         const row = Math.floor(i / cols)
@@ -198,7 +251,13 @@ export default function SessionGrid({
           <div
             key={session.name}
             className="flex min-h-0 min-w-0"
-            style={{ gridColumn: trackLine(col), gridRow: trackLine(row) }}
+            style={
+              isFocus
+                ? session.name === focusedName
+                  ? { gridColumn: 1, gridRow: 1 }
+                  : { display: 'none' }
+                : { gridColumn: trackLine(col), gridRow: trackLine(row) }
+            }
           >
             <TerminalTile
               session={session}
@@ -217,13 +276,18 @@ export default function SessionGrid({
                 setOverName(null)
               }}
               onDrop={() => finishDrag(session.name)}
+              isFocused={session.name === focusedName}
+              onToggleFocus={() =>
+                onSetFocused(session.name === focusedName ? null : session.name)
+              }
+              focusToken={focusName === session.name ? focusToken : 0}
             />
           </div>
         )
       })}
 
       {/* Separadores verticales: uno por hueco entre columnas. */}
-      {Array.from({ length: cols - 1 }, (_, i) => (
+      {!isFocus && Array.from({ length: cols - 1 }, (_, i) => (
         <div
           key={`col-${i}`}
           onPointerDown={startDrag('col', i)}
@@ -237,7 +301,7 @@ export default function SessionGrid({
       ))}
 
       {/* Separadores horizontales: uno por hueco entre filas. */}
-      {Array.from({ length: rows - 1 }, (_, i) => (
+      {!isFocus && Array.from({ length: rows - 1 }, (_, i) => (
         <div
           key={`row-${i}`}
           onPointerDown={startDrag('row', i)}
@@ -249,6 +313,54 @@ export default function SessionGrid({
           <div className="h-[3px] w-full rounded-full bg-transparent transition group-hover:bg-panel-accent/60" />
         </div>
       ))}
+      </div>
     </div>
+  )
+}
+
+// Flechas hacia dentro (estilo lucide "minimize"): salir del modo foco.
+function RestoreIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+      <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+      <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+      <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+    </svg>
+  )
+}
+
+// Miniatura de la disposición: cuadrícula, columnas o filas.
+export function LayoutIcon({ mode }) {
+  const rects =
+    mode === 'cols'
+      ? [[3, 3, 7, 18], [14, 3, 7, 18]]
+      : mode === 'rows'
+        ? [[3, 3, 18, 7], [3, 14, 18, 7]]
+        : [[3, 3, 7, 7], [14, 3, 7, 7], [3, 14, 7, 7], [14, 14, 7, 7]]
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      {rects.map(([x, y, w, h]) => (
+        <rect
+          key={`${x}-${y}`}
+          x={x}
+          y={y}
+          width={w}
+          height={h}
+          rx="1.5"
+          fill="currentColor"
+        />
+      ))}
+    </svg>
   )
 }

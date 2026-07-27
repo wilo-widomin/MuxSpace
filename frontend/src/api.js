@@ -184,4 +184,37 @@ export const api = {
     request(`/api/dir-suggestions?q=${encodeURIComponent(q || '')}`).then(
       (r) => (r && Array.isArray(r.items) ? r.items : []),
     ),
+
+  // ---- Subir archivos a una carpeta elegida ----
+  // Navega las subcarpetas de `path` (vacío = primera raíz configurada).
+  // Devuelve { path, parent, dirs } en forma abreviada (~/...).
+  dirBrowse: (path) =>
+    request(`/api/dir-browse?path=${encodeURIComponent(path || '')}`),
+  // Crea una subcarpeta `name` dentro de `parent`. Devuelve { path }.
+  dirCreate: (parent, name) =>
+    request('/api/dir-create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parent, name }),
+    }),
+  // Sube los bytes crudos de un archivo a la carpeta `dir`. Devuelve
+  // { name, path, dir } con la ruta absoluta guardada en el host.
+  uploadFile: (file, dir) =>
+    request(
+      `/api/upload?dir=${encodeURIComponent(dir)}&name=${encodeURIComponent(
+        file.name,
+      )}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      },
+    ),
+  // Historial de las últimas subidas (máx. 5, la más reciente primero).
+  listUploads: () => request('/api/uploads'),
+  // Quita una entrada del historial (no borra el archivo). Devuelve la lista.
+  deleteUpload: (path) =>
+    request(`/api/uploads?path=${encodeURIComponent(path)}`, {
+      method: 'DELETE',
+    }),
 }

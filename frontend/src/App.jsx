@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Sidebar, { Resizer } from './components/Sidebar.jsx'
-import SessionGrid from './components/SessionGrid.jsx'
+import SessionGrid, { LAYOUTS } from './components/SessionGrid.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
 import { api, ApiError } from './api.js'
 import { LEGACY_ALL_SPACES, UNASSIGNED } from './spaces.js'
@@ -26,6 +26,7 @@ import { useT } from './i18n/index.jsx'
 const ACTIVE_SPACE_KEY = 'muxspace:active-space'
 const HIDDEN_KEY = 'muxspace:hidden-sessions'
 const ORDER_KEY = 'muxspace:session-order'
+const LAYOUT_KEY = 'muxspace:grid-layout'
 
 // Lectura tolerante: si el almacenamiento no está disponible (modo privado)
 // o el valor está corrupto, se sigue con el valor por defecto.
@@ -65,7 +66,12 @@ export default function App() {
   // suyo y lo recuerda al recargar, pero no se lo impone a las demás.
   // «Todas» ya no se ofrece en el selector, así que un valor guardado de una
   // sesión anterior se degrada a «Sin asignar».
+  // `?space=<id>` manda sobre lo guardado: es como llega una pestaña abierta
+  // desde el botón "abrir proyecto en pestaña nueva", que necesita fijar el
+  // espacio de destino aunque esta pestaña sea reutilizada por el navegador.
   const [activeSpace, setActiveSpace] = useState(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get('space')
+    if (fromUrl) return fromUrl
     const saved = sessionStorage.getItem(ACTIVE_SPACE_KEY)
     return !saved || saved === LEGACY_ALL_SPACES ? UNASSIGNED : saved
   })
@@ -109,9 +115,35 @@ export default function App() {
     return next
   }, [])
 
+  // Disposición de las terminales: 'auto' (rejilla), 'cols' (una al lado de
+  // otra) o 'rows' (una encima de otra). Vive aquí porque los botones están
+  // en la cabecera del sidebar y el grid es quien la aplica.
+  const [layout, setLayout] = useState(() => {
+    const saved = readJSON(localStorage, LAYOUT_KEY, 'auto')
+    return LAYOUTS.includes(saved) ? saved : 'auto'
+  })
+  const changeLayout = useCallback((next) => {
+    setLayout(next)
+    writeJSON(localStorage, LAYOUT_KEY, next)
+  }, [])
+
+  // Terminal maximizada (modo foco), o null para la disposición normal. No se
+  // persiste: es un estado del momento, no una preferencia. Si esa sesión se
+  // cierra, el grid vuelve solo a la disposición normal.
+  const [focusedName, setFocusedName] = useState(null)
+
   // Nombre de la sesión/tile con foco (la última clicada). Destino de los
   // comandos ejecutados desde el sidebar. null => "abrir en sesión nueva".
   const [activeName, setActiveName] = useState(null)
+
+  // Petición de foco de teclado para UNA terminal concreta: cada vez que se
+  // abre un proyecto/comando desde el panel, apuntamos a su sesión y subimos
+  // el `token`; la terminal correspondiente toma el foco al ver el cambio.
+  // Así se puede escribir en la terminal recién abierta sin hacer clic, y no
+  // se roba el foco al cambiar de pestaña.
+  const [focusReq, setFocusReq] = useState({ name: null, token: 0 })
+  const focusTerminal = (name) =>
+    setFocusReq((r) => ({ name, token: r.token + 1 }))
 
   // Colapsar/expandir el sidebar para ganar espacio en el grid. Persiste
   // la preferencia en localStorage para que sobreviva a recargas.
@@ -375,6 +407,7 @@ export default function App() {
     await assignToActiveSpace(res.name)
     await loadSessions()
     await handleSelect(res.name)
+    return res.name
   }
 
   // ---- Guardar un comando nuevo en la biblioteca ----
@@ -406,6 +439,7 @@ export default function App() {
     if (activeName && openSessions.some((s) => s.name === activeName)) {
       try {
         await api.sendCommand(activeName, cmd.command)
+        focusTerminal(activeName)
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) handleAuthFailure()
         else setError(tError(err))
@@ -413,7 +447,8 @@ export default function App() {
       return
     }
     // Sin foco: abrir sesión nueva y ejecutar.
-    await handleLaunchCommand(cmd.id)
+    const name = await handleLaunchCommand(cmd.id)
+    if (name) focusTerminal(name)
   }
 
   // ---- Guardar / editar / eliminar un Proyecto ----
@@ -440,6 +475,32 @@ export default function App() {
     await assignToActiveSpace(res.name)
     await loadSessions(true)
     await handleSelect(res.name)
+    focusTerminal(res.name)
+  }
+
+  // ---- Ejecutar un Proyecto en su propio espacio, en una pestaña nueva ----
+  // El espacio se busca por título del proyecto y se crea si no existe, así
+  // que acaba siendo un espacio dedicado a ese proyecto. De ahí que baste
+  // con mirar si YA hay alguna sesión dentro para reutilizarla en vez de
+  // acumular `proyecto (2)`, `proyecto (3)`... a cada clic.
+  //
+  // Todo el trabajo se hace ANTES de abrir la pestaña: si algo falla, el
+  // error se ve aquí y no hemos dejado una pestaña huérfana a medio cargar.
+  const handleRunProjectInNewTab = async (id) => {
+    const proj = projects.find((p) => p.id === id)
+    if (!proj) return
+    const wanted = proj.title.trim().toLowerCase()
+    let space = spaces.find((s) => s.title.trim().toLowerCase() === wanted)
+    if (!space) space = await handleCreateSpace(proj.title)
+
+    if (!sessions.some((s) => s.space === space.id)) {
+      const res = await api.runProject(id)
+      await api.assignSessionSpace(res.name, space.id)
+      await loadSessions(true)
+    }
+
+    const url = `${window.location.pathname}?space=${encodeURIComponent(space.id)}`
+    window.open(url, '_blank', 'noopener')
   }
 
   // ---- Mostrar una sesión en el grid ----
@@ -572,6 +633,7 @@ export default function App() {
         onKillSession={handleKillSession}
         onRunCommand={handleRunCommand}
         onRunProject={handleRunProject}
+        onRunProjectInNewTab={handleRunProjectInNewTab}
         onSaveCommand={handleSaveCommand}
         onUpdateCommand={handleUpdateCommand}
         onDeleteCommand={handleDeleteCommand}
@@ -580,6 +642,8 @@ export default function App() {
         onDeleteProject={handleDeleteProject}
         onRefresh={loadSessions}
         onLogout={handleLogout}
+        layout={layout}
+        onSetLayout={changeLayout}
       />
       {!sidebarCollapsed && <Resizer orientation="vertical" onDrag={resizeSidebar} />}
       <main className="h-full flex-1 overflow-hidden">
@@ -591,6 +655,14 @@ export default function App() {
           onKill={handleKillSession}
           onReorder={handleReorder}
           commands={commands}
+          layout={layout}
+          focusedName={focusedName}
+          onSetFocused={(name) => {
+            setFocusedName(name)
+            if (name) setActiveName(name)
+          }}
+          focusName={focusReq.name}
+          focusToken={focusReq.token}
         />
       </main>
     </div>

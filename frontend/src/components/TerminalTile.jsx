@@ -27,6 +27,9 @@ export default function TerminalTile({
   onDragEnd,
   onDrop,
   commands = [],
+  isFocused,
+  onToggleFocus,
+  focusToken = 0,
 }) {
   const { t, tError } = useT()
   const [search, setSearch] = useState('')
@@ -111,6 +114,14 @@ export default function TerminalTile({
         </span>
         <span className="flex items-center gap-0.5">
           <button
+            onClick={onToggleFocus}
+            title={isFocused ? t('tile.restore') : t('tile.maximize')}
+            aria-label={isFocused ? t('tile.restore') : t('tile.maximize')}
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+          >
+            <MaximizeIcon />
+          </button>
+          <button
             onClick={handleKill}
             title={t('tile.kill')}
             className="rounded p-1 text-panel-muted transition hover:bg-red-500/20 hover:text-red-400"
@@ -166,7 +177,11 @@ export default function TerminalTile({
       <div className="relative min-h-0 flex-1">
         {/* Terminal xterm.js propia sobre WebSocket->PTY (sustituye al iframe
             de ttyd) para poder copiar al portapapeles con navigator.clipboard. */}
-        <XtermTerminal name={session.name} onFocus={() => onFocus()} />
+        <XtermTerminal
+          name={session.name}
+          onFocus={() => onFocus()}
+          focusToken={focusToken}
+        />
         {/* Capa que intercepta los eventos de arrastre sobre la terminal. */}
         {dragging && <div className="absolute inset-0 z-10" />}
       </div>
@@ -189,6 +204,28 @@ function CloseIcon() {
     >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  )
+}
+
+// Flechas hacia fuera (estilo lucide "maximize"): maximizar esta terminal.
+function MaximizeIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+      <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+      <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+      <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
     </svg>
   )
 }

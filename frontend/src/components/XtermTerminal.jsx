@@ -17,8 +17,11 @@ import { useT } from '../i18n/index.jsx'
 // Con el `mouse` de tmux en off, arrastrar selecciona nativo en xterm y la
 // rueda hace scroll del scrollback propio. Si el usuario prefiere el scroll
 // nativo de tmux (mouse on), seleccionar con Shift+arrastrar sigue copiando.
-export default function XtermTerminal({ name, onFocus }) {
+export default function XtermTerminal({ name, onFocus, focusToken = 0 }) {
   const containerRef = useRef(null)
+  // Referencia a la instancia de xterm para poder darle el foco de teclado
+  // de forma imperativa (p. ej. al abrir un proyecto/comando desde el panel).
+  const termRef = useRef(null)
   const { t } = useT()
   // El efecto no depende del idioma (recrear la terminal al cambiarlo
   // perdería el scrollback), así que lee la traducción por ref en el
@@ -42,6 +45,7 @@ export default function XtermTerminal({ name, onFocus }) {
     const fit = new FitAddon()
     term.loadAddon(fit)
     term.open(container)
+    termRef.current = term
 
     const enc = new TextEncoder()
 
@@ -187,9 +191,17 @@ export default function XtermTerminal({ name, onFocus }) {
       } catch {
         /* ya cerrado */
       }
+      termRef.current = null
       term.dispose()
     }
   }, [name])
+
+  // Foco imperativo: cuando el padre incrementa `focusToken` (al abrir un
+  // proyecto/comando en esta terminal), le damos el foco de teclado para que
+  // se pueda escribir de inmediato sin tener que hacer clic en ella.
+  useEffect(() => {
+    if (focusToken) termRef.current?.focus()
+  }, [focusToken])
 
   return (
     <div

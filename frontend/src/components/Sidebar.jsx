@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react'
 import { ApiError, api } from '../api.js'
 import { LANGUAGES, useT } from '../i18n/index.jsx'
 import { UNASSIGNED, spaceKeyOf } from '../spaces.js'
+import { LAYOUTS, LayoutIcon } from './SessionGrid.jsx'
 
 // Rutas y comandos de ejemplo de los placeholders. NO se traducen: son
 // rutas y binarios reales, no prosa. La traducción cubre solo el "p. ej."
@@ -56,6 +57,7 @@ export default function Sidebar({
   onKillSession,
   onRunCommand,
   onRunProject,
+  onRunProjectInNewTab,
   onSaveCommand,
   onUpdateCommand,
   onDeleteCommand,
@@ -63,6 +65,8 @@ export default function Sidebar({
   onUpdateProject,
   onDeleteProject,
   onRefresh,
+  layout,
+  onSetLayout,
   onLogout,
 }) {
   const { t, tError } = useT()
@@ -122,6 +126,7 @@ export default function Sidebar({
   // recuerde entre sesiones y no haya que reajustarlos cada vez.
   const MIN_SECTION = 56
   const HEIGHTS_KEY = 'muxspace-sidebar-heights'
+  const SECTION_KEY = 'muxspace-sidebar-section'
   const readHeights = () => {
     try {
       const raw = localStorage.getItem(HEIGHTS_KEY)
@@ -166,29 +171,49 @@ export default function Sidebar({
     }
   }, [projectsH, commandsH])
 
-  // Divisor sesiones|proyectos: convención estándar — al bajar el divisor
-  // crece la sección de encima (Sesiones) y se encoge la de debajo
-  // (Proyectos). Para hacer Proyectos más alto, subir el divisor.
-  const resizeProjects = (dy) => {
-    const { p, c } = heightsRef.current
-    const bodyH = bodyRef.current?.getBoundingClientRect().height
-    const max = bodyH ? bodyH - c - MIN_SECTION : Infinity
-    const np = Math.max(MIN_SECTION, Math.min(p - dy, Math.max(MIN_SECTION, max)))
-    heightsRef.current = { p: np, c }
-    setProjectsH(np)
+  // Las cuatro persianas del lateral (proyectos, comandos, pegar imagen y
+  // subir archivo) funcionan como acordeón: solo una abierta a la vez, así
+  // ninguna se come el alto de las demás. Se recuerda entre recargas.
+  const readSection = () => {
+    try {
+      const v = localStorage.getItem(SECTION_KEY)
+      if (v === null) return 'projects'
+      return v === '' ? null : v
+    } catch {
+      return 'projects'
+    }
   }
+  const [openSection, setOpenSection] = useState(readSection)
+  useEffect(() => {
+    try {
+      localStorage.setItem(SECTION_KEY, openSection || '')
+    } catch {
+      // almacenamiento no disponible: no es fatal.
+    }
+  }, [openSection])
+  const toggleSection = (name) =>
+    setOpenSection((cur) => (cur === name ? null : name))
+  const cmdOpen = openSection === 'commands'
+  const projOpen = openSection === 'projects'
 
-  // Divisor proyectos|comandos: al bajar el divisor crece Proyectos (encima)
-  // y se encoge Comandos (debajo). El alto total del bloque no cambia.
-  const resizeCommands = (dy) => {
-    const { p, c } = heightsRef.current
-    const np = p + dy
-    const nc = c - dy
-    if (np < MIN_SECTION || nc < MIN_SECTION) return
-    heightsRef.current = { p: np, c: nc }
-    setProjectsH(np)
-    setCommandsH(nc)
+  // Divisor sesiones|sección abierta: convención estándar — al bajar el
+  // divisor crece la sección de encima (Sesiones) y se encoge la de debajo.
+  // Como solo hay una persiana abierta a la vez, el divisor redimensiona la
+  // que esté abierta (proyectos o comandos).
+  const resizeOpenSection = (dy, key) => {
+    const cur = heightsRef.current
+    const bodyH = bodyRef.current?.getBoundingClientRect().height
+    const max = bodyH ? bodyH - MIN_SECTION : Infinity
+    const next = Math.max(
+      MIN_SECTION,
+      Math.min(cur[key] - dy, Math.max(MIN_SECTION, max)),
+    )
+    heightsRef.current = { ...cur, [key]: next }
+    if (key === 'p') setProjectsH(next)
+    else setCommandsH(next)
   }
+  const resizeProjects = (dy) => resizeOpenSection(dy, 'p')
+  const resizeCommandsTop = (dy) => resizeOpenSection(dy, 'c')
 
   const openForm = () => {
     setNewName(suggestName(sessions.map((s) => s.name)))
@@ -464,6 +489,17 @@ export default function Sidebar({
         >
           <PlusIcon />
         </button>
+        {/* Sin sitio para los tres botones: aquí uno solo que rota de modo. */}
+        <button
+          onClick={() =>
+            onSetLayout(LAYOUTS[(LAYOUTS.indexOf(layout) + 1) % LAYOUTS.length])
+          }
+          title={t(`grid.layout_${layout}`)}
+          aria-label={t(`grid.layout_${layout}`)}
+          className="mt-2 rounded p-1.5 text-panel-accent transition hover:bg-panel-bg"
+        >
+          <LayoutIcon mode={layout} />
+        </button>
       </aside>
     )
   }
@@ -473,9 +509,26 @@ export default function Sidebar({
       style={{ width }}
       className="flex h-full shrink-0 flex-col border-r border-panel-border bg-panel-surface text-gray-100"
     >
-      <header className="flex items-center justify-between border-b border-panel-border px-4 py-3">
+      <header className="flex items-center justify-between border-b border-panel-border bg-black px-4 py-3">
         <h1 className="text-base font-semibold">{t('app.brand')}</h1>
         <div className="flex items-center gap-1">
+          {LAYOUTS.map((mode) => (
+            <button
+              key={mode}
+              onClick={() => onSetLayout(mode)}
+              title={t(`grid.layout_${mode}`)}
+              aria-label={t(`grid.layout_${mode}`)}
+              aria-pressed={layout === mode}
+              className={`rounded p-1.5 transition hover:bg-panel-bg ${
+                layout === mode
+                  ? 'text-panel-accent'
+                  : 'text-panel-muted hover:text-gray-100'
+              }`}
+            >
+              <LayoutIcon mode={mode} />
+            </button>
+          ))}
+          <span className="mx-1 h-4 w-px bg-panel-border" />
           <button
             onClick={openForm}
             title={t('sidebar.new_session')}
@@ -510,7 +563,7 @@ export default function Sidebar({
         onDeleteSpace={onDeleteSpace}
       />
 
-      <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col">
+      <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {loading && (
           <p className="px-2 py-4 text-sm text-panel-muted">{t('app.loading')}</p>
@@ -646,24 +699,46 @@ export default function Sidebar({
         </ul>
       </div>
 
-      <Resizer onDrag={resizeProjects} />
+      {/* Secciones fijas al fondo: Proyectos arriba, Comandos debajo. Cada
+          una se pliega por separado con su propio botón. */}
+      {(projOpen || cmdOpen) && (
+        <Resizer onDrag={projOpen ? resizeProjects : resizeCommandsTop} />
+      )}
 
-      {/* ---------------- Secciones fijas al fondo: Proyectos arriba, Comandos debajo ---------------- */}
       <div className="shrink-0 border-t border-panel-border flex flex-col-reverse">
         {/* ---------------- Comandos (una línea) ---------------- */}
-        <div style={{ height: commandsH }} className="min-h-0 overflow-y-auto border-t border-panel-border p-2">
-          <div className="flex items-center justify-between px-2 py-1">
-            <p className="text-xs uppercase tracking-wide text-panel-muted">
-              {t('sidebar.commands')}
-            </p>
+        <div
+          style={cmdOpen ? { height: commandsH } : undefined}
+          className={`min-h-0 border-t border-panel-border p-2 ${
+            cmdOpen ? 'overflow-y-auto' : ''
+          }`}
+        >
+          {/* El "+" va pegado al título; el desplegable, alineado a la
+              derecha como en las demás persianas del lateral. */}
+          <div className="flex items-center gap-1 px-2 py-1">
+            <button
+              onClick={() => toggleSection('commands')}
+              className="flex min-w-0 items-center text-xs uppercase tracking-wide text-panel-muted transition hover:text-gray-100"
+            >
+              <span className="truncate">{t('sidebar.commands')}</span>
+            </button>
             <button
               onClick={openCmdForm}
               title={t('sidebar.new_command')}
-              className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+              className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
             >
               <PlusIcon />
             </button>
+            <button
+              onClick={() => toggleSection('commands')}
+              title={t('sidebar.commands')}
+              className="ml-auto shrink-0 rounded text-panel-muted transition hover:text-gray-100"
+            >
+              <SectionCaret open={cmdOpen} />
+            </button>
           </div>
+          {cmdOpen && (
+          <>
           <p className="px-2 pb-1 text-[11px] text-panel-muted/70">
             {t('sidebar.commands_hint')}
           </p>
@@ -674,7 +749,10 @@ export default function Sidebar({
                 className="group flex items-center gap-1 rounded px-2 py-1 text-xs text-panel-muted hover:bg-panel-bg"
               >
                 <button
-                  onClick={() => onRunCommand(c)}
+                  onClick={(e) => {
+                    e.currentTarget.blur()
+                    onRunCommand(c)
+                  }}
                   title={runTargetTitle()}
                   className="shrink-0 rounded p-0.5 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
                 >
@@ -700,24 +778,39 @@ export default function Sidebar({
               </li>
             ))}
           </ul>
+          </>
+          )}
         </div>
 
-        <Resizer onDrag={resizeCommands} />
-
         {/* ---------------- Proyectos (dir + secuencia) ---------------- */}
-        <div style={{ height: projectsH }} className="min-h-0 overflow-y-auto p-2">
-          <div className="flex items-center justify-between px-2 py-1">
-            <p className="text-xs uppercase tracking-wide text-panel-muted">
-              {t('sidebar.projects')}
-            </p>
+        <div
+          style={projOpen ? { height: projectsH } : undefined}
+          className={`min-h-0 p-2 ${projOpen ? 'overflow-y-auto' : ''}`}
+        >
+          <div className="flex items-center gap-1 px-2 py-1">
+            <button
+              onClick={() => toggleSection('projects')}
+              className="flex min-w-0 items-center text-xs uppercase tracking-wide text-panel-muted transition hover:text-gray-100"
+            >
+              <span className="truncate">{t('sidebar.projects')}</span>
+            </button>
             <button
               onClick={openProjForm}
               title={t('sidebar.new_project')}
-              className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+              className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
             >
               <PlusIcon />
             </button>
+            <button
+              onClick={() => toggleSection('projects')}
+              title={t('sidebar.projects')}
+              className="ml-auto shrink-0 rounded text-panel-muted transition hover:text-gray-100"
+            >
+              <SectionCaret open={projOpen} />
+            </button>
           </div>
+          {projOpen && (
+          <>
           <p className="px-2 pb-1 text-[11px] text-panel-muted/70">
             {t('sidebar.projects_hint')}
           </p>
@@ -730,11 +823,24 @@ export default function Sidebar({
               >
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => onRunProject(p.id)}
+                    onClick={(e) => {
+                      e.currentTarget.blur()
+                      onRunProject(p.id)
+                    }}
                     title={t('sidebar.run_project')}
                     className="shrink-0 rounded p-0.5 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
                   >
                     <PlayIcon />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.currentTarget.blur()
+                      onRunProjectInNewTab(p.id)
+                    }}
+                    title={t('sidebar.run_project_new_tab')}
+                    className="shrink-0 rounded p-0.5 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
+                  >
+                    <ExternalLinkIcon />
                   </button>
                   <span
                     className="min-w-0 flex-1 truncate font-medium text-gray-100"
@@ -760,13 +866,23 @@ export default function Sidebar({
               </li>
             ))}
           </ul>
+          </>
+          )}
         </div>
       </div>
       </div>
 
-      <PasteForClaude />
+      <PasteForClaude
+        open={openSection === 'paste'}
+        onToggle={() => toggleSection('paste')}
+      />
 
-      <footer className="flex items-center justify-between gap-2 border-t border-panel-border px-4 py-3">
+      <UploadFiles
+        open={openSection === 'upload'}
+        onToggle={() => toggleSection('upload')}
+      />
+
+      <footer className="flex items-center justify-between gap-2 border-t border-panel-border bg-black px-4 py-3">
         <button
           onClick={onLogout}
           className="text-xs text-panel-muted transition hover:text-gray-100"
@@ -1492,9 +1608,26 @@ export function Resizer({ onDrag, orientation = 'horizontal' }) {
 // backend conserva solo las 5 más recientes): al hacer clic en cualquiera se
 // copia su ruta absoluta para poder dársela a Claude. También admite elegir
 // un fichero.
-function PasteForClaude() {
+// Triángulo de plegar/desplegar de las persianas del lateral. Caja de tamaño
+// fijo para que los cuatro queden del mismo tamaño y a la misma altura.
+function SectionCaret({ open }) {
+  return (
+    <span className="flex h-[21px] w-[21px] shrink-0 items-center justify-center text-[21px] leading-none">
+      {open ? '▾' : '▸'}
+    </span>
+  )
+}
+
+// Las rutas se copian listas para pegar en una terminal: si llevan espacios
+// o cualquier carácter que el shell interpretaría, van entrecomilladas (y con
+// escape de lo que sigue siendo especial dentro de comillas dobles).
+function quotePath(path) {
+  if (!/[^\w@%+=:,./~-]/.test(path)) return path
+  return `"${path.replace(/(["$`\\])/g, '\\$1')}"`
+}
+
+function PasteForClaude({ open, onToggle }) {
   const { t, tError } = useT()
-  const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [pastes, setPastes] = useState([]) // [{ filename, path }], la más nueva primero
@@ -1593,7 +1726,7 @@ function PasteForClaude() {
   async function copyToClipboard(path) {
     setSelectedPath(path)
     try {
-      await navigator.clipboard.writeText(path)
+      await navigator.clipboard.writeText(quotePath(path))
       setCopied(true)
       return
     } catch {
@@ -1601,7 +1734,7 @@ function PasteForClaude() {
     }
     try {
       const ta = document.createElement('textarea')
-      ta.value = path
+      ta.value = quotePath(path)
       ta.style.position = 'fixed'
       ta.style.opacity = '0'
       document.body.appendChild(ta)
@@ -1618,11 +1751,11 @@ function PasteForClaude() {
     <>
     <div className="shrink-0 border-t border-panel-border px-4 py-3">
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={onToggle}
         className="flex w-full items-center justify-between text-xs uppercase tracking-wide text-panel-muted transition hover:text-gray-100"
       >
         <span>{t('paste.title')}</span>
-        <span>{open ? '▾' : '▸'}</span>
+        <SectionCaret open={open} />
       </button>
       {open && (
         <div className="mt-2">
@@ -1726,7 +1859,7 @@ function PasteForClaude() {
                 title={t('paste.copy_path')}
                 className="mt-1 block cursor-pointer break-all rounded bg-black/30 px-1.5 py-1 text-[11px] leading-snug text-green-300 transition hover:bg-black/50"
               >
-                {selectedPath}
+                {quotePath(selectedPath)}
               </code>
             </div>
           )}
@@ -1760,6 +1893,384 @@ function PasteForClaude() {
       </div>
     )}
     </>
+  )
+}
+
+// Subir archivos a una carpeta que el usuario elige con un navegador tipo
+// explorador (DirBrowserModal). A diferencia de "pegar imagen", el destino
+// es una carpeta REAL del usuario y los archivos no se borran nunca: solo
+// guardamos el historial de las últimas 5 subidas para recopiar su ruta.
+function UploadFiles({ open, onToggle }) {
+  const { t, tError } = useT()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const [uploads, setUploads] = useState([]) // [{ name, path, dir }], la más nueva primero
+  const [destDir, setDestDir] = useState(null) // carpeta destino elegida (~/...)
+  const [browserOpen, setBrowserOpen] = useState(false)
+  const [selectedPath, setSelectedPath] = useState(null)
+  const [copied, setCopied] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+
+  async function refreshUploads() {
+    try {
+      setUploads(await api.listUploads())
+    } catch {
+      // No crítico: si falla el historial, dejamos la lista como estaba.
+    }
+  }
+
+  // Al abrir: cargamos el historial y, si aún no hay carpeta elegida, pedimos
+  // la carpeta por defecto (la primera raíz configurada) para tener destino.
+  useEffect(() => {
+    if (!open) return
+    refreshUploads()
+    if (destDir === null) {
+      api
+        .dirBrowse('')
+        .then((r) => setDestDir(r.path))
+        .catch(() => {})
+    }
+  }, [open])
+
+  async function doUpload(file) {
+    if (!file) return
+    if (!destDir) {
+      setError(t('upload.no_dir'))
+      return
+    }
+    setError(null)
+    setBusy(true)
+    try {
+      const res = await api.uploadFile(file, destDir)
+      await refreshUploads()
+      copyToClipboard(res.path)
+    } catch (err) {
+      setError(err instanceof ApiError ? tError(err) : t('upload.upload_failed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function handleFile(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    doUpload(file)
+  }
+
+  // Arrastrar y soltar un archivo sobre la zona de subida.
+  function handleDrop(e) {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer?.files?.[0]
+    if (file) doUpload(file)
+  }
+
+  async function handleRemove(u) {
+    try {
+      setUploads(await api.deleteUpload(u.path))
+    } catch (err) {
+      setError(err instanceof ApiError ? tError(err) : t('upload.remove_failed'))
+      return
+    }
+    if (u.path === selectedPath) {
+      setSelectedPath(null)
+      setCopied(false)
+    }
+  }
+
+  // Copia una ruta al portapapeles y la marca como seleccionada (mismo apaño
+  // con respaldo a execCommand que en "pegar imagen").
+  async function copyToClipboard(path) {
+    setSelectedPath(path)
+    try {
+      await navigator.clipboard.writeText(quotePath(path))
+      setCopied(true)
+      return
+    } catch {
+      /* sin Clipboard API: respaldo abajo */
+    }
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = quotePath(path)
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      setCopied(true)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="shrink-0 border-t border-panel-border px-4 py-3">
+        <button
+          onClick={onToggle}
+          className="flex w-full items-center justify-between text-xs uppercase tracking-wide text-panel-muted transition hover:text-gray-100"
+        >
+          <span>{t('upload.title')}</span>
+          <SectionCaret open={open} />
+        </button>
+        {open && (
+          <div className="mt-2">
+            <p className="text-xs text-panel-muted">{t('upload.dest_label')}</p>
+            <div className="mt-1 flex items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded bg-black/30 px-1.5 py-1 text-[11px] text-gray-200">
+                {destDir || '—'}
+              </code>
+              <button
+                onClick={() => setBrowserOpen(true)}
+                title={t('upload.choose_dir')}
+                className="flex shrink-0 items-center gap-1 rounded border border-panel-border px-2 py-1 text-xs text-panel-muted transition hover:border-panel-accent hover:text-gray-100"
+              >
+                <FolderIcon />
+                {t('upload.choose_dir')}
+              </button>
+            </div>
+
+            <label
+              onDragOver={(e) => {
+                e.preventDefault()
+                if (!busy) setDragOver(true)
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              className={`mt-2 flex cursor-pointer items-center justify-center rounded border border-dashed px-2 py-3 text-center text-xs transition ${
+                dragOver
+                  ? 'border-panel-accent bg-panel-accent/10 text-gray-100'
+                  : 'border-panel-border text-panel-muted hover:border-panel-accent hover:text-gray-100'
+              }`}
+            >
+              {busy
+                ? t('upload.uploading')
+                : dragOver
+                  ? t('upload.drop_here')
+                  : t('upload.dropzone')}
+              <input
+                type="file"
+                onChange={handleFile}
+                disabled={busy}
+                className="hidden"
+              />
+            </label>
+            {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+
+            {uploads.length > 0 && (
+              <>
+                <p className="mt-2 text-xs text-panel-muted">
+                  {t('upload.recent')}
+                </p>
+                <ul className="mt-1 space-y-1">
+                  {uploads.map((u) => {
+                    const sel = u.path === selectedPath
+                    return (
+                      <li
+                        key={u.path}
+                        className={`group flex items-center gap-1 rounded border px-1.5 py-1 transition ${
+                          sel
+                            ? 'border-panel-accent'
+                            : 'border-panel-border hover:border-panel-accent'
+                        }`}
+                      >
+                        <button
+                          onClick={() => copyToClipboard(u.path)}
+                          title={u.path}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <span className="block truncate text-xs text-gray-100">
+                            {u.name}
+                          </span>
+                          <span className="block truncate text-[10px] text-panel-muted">
+                            {quotePath(u.path)}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleRemove(u)}
+                          title={t('upload.remove')}
+                          aria-label={t('upload.remove_aria', { name: u.name })}
+                          className="hidden h-5 w-5 shrink-0 items-center justify-center rounded-full border border-panel-border bg-panel-surface text-sm leading-none text-gray-200 transition hover:bg-red-600 hover:text-white group-hover:flex"
+                        >
+                          ×
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
+            )}
+
+            {selectedPath && (
+              <div className="mt-2 rounded border border-panel-border bg-panel-bg p-2">
+                <p className="text-xs text-panel-muted">
+                  {copied ? t('upload.copied') : t('upload.copy_hint')}
+                </p>
+                <code
+                  onClick={() => copyToClipboard(selectedPath)}
+                  title={t('upload.copy_path')}
+                  className="mt-1 block cursor-pointer break-all rounded bg-black/30 px-1.5 py-1 text-[11px] leading-snug text-green-300 transition hover:bg-black/50"
+                >
+                  {quotePath(selectedPath)}
+                </code>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {browserOpen && (
+        <DirBrowserModal
+          initialPath={destDir || ''}
+          onClose={() => setBrowserOpen(false)}
+          onPick={(path) => {
+            setDestDir(path)
+            setBrowserOpen(false)
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+// Navegador de carpetas tipo explorador: entra en subcarpetas con clic, sube
+// un nivel, crea carpetas nuevas y confirma el destino con "Guardar aquí".
+// Solo se mueve dentro de las raíces configuradas en el backend.
+function DirBrowserModal({ initialPath, onClose, onPick }) {
+  const { t, tError } = useT()
+  const [cur, setCur] = useState(initialPath || '')
+  const [parent, setParent] = useState(null)
+  const [dirs, setDirs] = useState([])
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [newName, setNewName] = useState('')
+
+  async function load(path) {
+    setBusy(true)
+    setError(null)
+    try {
+      const r = await api.dirBrowse(path)
+      setCur(r.path)
+      setParent(r.parent)
+      setDirs(r.dirs)
+    } catch (err) {
+      setError(err instanceof ApiError ? tError(err) : t('upload.browse_failed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  useEffect(() => {
+    load(initialPath || '')
+    // Solo al montar: la navegación posterior la disparan los clics.
+  }, [])
+
+  async function submitNewFolder(e) {
+    e.preventDefault()
+    const name = newName.trim()
+    if (!name) return
+    setBusy(true)
+    setError(null)
+    try {
+      const r = await api.dirCreate(cur, name)
+      setCreating(false)
+      setNewName('')
+      await load(r.path) // entramos en la carpeta recién creada
+    } catch (err) {
+      setError(err instanceof ApiError ? tError(err) : t('upload.create_failed'))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal title={t('upload.browser_title')} onClose={onClose} panelClassName="max-w-lg">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => parent !== null && load(parent)}
+          disabled={parent === null || busy}
+          title={t('upload.up')}
+          className="shrink-0 rounded border border-panel-border px-2 py-1 text-sm text-panel-muted transition enabled:hover:border-panel-accent enabled:hover:text-gray-100 disabled:opacity-40"
+        >
+          ↰
+        </button>
+        <code className="min-w-0 flex-1 truncate rounded bg-black/30 px-2 py-1 text-xs text-gray-200">
+          {cur || '—'}
+        </code>
+      </div>
+
+      <ul className="mt-2 max-h-64 space-y-0.5 overflow-y-auto">
+        {dirs.length === 0 && !busy && (
+          <li className="px-2 py-1 text-xs text-panel-muted">
+            {t('upload.empty_dir')}
+          </li>
+        )}
+        {dirs.map((d) => (
+          <li key={d}>
+            <button
+              onClick={() => load(d)}
+              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-gray-100 transition hover:bg-panel-bg"
+            >
+              <span className="shrink-0 text-panel-muted">
+                <FolderIcon />
+              </span>
+              <span className="min-w-0 truncate">{d.split('/').pop() || d}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+
+      <div className="mt-3 border-t border-panel-border pt-3">
+        {creating ? (
+          <form onSubmit={submitNewFolder} className="flex items-center gap-2">
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder={t('upload.new_folder_name')}
+              className="min-w-0 flex-1 rounded border border-panel-border bg-panel-bg px-2 py-1 text-xs text-gray-100 outline-none focus:border-panel-accent"
+            />
+            <button
+              type="submit"
+              disabled={busy || !newName.trim()}
+              className="shrink-0 rounded bg-panel-accent px-2 py-1 text-xs text-white transition disabled:opacity-40"
+            >
+              {t('upload.create')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCreating(false)
+                setNewName('')
+              }}
+              className="shrink-0 rounded border border-panel-border px-2 py-1 text-xs text-panel-muted transition hover:text-gray-100"
+            >
+              {t('modal.close')}
+            </button>
+          </form>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={() => setCreating(true)}
+              disabled={busy}
+              className="rounded border border-panel-border px-2 py-1 text-xs text-panel-muted transition hover:border-panel-accent hover:text-gray-100 disabled:opacity-40"
+            >
+              + {t('upload.new_folder')}
+            </button>
+            <button
+              onClick={() => onPick(cur)}
+              disabled={busy || !cur}
+              className="rounded bg-panel-accent px-3 py-1 text-xs font-medium text-white transition disabled:opacity-40"
+            >
+              {t('upload.save_here')}
+            </button>
+          </div>
+        )}
+      </div>
+    </Modal>
   )
 }
 
@@ -1915,6 +2426,25 @@ function EyeIcon() {
   )
 }
 
+// Icono de carpeta (estilo lucide "folder"): navegador de carpetas.
+function FolderIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2Z" />
+    </svg>
+  )
+}
+
 // Icono de lápiz (estilo lucide "pencil"): renombrar.
 function PencilIcon() {
   return (
@@ -1969,6 +2499,28 @@ function PlayIcon() {
       strokeLinejoin="round"
     >
       <polygon points="6 3 20 12 6 21 6 3" />
+    </svg>
+  )
+}
+
+// Icono de "abrir en pestaña nueva" (estilo lucide "external-link"): lanzar
+// el proyecto en su propio espacio y mostrarlo en otra pestaña.
+function ExternalLinkIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
     </svg>
   )
 }

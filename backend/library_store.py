@@ -20,6 +20,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Optional
 
+from datafiles import write_private
 from errors import AppError
 
 # Archivo de persistencia junto al resto del backend.
@@ -61,10 +62,6 @@ class _Library:
     def __init__(self) -> None:
         self.commands: list[Command] = []
         self.projects: list[Project] = []
-
-
-def _ensure_dir() -> None:
-    _STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _load_raw() -> _Library:
@@ -112,17 +109,14 @@ def _load_raw() -> _Library:
 
 
 def _persist(lib: _Library) -> None:
-    _ensure_dir()
     payload = {
         "commands": [c.to_dict() for c in lib.commands],
         "projects": [p.to_dict() for p in lib.projects],
     }
-    tmp = _STORE_PATH.with_suffix(".json.tmp")
-    tmp.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    tmp.replace(_STORE_PATH)
+    # `write_private` hace el tmp + replace y deja el fichero a 0600: son
+    # los comandos que el panel ejecuta, no algo que deba poder leer
+    # cualquier usuario local de la máquina.
+    write_private(_STORE_PATH, json.dumps(payload, ensure_ascii=False, indent=2))
 
 
 def _default_label(command: str) -> str:

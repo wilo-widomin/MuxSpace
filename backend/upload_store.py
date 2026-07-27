@@ -17,15 +17,13 @@ import json
 from pathlib import Path
 from threading import Lock
 
+from datafiles import write_private
+
 # Cuántas subidas recientes conservamos en el historial.
 KEEP = 5
 
 _STORE_PATH = Path(__file__).resolve().parent / "data" / "upload_history.json"
 _lock = Lock()
-
-
-def _ensure_dir() -> None:
-    _STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _load() -> list[dict]:
@@ -56,10 +54,10 @@ def _load() -> list[dict]:
 
 
 def _save(items: list[dict]) -> None:
-    _ensure_dir()
-    _STORE_PATH.write_text(
-        json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    # tmp + replace y 0600 (ver `datafiles`): antes se reescribía en sitio
+    # —el único de los cuatro stores que no era atómico— y una caída a
+    # media escritura corrompía el historial.
+    write_private(_STORE_PATH, json.dumps(items, ensure_ascii=False, indent=2))
 
 
 def list_recent() -> list[dict]:

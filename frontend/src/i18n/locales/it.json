@@ -199,6 +199,7 @@
   "err.upload_name_invalid": "Nome file non valido.",
   "err.upload_dir_invalid": "Cartella di destinazione non valida o fuori dall'area consentita.",
   "err.upload_failed": "Impossibile caricare il file.",
+  "err.upload_exists": "Esiste già un file con quel nome nella cartella di destinazione.",
   "err.dir_not_found": "Cartella non trovata o fuori dall'area consentita.",
   "err.dir_name_invalid": "Nome cartella non valido.",
   "err.dir_create_failed": "Impossibile creare la cartella.",

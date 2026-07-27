@@ -199,6 +199,7 @@
   "err.upload_name_invalid": "Ungültiger Dateiname.",
   "err.upload_dir_invalid": "Ungültiger Zielordner oder außerhalb des erlaubten Bereichs.",
   "err.upload_failed": "Datei konnte nicht hochgeladen werden.",
+  "err.upload_exists": "Im Zielordner gibt es bereits eine Datei mit diesem Namen.",
   "err.dir_not_found": "Ordner nicht gefunden oder außerhalb des erlaubten Bereichs.",
   "err.dir_name_invalid": "Ungültiger Ordnername.",
   "err.dir_create_failed": "Ordner konnte nicht erstellt werden.",

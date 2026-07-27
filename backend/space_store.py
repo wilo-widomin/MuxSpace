@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 
+from datafiles import write_private
 from errors import AppError
 
 _STORE_PATH = Path(__file__).resolve().parent / "data" / "spaces.json"
@@ -78,10 +79,10 @@ def _read() -> dict:
 
 def _write(data: dict) -> None:
     try:
-        _STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _STORE_PATH.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        # tmp + replace y 0600 (ver `datafiles`): antes se reescribía el
+        # JSON en sitio, así que una caída a media escritura dejaba el
+        # archivo truncado y los espacios se perdían.
+        write_private(_STORE_PATH, json.dumps(data, indent=2, ensure_ascii=False))
     except OSError as exc:
         raise SpaceError("err.spaces_save_failed", technical=str(exc)) from exc
 

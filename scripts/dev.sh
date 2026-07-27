@@ -17,7 +17,7 @@ fi
 # --- Frontend ---
 if [ ! -d frontend/node_modules ]; then
   echo "Instalando dependencias del frontend…"
-  (cd frontend && npm install)
+  (cd frontend && bun install)
 fi
 
 cleanup() {
@@ -31,7 +31,7 @@ echo "Arrancando backend en http://localhost:8000 …"
 BACK_PID=$!
 
 echo "Arrancando frontend en http://localhost:5173 …"
-(cd frontend && npm run dev) &
+(cd frontend && bun run dev) &
 FRONT_PID=$!
 
 wait

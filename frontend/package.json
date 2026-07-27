@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check-i18n": "node ../scripts/check-i18n.js"
+    "check-i18n": "bun ../scripts/check-i18n.js"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",

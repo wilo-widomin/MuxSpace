@@ -10,9 +10,9 @@
 #
 # Requisitos que verifica/prepara:
 #   - tmux, python3 (y venv) en el PATH.
-#   - node/npm, solo si hace falta compilar el frontend.
+#   - bun, solo si hace falta compilar el frontend.
 #   - venv del backend con las dependencias instaladas.
-#   - build del frontend (frontend/dist); si falta, lo compila con npm.
+#   - build del frontend (frontend/dist); si falta, lo compila con bun.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,7 +38,7 @@ need() {
 }
 need tmux
 need python3
-[ -f frontend/dist/index.html ] || need npm   # npm solo hace falta si hay que compilar
+[ -f frontend/dist/index.html ] || need bun   # bun solo hace falta si hay que compilar
 
 # --- Backend: entorno virtual ---
 if [ ! -d backend/venv ]; then
@@ -52,9 +52,9 @@ fi
 if [ ! -f frontend/dist/index.html ]; then
   echo "No existe el build del frontend; compilando…"
   if [ ! -d frontend/node_modules ]; then
-    (cd frontend && npm install)
+    (cd frontend && bun install)
   fi
-  (cd frontend && npm run build)
+  (cd frontend && bun run build)
 fi
 
 echo "Arrancando MuxSpace en http://${HOST}:${PORT} …"

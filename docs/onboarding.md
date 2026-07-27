@@ -22,7 +22,7 @@ usuario que arranca el backend). Por eso las sesiones que veas son las
 |-----------|---------|-----------------|
 | `tmux` | El panel lo controla | `apt install tmux` / `dnf install tmux` / `pacman -S tmux` |
 | `python3` (3.10+) | Backend | `apt install python3 python3-venv` / `dnf install python3` / … |
-| `node` 18+ + `npm` | Solo si hay que compilar el frontend | `apt install nodejs npm` / NodeSource / `nvm` |
+| `bun` | Solo si hay que compilar el frontend | `curl -fsSL https://bun.sh/install \| bash` |
 
 > En Debian/Ubuntu hace falta el paquete `python3-venv` además de
 > `python3` (sin él, `python3 -m venv` falla).
@@ -30,7 +30,7 @@ usuario que arranca el backend). Por eso las sesiones que veas son las
 Comprueba rápido:
 
 ```bash
-tmux -V && python3 --version && (command -v npm && npm -v) || true
+tmux -V && python3 --version && (command -v bun && bun -v) || true
 ```
 
 ## 2. Clonar y configurar
@@ -84,7 +84,7 @@ xterm.js en vivo. Escribe ahí como en tu terminal.
   Guárdalo en el sidebar (sección *Comandos*) y lánzalo con un clic: abre
   una sesión nueva llamada como su *label* (con sufijo ` (N)` si ya existe).
 - **Proyecto** = título + directorio + secuencia de comandos. Ej.
-  `demo`, `~/proyectos/api`, `["npm install", "npm run dev"]`. Al
+  `demo`, `~/proyectos/api`, `["bun install", "bun run dev"]`. Al
   *ejecutarlo* crea una sesión, hace `cd <cwd>` y lanza los comandos en
   orden dentro del mismo shell.
 
@@ -109,7 +109,7 @@ Si vas a tocar frontend y quieres HMR:
 
 Backend en `:8000` (docs en `/docs`) y Vite en `:5173` (con proxy de
 `/api` al backend). Tras cambios de UI en producción, recompila:
-`cd frontend && npm run build`.
+`cd frontend && bun run build`.
 
 ## 8. Mantenerlo arrancado (opcional)
 

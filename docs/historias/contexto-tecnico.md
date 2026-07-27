@@ -123,7 +123,7 @@ fases 2 y 3, así que la lista crece con el backlog. Estado y quién lo trae:
 |---|---|---|
 | `cd frontend && bun run build` | ✅ existe | — |
 | `cd frontend && bun run check-i18n` | ✅ existe (hoy solo avisa) | pasa a error en US-009 |
-| `backend/venv/bin/python -m pytest -q` | ❌ | US-001 |
+| `backend/venv/bin/python -m pytest -q` | ✅ existe | US-001 |
 | `backend/venv/bin/python -m ruff check backend/` | ❌ | US-008 |
 | `cd frontend && bun run lint` | ❌ | US-008 |
 | `cd frontend && bun run test` (vitest) | ❌ | US-017 |
@@ -131,6 +131,23 @@ fases 2 y 3, así que la lista crece con el backlog. Estado y quién lo trae:
 Conforme una US cree uno, **añádelo a `verify` en
 `.claude/us-pipeline.config.json` en el mismo PR**. Ese es el mecanismo por el
 que el DoD se va apretando solo.
+
+### En un worktree del pipeline
+
+`backend/venv/` y `frontend/node_modules/` están en `.gitignore`, así que un
+worktree recién creado **no los tiene** y los comandos de arriba fallan con
+`No such file or directory` o `vite: command not found`. Se resuelve
+enlazándolos al repo principal, que es de donde salen igualmente:
+
+```bash
+ln -sfn /home/willy/proyectos/muxspace/backend/venv        <worktree>/backend/venv
+ln -sfn /home/willy/proyectos/muxspace/frontend/node_modules <worktree>/frontend/node_modules
+```
+
+Se enlazan y no se reinstalan porque un worktree es efímero: duplicar un venv
+y un `node_modules` por historia son cientos de megas para nada. Ambos
+patrones están en `.gitignore` en su forma sin barra para que el symlink no
+ensucie `git status`.
 
 ## Roster del ciclo
 

@@ -1,5 +1,10 @@
 # Python
 backend/venv/
+# Sin barra, además de con ella: en los worktrees del pipeline de US
+# `backend/venv` es un SYMLINK al venv del repo principal (el venv real vive
+# solo ahí), y un patrón terminado en `/` solo casa con directorios de verdad.
+# Sin esta línea, `git status` de cada worktree sale con el venv sin seguir.
+backend/venv
 __pycache__/
 *.pyc
 
@@ -21,6 +26,9 @@ certs/
 
 # Node
 frontend/node_modules/
+# Sin barra por el mismo motivo que backend/venv: en los worktrees del
+# pipeline es un symlink al del repo principal.
+frontend/node_modules
 frontend/dist/
 
 # Editores / SO

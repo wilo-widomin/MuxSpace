@@ -24,7 +24,8 @@
   "env_wrap": "",
   "verify": {
     "build": "cd frontend && bun run build",
-    "i18n": "cd frontend && bun run check-i18n"
+    "i18n": "cd frontend && bun run check-i18n",
+    "test": "backend/venv/bin/python -m pytest -q"
   },
   "dod_ref": "docs/historias/contexto-tecnico.md#definition-of-done"
 }

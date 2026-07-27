@@ -1,0 +1,10 @@
+# Este archivo existe SOLO para configurar pytest. El backend no se instala
+# como paquete (uvicorn arranca con `--app-dir backend` y los módulos se
+# importan en plano), así que no hay `[project]` ni `[build-system]`: añadirlos
+# convertiría el repo en un proyecto instalable que nadie instala.
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+# Reproduce el `--app-dir backend` de uvicorn: los módulos se importan como
+# `import config`, no `from backend import config`.
+pythonpath = ["backend"]
+addopts = "-ra --strict-markers"

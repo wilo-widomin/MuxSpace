@@ -1,0 +1,13 @@
+# Dependencias que solo hacen falta para desarrollar y pasar los tests.
+# Van aparte de requirements.txt a propósito: ese es el que se instala en la
+# máquina que sirve el panel, y meter ahí pytest y compañía significaría
+# instalar en producción código que solo existe para probar.
+#
+#   backend/venv/bin/pip install -r backend/requirements-dev.txt
+-r requirements.txt
+
+pytest==9.1.1
+pytest-cov==7.1.0
+# httpx no es una dependencia del panel: lo exige `fastapi.testclient.TestClient`,
+# que por dentro es un cliente httpx contra la app ASGI.
+httpx==0.28.1

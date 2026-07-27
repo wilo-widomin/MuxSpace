@@ -199,6 +199,7 @@
   "err.upload_name_invalid": "Invalid file name.",
   "err.upload_dir_invalid": "Invalid destination folder or outside the allowed area.",
   "err.upload_failed": "Couldn't upload the file.",
+  "err.upload_exists": "A file with that name already exists in the destination folder.",
   "err.dir_not_found": "Folder not found or outside the allowed area.",
   "err.dir_name_invalid": "Invalid folder name.",
   "err.dir_create_failed": "Couldn't create the folder.",

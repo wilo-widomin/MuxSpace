@@ -199,6 +199,7 @@
   "err.upload_name_invalid": "Nome de ficheiro inválido.",
   "err.upload_dir_invalid": "Pasta de destino inválida ou fora da área permitida.",
   "err.upload_failed": "Não foi possível enviar o ficheiro.",
+  "err.upload_exists": "Já existe um ficheiro com esse nome na pasta de destino.",
   "err.dir_not_found": "Pasta não encontrada ou fora da área permitida.",
   "err.dir_name_invalid": "Nome de pasta inválido.",
   "err.dir_create_failed": "Não foi possível criar a pasta.",

@@ -199,6 +199,7 @@
   "err.upload_name_invalid": "Nom de fichier invalide.",
   "err.upload_dir_invalid": "Dossier de destination invalide ou hors de la zone autorisée.",
   "err.upload_failed": "Impossible d'envoyer le fichier.",
+  "err.upload_exists": "Un fichier portant ce nom existe déjà dans le dossier de destination.",
   "err.dir_not_found": "Dossier introuvable ou hors de la zone autorisée.",
   "err.dir_name_invalid": "Nom de dossier invalide.",
   "err.dir_create_failed": "Impossible de créer le dossier.",

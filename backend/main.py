@@ -12,6 +12,8 @@ Ver `docs/muxspace.md` para la especificación completa.
 """
 from __future__ import annotations
 
+import errno
+import os
 import re
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -23,6 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import config
+from datafiles import ensure_dir as ensure_data_dir, harden_tree, write_private
 from auth import (
     SESSION_COOKIE,
     check_login_allowed,
@@ -280,8 +283,18 @@ class UserResponse(BaseModel):
 # ----------------------------------------------------------------------
 # Ciclo de vida de la app
 # ----------------------------------------------------------------------
+# Directorio de datos del panel: biblioteca de comandos, espacios,
+# historial de subidas, intentos de login y capturas pegadas.
+_DATA_DIR = Path(__file__).resolve().parent / "data"
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Todo lo de data/ es del usuario y solo suyo, pero se venía escribiendo
+    # con el umask por defecto (0644): legible por cualquier usuario local
+    # en una máquina donde el panel ya da una shell. Las escrituras nuevas
+    # ya salen a 0600 (`datafiles`); esto cierra las que quedaron de antes.
+    harden_tree(_DATA_DIR)
     yield
     # La terminal la sirve el puente PTY (`pty_bridge`) y qué se ve en el
     # grid lo decide cada pestaña del navegador: no hay ni procesos externos
@@ -340,6 +353,40 @@ async def _reject_banned_ips(request: Request, call_next):
     if is_ip_banned(ip):
         return JSONResponse(status_code=403, content={"detail": "Acceso denegado."})
     return await call_next(request)
+
+
+# Cabeceras de seguridad. La clave es `frame-ancestors 'none'`: sin ella,
+# una web maliciosa puede embeber el panel en un iframe invisible (el
+# navegador presenta el certificado mTLS solo) y convertir un clic
+# inducido en la ejecución de un proyecto. El guard de Origin no cubre ese
+# caso: dentro del iframe todo es same-origin. En un panel que da shell,
+# un clickjacking equivale a ejecución remota de código.
+#
+# `style-src 'unsafe-inline'` es necesario: xterm.js inyecta estilos en
+# línea. `script-src` no lo necesita — el build de Vite no genera scripts
+# inline. El WebSocket del terminal lo cubre `default-src 'self'`, que en
+# CSP3 casa ws/wss del mismo origen.
+_SECURITY_HEADERS = {
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": (
+        "default-src 'self'; frame-ancestors 'none'; "
+        "img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+        "base-uri 'none'; form-action 'none'"
+    ),
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+}
+
+
+# Se declara el ÚLTIMO a propósito: en Starlette el middleware añadido más
+# tarde queda por fuera, así que este envuelve a los demás y las cabeceras
+# también salen en los 403 del guard de Origin y del baneo por IP.
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    for k, v in _SECURITY_HEADERS.items():
+        resp.headers.setdefault(k, v)
+    return resp
 
 
 # Dependencia de autenticación reutilizable (sesión por cookie o HTTP
@@ -411,6 +458,28 @@ def dir_suggestions(q: str = "", user: str = _auth) -> DirSuggestionsResponse:
     return DirSuggestionsResponse(items=suggest_dirs(q))
 
 
+async def _read_capped(request: Request, max_bytes: int, code: str) -> bytes:
+    """Lee el cuerpo de la petición abortando en cuanto supera el tope.
+
+    `await request.body()` bufferiza el cuerpo ENTERO antes de que podamos
+    mirarlo: un POST de varios GB tumba el proceso aunque el límite sea de
+    100 MB. Aquí se corta por `Content-Length` primero (el caso honesto) y,
+    si no viene o miente, en cuanto los trozos leídos pasan del tope.
+    """
+    mb = max_bytes // (1024 * 1024)
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > max_bytes:
+        raise http_error(413, code, mb=mb)
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > max_bytes:
+            raise http_error(413, code, mb=mb)
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 # Directorio donde se depositan las imágenes que el usuario pega desde el
 # panel (apaño para poder compartir capturas con Claude, que lee el fichero
 # resultante). Cae bajo backend/data/, que está fuera del control de versiones.
@@ -465,15 +534,11 @@ async def paste_image(request: Request, user: str = _auth) -> PasteImageResponse
     ext = _PASTE_EXT.get(content_type)
     if ext is None:
         raise http_error(415, "err.image_unsupported_format")
-    data = await request.body()
+    data = await _read_capped(request, _PASTE_MAX_BYTES, "err.image_too_large")
     if not data:
         raise http_error(400, "err.image_missing")
-    if len(data) > _PASTE_MAX_BYTES:
-        raise http_error(
-            413, "err.image_too_large", mb=_PASTE_MAX_BYTES // (1024 * 1024)
-        )
 
-    _PASTE_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_data_dir(_PASTE_DIR)
     # Nombre secuencial paste-NNN.ext: siguiente índice libre según lo que ya
     # exista, para no pisar capturas anteriores.
     nums = []
@@ -484,7 +549,7 @@ async def paste_image(request: Request, user: str = _auth) -> PasteImageResponse
     n = (max(nums) + 1) if nums else 1
     filename = f"paste-{n:03d}{ext}"
     target = _PASTE_DIR / filename
-    target.write_bytes(data)
+    write_private(target, data)
 
     # Retención: dejamos solo las _PASTE_KEEP más recientes (la recién
     # guardada incluida) y borramos el resto.
@@ -619,17 +684,32 @@ async def upload_file(
     if not filename or not _UPLOAD_NAME_RE.match(filename) or filename in (".", ".."):
         raise http_error(400, "err.upload_name_invalid")
 
-    data = await request.body()
+    data = await _read_capped(request, _UPLOAD_MAX_BYTES, "err.upload_too_large")
     if not data:
         raise http_error(400, "err.upload_missing")
-    if len(data) > _UPLOAD_MAX_BYTES:
-        raise http_error(
-            413, "err.upload_too_large", mb=_UPLOAD_MAX_BYTES // (1024 * 1024)
-        )
 
     target = _unique_target(directory, filename)
     try:
-        target.write_bytes(data)
+        # O_NOFOLLOW: si `target` es un symlink, falla en vez de escribir en
+        # su destino, que puede estar FUERA de las raíces permitidas.
+        # `_unique_target` no lo detecta porque `Path.exists()` sigue los
+        # enlaces y un symlink colgante le parece un hueco libre. O_EXCL
+        # cierra además la carrera entre esa comprobación y esta escritura.
+        fd = os.open(
+            target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600
+        )
+    except FileExistsError as exc:
+        raise http_error(409, "err.upload_exists") from exc
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            # El destino es un symlink (colgante o no). Para quien sube, el
+            # nombre está ocupado; lo que no vamos a hacer es seguir el
+            # enlace y escribir donde apunte.
+            raise http_error(409, "err.upload_exists") from exc
+        raise http_error(500, "err.upload_failed") from exc
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
     except OSError as exc:
         raise http_error(500, "err.upload_failed") from exc
 

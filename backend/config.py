@@ -87,9 +87,13 @@ if AUTH_ENABLED and AUTH_MODE == "env" and AUTH_PASSWORD in {"admin", ""}:
 # Horas de validez de la sesión iniciada en /api/login (cookie HttpOnly).
 SESSION_TTL_HOURS: int = int(os.getenv("MUXSPACE_SESSION_TTL_HOURS", "168"))
 
-# Marca la cookie de sesión como `Secure` (solo viaja por HTTPS). Actívalo
-# cuando sirvas el panel tras un reverse proxy con TLS.
-COOKIE_SECURE: bool = _get_bool("MUXSPACE_COOKIE_SECURE", False)
+# Marca la cookie de sesión como `Secure` (solo viaja por HTTPS). El
+# default es True porque el despliegue normal del panel es tras un proxy
+# con TLS: si el default fuera False, la cookie que abre una shell saldría
+# en claro por olvidar una variable. Ponlo a false SOLO para desarrollo
+# contra http://localhost (con Secure el navegador no guarda la cookie y
+# el login no llega a funcionar).
+COOKIE_SECURE: bool = _get_bool("MUXSPACE_COOKIE_SECURE", True)
 
 # --- Servidor ---
 # 127.0.0.1 = solo acceso local (default seguro). Usa 0.0.0.0 (via .env)
@@ -118,10 +122,14 @@ TMUX_BINARY: str = os.getenv("MUXSPACE_TMUX_BINARY", "tmux")
 # propio backend (mismo origen), así que CORS casi no hace falta; estos
 # valores por defecto cubren solo el modo desarrollo (Vite en :5173).
 # Si expones el panel tras un dominio/proxy, añádelo aquí o en .env.
-CORS_ORIGINS: list[str] = os.getenv(
+# Se lee con `_get_str_list` (y no con un `.split(",")` propio) porque esta
+# lista alimenta DOS controles: el CORS de arriba y el guard de Origin de
+# `main.py`, que sí normalizaba espacios. Un espacio tras una coma
+# desalineaba ambos y rompía el CORS en silencio.
+CORS_ORIGINS: list[str] = _get_str_list(
     "MUXSPACE_CORS_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173",
-).split(",")
+    ["http://localhost:5173", "http://127.0.0.1:5173"],
+)
 
 # Raíces de directorio bajo las que se ofrecen sugerencias de autocompletado
 # al escribir un "directorio" en el frontend. Se expande `~` al home del

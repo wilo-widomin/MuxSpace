@@ -34,6 +34,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request, WebSocket, status
 
+from datafiles import write_private
 from errors import error_detail, http_error
 
 from config import (
@@ -93,13 +94,9 @@ def _persist_login_failures_locked() -> None:
         )
         for ip in by_age[: len(_login_failures) - _MAX_TRACKED_IPS]:
             del _login_failures[ip]
-    _FAILURES_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp = _FAILURES_PATH.with_suffix(".json.tmp")
-    tmp.write_text(
-        json.dumps(_login_failures, ensure_ascii=False, indent=2),
-        encoding="utf-8",
+    write_private(
+        _FAILURES_PATH, json.dumps(_login_failures, ensure_ascii=False, indent=2)
     )
-    tmp.replace(_FAILURES_PATH)
 
 
 def _compare(a: str, b: str) -> bool:

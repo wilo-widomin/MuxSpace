@@ -20,12 +20,14 @@ Lo que este test NO puede ver (2026-07-27, documentado para que no se
 redescubra dos veces):
 
   - El filtro `isinstance(r, APIRoute)` es ciego a `/openapi.json`, `/docs`,
-    `/redoc` y `/docs/oauth2-redirect`. Son `starlette.routing.Route` (los
-    monta FastAPI, no nuestro código), no cuelgan de `/api`, y hoy responden
-    **200 sin autenticación**: publican el mapa completo de la API a
-    cualquiera que llegue al puerto. Es un hallazgo de seguridad ya
-    reportado, pendiente de su propia US. Aquí NO se arregla: cambiar código
-    de producción no entra en el PR de un test.
+    `/redoc` y `/docs/oauth2-redirect`: son `starlette.routing.Route` (los
+    monta FastAPI, no nuestro código) y no cuelgan de `/api`. Cuando se
+    escribió este archivo respondían **200 sin autenticación**, publicando el
+    mapa completo de la API a cualquiera que llegara al puerto. Corregido
+    aparte (hallazgo S12): hoy `MUXSPACE_DOCS_ENABLED` es False por defecto y
+    las tres rutas no existen. La ceguera del filtro sigue ahí, así que la
+    regresión la cubre `TestDocumentacionDeLaApi` más abajo, con sus propias
+    aserciones y sin depender del censo.
   - El `StaticFiles` montado en `/` es un `app.mount` CONDICIONAL a que
     exista `frontend/dist`. Nada de este archivo depende de que el build
     esté hecho: el censo filtra por `APIRoute` (un `Mount` no lo es) y el
@@ -504,3 +506,81 @@ def test_no_hay_endpoints_api_fuera_del_prefijo() -> None:
         f"Endpoints fuera del prefijo /api, invisibles para el contrato de "
         f"autenticación: {fuera}"
     )
+
+
+# ----------------------------------------------------------------------
+# S12 · La documentación de la API no se publica sin autenticación
+# ----------------------------------------------------------------------
+# Estas rutas las monta FastAPI por su cuenta y son `starlette.routing.Route`,
+# no `APIRoute`: el censo de arriba es ciego a ellas POR CONSTRUCCIÓN, así que
+# la regresión hay que cubrirla con aserciones propias. Es el mismo criterio de
+# contabilidad por partida doble que `RUTAS_PUBLICAS`.
+RUTAS_DE_DOCUMENTACION = ["/openapi.json", "/docs", "/redoc", "/docs/oauth2-redirect"]
+
+
+class TestDocumentacionDeLaApi:
+    """`/docs`, `/redoc` y `/openapi.json` cerradas salvo que se pidan.
+
+    Publicaban el esquema completo —`send-command`, `launch`, `run` y las
+    rutas de subida, con sus parámetros— a cualquiera que alcanzara el puerto.
+    En un panel que ejecuta comandos como el usuario que corre el backend eso
+    es reconocimiento gratis, y no lo tapaba ni el `require_auth` (no pasan por
+    él) ni el contrato de rutas (no las ve).
+    """
+
+    @pytest.mark.parametrize("ruta", RUTAS_DE_DOCUMENTACION)
+    def test_no_se_publica_con_la_configuracion_por_defecto(
+        self, client, ruta: str
+    ) -> None:
+        """404 con el default de producción, y sin credenciales.
+
+        404 y no 401 a propósito: la ruta no existe, que es más fuerte que
+        existir y pedir permiso. Nada que autenticar es nada que saltarse.
+        """
+        client.cookies.clear()
+        resp = client.get(ruta, follow_redirects=False)
+        assert resp.status_code == 404, (
+            f"{ruta} respondió {resp.status_code} sin credenciales: la "
+            f"documentación de la API vuelve a estar publicada"
+        )
+
+    @pytest.mark.parametrize("ruta", RUTAS_DE_DOCUMENTACION)
+    def test_tampoco_se_publica_con_una_sesion_iniciada(
+        self, client_auth, ruta: str
+    ) -> None:
+        """Ni con sesión: con el flag apagado las rutas no existen para nadie.
+
+        Separado del anterior porque son dos afirmaciones distintas: una es
+        "no se filtra a un extraño" y la otra "el flag apaga de verdad, no
+        solo esconde".
+        """
+        assert client_auth.get(ruta, follow_redirects=False).status_code == 404
+
+    def test_el_censo_de_rutas_api_no_las_incluye(self) -> None:
+        """La razón por la que estos tests existen aparte.
+
+        Si algún día el censo llegara a verlas, este test se pondría en rojo y
+        sería la señal de que la cobertura de arriba ya las cubre y esta clase
+        sobra. Mientras siga en verde, la ceguera es real y hay que taparla a
+        mano.
+        """
+        censadas = {r.path for r in rutas_api(main.app)}
+        assert censadas.isdisjoint(RUTAS_DE_DOCUMENTACION)
+
+    def test_el_flag_las_publica_cuando_se_pide(self, monkeypatch) -> None:
+        """El control positivo: sin él, un `FastAPI()` roto pasaría igual.
+
+        Los tres tests de arriba también los cumpliría una app que no montara
+        nunca la documentación (o que no arrancara). Este demuestra que el 404
+        lo produce la configuración y no una avería, así que el default cerrado
+        significa algo.
+
+        Se construye una app aparte porque `docs_url` se resuelve al CONSTRUIR
+        la FastAPI: sobre `main.app`, ya creada, no hay monkeypatch que valga.
+        """
+        from fastapi import FastAPI
+
+        abierta = FastAPI(docs_url="/docs", openapi_url="/openapi.json")
+        with TestClient(abierta) as c:
+            assert c.get("/openapi.json").status_code == 200
+            assert c.get("/docs").status_code == 200

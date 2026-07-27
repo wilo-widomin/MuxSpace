@@ -306,6 +306,13 @@ app = FastAPI(
     description="Dashboard dinámico para gestionar sesiones de tmux.",
     version="1.0.0",
     lifespan=lifespan,
+    # `None` DESMONTA la ruta; no basta con no enlazarla desde ningún sitio.
+    # Estas tres son rutas de Starlette, no del router de la API: no pasan por
+    # `require_auth` ni las ve el contrato de rutas de los tests, así que se
+    # servían con 200 a cualquiera que alcanzara el puerto. Ver DOCS_ENABLED.
+    docs_url="/docs" if config.DOCS_ENABLED else None,
+    redoc_url="/redoc" if config.DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if config.DOCS_ENABLED else None,
 )
 
 app.add_middleware(

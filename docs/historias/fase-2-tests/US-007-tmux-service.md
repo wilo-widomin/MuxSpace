@@ -90,3 +90,13 @@ que otra US que también las toque.
   `$(touch /tmp/pwned)` que compruebe que ese fichero **no** aparece es
   buena inversión.
 - `_quote_path` es privada, pero es el núcleo del riesgo: pruébala directa.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-27 16:58:05 UTC
+- Fin:    2026-07-27 17:21:23 UTC
+- Tiempo transcurrido: 00:23:18 (HH:mm:ss)
+- PR:     #11
+- Estado: in-review

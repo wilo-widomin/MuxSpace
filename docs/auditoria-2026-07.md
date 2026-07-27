@@ -45,11 +45,26 @@ De ahí salen las dos consecuencias que ordenan toda la auditoría:
 | S12 | Media-baja | Documentación de la API publicada sin autenticación | CONFIRMADO |
 | S13 | Baja | `suggest`/`browse` listan rutas de fuera de las raíces | CONFIRMADO |
 | S14 | Baja | Un bucle de symlinks devuelve 500 en vez de rechazo | CONFIRMADO |
+| S15 | Baja | `UnicodeDecodeError` no capturado en los tres stores | CONFIRMADO |
+| S16 | Baja | `spaces.json` no-objeto → `AttributeError` → 500 | CONFIRMADO |
+| S17 | Baja | Una sesión con nombre que empieza por `$` no se puede matar | CONFIRMADO |
 
-Los tres últimos aparecieron **al escribir los tests de la fase 2**, no en la
-revisión inicial: S12 lo destapó el contrato de rutas de US-002 al preguntarse
-qué queda fuera de su propio filtro, y S13/S14 salieron de los casos de
-traversal de US-003. Es exactamente para lo que sirve la fase 2.
+**Los seis últimos (S12-S17) aparecieron al escribir los tests de la fase 2**,
+no en la revisión inicial. Ninguno es de severidad alta, y ese es justo el
+punto: son la clase de fallo que no se ve leyendo el código y que solo aparece
+cuando alguien se pregunta "¿y si el JSON está cortado a medio carácter?".
+
+| Hallazgo | Lo destapó |
+|---|---|
+| S12 | US-002, al preguntarse qué queda FUERA de su propio filtro |
+| S13, S14 | US-003, en los casos de traversal |
+| S15, S16 | US-006, en los casos de JSON corrupto |
+| S17 | US-007, al probar el ciclo de vida contra tmux real |
+
+Solo S12 está corregido. S13-S17 están **cubiertos por tests
+`xfail(strict=True)`**: existen en la suite, no la bloquean, y el día que
+alguien los arregle sin quitar el marcador se ponen en rojo. El arreglo no se
+puede colar sin enterarse.
 
 ---
 
@@ -443,3 +458,91 @@ en los tres puntos.
 
 Cubierto por `test_dir_roots.py::test_un_bucle_de_symlinks_se_rechaza_sin_excepcion`,
 `xfail(strict=True)`.
+
+
+---
+
+## S15 · BAJA — `UnicodeDecodeError` no capturado en los tres stores · CONFIRMADO
+
+```console
+b'{"commands": [{"id": "c1", "label": "Compilaci\xc3'
+  library_store.list_commands -> UnicodeDecodeError
+  space_store.list_spaces     -> UnicodeDecodeError
+  upload_store.list_recent    -> UnicodeDecodeError
+```
+
+Los tres leen con `read_text(encoding="utf-8")` y capturan
+`(json.JSONDecodeError, OSError)`. **`UnicodeDecodeError` no es ninguna de las
+dos**: es hermana de `JSONDecodeError` bajo `ValueError`.
+
+Y no es el caso exótico: se serializa con `ensure_ascii=False` y el propio
+`_default_label` mete una `…` de 3 bytes. Un `library.json` cortado en medio de
+un carácter multibyte deja el panel devolviendo **500 en cada carga**.
+
+Es el desperfecto contra el que existe el tmp + replace, visto desde el lado de
+la lectura: hoy la escritura ya es atómica, así que el fichero cortado tendría
+que venir de fuera (un disco lleno antes del arreglo, una edición a mano, una
+restauración a medias). Pero el contrato del módulo es "leer nunca lanza", y
+esto lo rompe.
+
+**Corrección** — capturar `ValueError` (cubre las dos) o leer con
+`errors="replace"`. Una línea por store.
+
+Cubierto por `test_stores.py::test_hueco_conocido_un_json_cortado_a_medio_caracter_hace_lanzar_la_lectura`,
+parametrizado sobre los tres, `xfail(strict=True)`.
+
+---
+
+## S16 · BAJA — `spaces.json` que no es un objeto → 500 · CONFIRMADO
+
+```console
+b'[]'      -> AttributeError: 'list' object has no attribute 'get'
+b'42'      -> AttributeError: 'int' object has no attribute 'get'
+b'null'    -> AttributeError: 'NoneType' object has no attribute 'get'
+b'"hola"'  -> AttributeError: 'str' object has no attribute 'get'
+```
+
+`space_store._read()` hace `raw.get("spaces")` sin comprobar el tipo.
+`library_store` (`isinstance(data, dict)`) y `upload_store`
+(`isinstance(data, list)`) **sí** comprueban: es una asimetría, no una decisión.
+
+**Corrección** — el mismo `isinstance(raw, dict)` que ya tienen los otros dos.
+
+Cubierto por `test_stores.py`, `xfail(strict=True)`.
+
+---
+
+## S17 · BAJA — Una sesión cuyo nombre empieza por `$` no se puede matar · CONFIRMADO
+
+```console
+$ tmux new-session -d -s '$MI_COMANDO'   # creada
+$ tmux list-sessions                     # \$MI_COMANDO
+$ tmux kill-session -t '$MI_COMANDO'     # can't find session: $MI_COMANDO
+$ tmux kill-session -t normal            # OK  <- control
+```
+
+En un `-t`, tmux interpreta el `$` como prefijo de **ID de sesión**, no de
+nombre. La sesión se crea y se lista con su nombre entero, pero `kill_session`
+devuelve `False` y se queda ahí para siempre. Ni el prefijo `=` de coincidencia
+exacta la rescata (tmux 3.4).
+
+No es una vulnerabilidad —nada se ejecuta, porque tmux se invoca siempre por
+argv— pero sí **una sesión que el panel no puede cerrar**.
+
+**Es alcanzable desde el panel.** `_SESSION_NAME_RE`
+(`^[A-Za-z0-9_-]{1,64}$`) bloquea el `$` en `/api/create-session`, pero
+`_tmux_safe_label` —la que usan `/api/commands/{id}/launch` y
+`/api/projects/{id}/run`— solo sustituye `[.:/\\]`:
+
+```
+label '$MI_COMANDO'  ->  nombre de sesión '$MI_COMANDO'
+label '$(id) build'  ->  nombre de sesión '$(id) build'
+```
+
+Un comando de la biblioteca cuya **etiqueta** empiece por `$`, o un proyecto
+cuyo **título** empiece por `$`, deja una sesión incerrable desde el panel.
+
+**Corrección** — añadir `$` a los caracteres que sustituye `_tmux_safe_label`,
+o validar el nombre resultante contra `_SESSION_NAME_RE` antes de crear.
+
+Cubierto por `test_tmux_service.py`, `xfail(strict=True)`.

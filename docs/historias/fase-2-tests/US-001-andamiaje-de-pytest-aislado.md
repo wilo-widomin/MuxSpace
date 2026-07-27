@@ -106,3 +106,13 @@ ninguna otra puede correr a la vez.
   módulo es suficiente y no toca producción.
 - Un `pytest -q` que tarde más de un par de segundos en esta fase es señal
   de que algo está tocando la red o el disco real.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-27 14:24:36 UTC
+- Fin:    2026-07-27 14:47:13 UTC
+- Tiempo transcurrido: 00:22:37 (HH:mm:ss)
+- PR:     #3
+- Estado: in-review

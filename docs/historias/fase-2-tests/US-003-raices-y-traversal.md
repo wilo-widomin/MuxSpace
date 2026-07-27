@@ -77,3 +77,13 @@ US-001.
 - Para el caso de `~otro-usuario`, usa un usuario que exista seguro en
   cualquier Linux (`root`) y no dependas de que exista su home.
 - Objetivo de cobertura para este módulo: **≥85%**.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-27 15:11:17 UTC
+- Fin:    2026-07-27 15:27:25 UTC
+- Tiempo transcurrido: 00:16:08 (HH:mm:ss)
+- PR:     #5
+- Estado: in-review

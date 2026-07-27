@@ -16,6 +16,9 @@ Qué hace:
 - **Biblioteca reutilizable** de **comandos** (una línea de shell) y
   **proyectos** (directorio + secuencia de comandos) lanzables en sesiones
   nuevas con un clic; persiste en disco entre reinicios.
+- **Capturas y archivos**: pegar una imagen del portapapeles o subir un
+  archivo a una carpeta del host, y copiar su ruta lista para pegársela a
+  una herramienta de la terminal.
 - **Autenticación** HTTP Basic opcional y **autocompletado** de directorios
   acotado a las raíces configuradas.
 
@@ -48,7 +51,9 @@ Navegador ──HTTP──────> FastAPI (API + frontend estático)
 ## Requisitos
 
 - **Python 3.10+**
-- **Node.js 18+** (solo para compilar el frontend si no existe `frontend/dist/`)
+- **Bun** (solo para compilar el frontend si no existe `frontend/dist/`).
+  Es el único gestor de paquetes del proyecto: `bun install` / `bun run`,
+  nunca `npm`/`npx`. El lockfile es `frontend/bun.lock`.
 - **tmux** (instálalo con el gestor de paquetes de tu distro: `apt install tmux`, `dnf install tmux`, `pacman -S tmux`, …)
 
 ## Puesta en marcha rápida
@@ -134,6 +139,20 @@ está activada. El WebSocket valida el mismo token vía `?token=` (base64 de
 | `DELETE` | `/api/projects/{id}` | Elimina un proyecto |
 | `POST` | `/api/projects/{id}/run` | Ejecuta el proyecto: crea una sesión, `cd <cwd>` y lanza los comandos en orden |
 
+### Capturas y archivos
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/api/paste-image` | Guarda la imagen pegada (bytes crudos) en `backend/data/pastes/` y devuelve su ruta |
+| `GET` | `/api/pastes` | Lista las capturas guardadas (la más nueva primero) |
+| `GET` | `/api/pastes/{filename}` | Devuelve la imagen (miniatura/visor del panel) |
+| `DELETE` | `/api/pastes/{filename}` | Borra una captura del disco |
+| `GET` | `/api/dir-browse?path=` | Subcarpetas de `path` para el navegador de carpetas (vacío = primera raíz) |
+| `POST` | `/api/dir-create` | Crea una subcarpeta (`body: {parent, name}`), siempre bajo una raíz |
+| `POST` | `/api/upload?dir=&name=` | Sube un archivo (bytes crudos) a la carpeta elegida; no pisa existentes (` (2)`, ` (3)`…) |
+| `GET` | `/api/uploads` | Historial de las últimas subidas |
+| `DELETE` | `/api/uploads?path=` | Quita una entrada del historial (**no** borra el archivo del disco) |
+
 ## Flujo de trabajo
 
 1. El frontend pide la lista de sesiones (`GET /api/sessions`, refresca cada
@@ -154,9 +173,18 @@ aunque se recargue la web: solo se cierra la "ventana" de visualización.
 ### Sidebar
 
 - **Sesiones** (arriba, colapsable): catálogo y acciones por sesión.
-- **Comandos** y **Proyectos** (abajo, secciones fijas redimensionables
-  entre sí): la biblioteca, con formularios de alta/edición en un **modal**
-  central. La anchura del sidebar es arrastrable.
+- Debajo, cuatro persianas en **acordeón** (solo una abierta a la vez; la
+  que quede abierta se recuerda entre recargas y se puede redimensionar
+  arrastrando su divisor):
+  - **Proyectos** y **Comandos**: la biblioteca, con el `+` de alta junto
+    al título y los formularios de alta/edición en un **modal** central.
+  - **Pegar imagen para Claude**: pega una captura del portapapeles, se
+    sube a `backend/data/pastes/` y copia su ruta.
+  - **Subir archivo**: elige carpeta destino con un navegador tipo
+    explorador, sube (o arrastra) el archivo y copia su ruta.
+- Las rutas copiadas van **entrecomilladas** si llevan espacios o
+  caracteres que interpretaría el shell, para poder pegarlas de una pieza.
+- La anchura del sidebar es arrastrable.
 
 ## Estructura del proyecto
 
@@ -171,7 +199,8 @@ muxspace/
 │   ├── space_store.py     # Persistencia de espacios y asignación de sesiones (JSON)
 │   ├── errors.py          # AppError: códigos traducibles + detalle técnico
 │   ├── library_store.py   # Persistencia de la biblioteca de comandos y proyectos (JSON)
-│   ├── dir_suggestions.py # Autocompletado de directorios acotado a raíces
+│   ├── dir_suggestions.py # Autocompletado y navegación de directorios (raíces)
+│   ├── upload_store.py    # Historial de los últimos archivos subidos (JSON)
 │   ├── data/              # JSON de la biblioteca (se crea sola; fuera de git)
 │   ├── requirements.txt
 │   ├── .env.example       # Plantilla de configuración genérica
@@ -187,8 +216,13 @@ muxspace/
 ├── scripts/
 │   └── dev.sh             # Arranca backend + frontend (Vite HMR)
 └── docs/
-    ├── onboarding.md     # Guía de puesta en marcha paso a paso
-    └── muxspace.md     # Especificación
+    ├── onboarding.md          # Guía de puesta en marcha paso a paso
+    ├── muxspace.md            # Especificación
+    ├── mtls.md                # Acceso por certificado de cliente
+    ├── auditoria-2026-07.md   # Auditoría de seguridad y calidad
+    └── plans/
+        ├── seguridad-y-qa.md  # Plan de corrección de la auditoría
+        └── i18n.md            # Plan de internacionalización
 ```
 
 ## Seguridad
@@ -222,20 +256,26 @@ muxspace/
   sesión, *best-effort*, `allow-passthrough on` y `set-clipboard on`
   (ignora errores en tmux antiguos).
 
+> **Auditoría (2026-07-27)**: hay hallazgos abiertos, dos de severidad alta
+> (falta de cabeceras de seguridad y API accesible sin autenticación desde
+> localhost). Informe completo en
+> [`docs/auditoria-2026-07.md`](docs/auditoria-2026-07.md) y plan de
+> corrección en [`docs/plans/seguridad-y-qa.md`](docs/plans/seguridad-y-qa.md).
+
 ## Producción
 
 `./start.sh` prepara todo y arranca en un puerto:
 
-1. Verifica `tmux`, `python3` y (solo si toca compilar) `npm`.
+1. Verifica `tmux`, `python3` y (solo si toca compilar) `bun`.
 2. Crea el venv del backend e instala `requirements.txt` si no existe.
-3. Compila el frontend (`npm run build` → `frontend/dist/`) si no existe.
+3. Compila el frontend (`bun run build` → `frontend/dist/`) si no existe.
 4. Arranca uvicorn sirviendo **API + frontend** en el `HOST:PORT` de
    `backend/.env` (por defecto `127.0.0.1:8000`).
 
 Para reconstruir el frontend a mano tras cambios de UI:
 
 ```bash
-cd frontend && npm run build      # regenera frontend/dist/
+cd frontend && bun run build      # regenera frontend/dist/
 ```
 
 Si lo quieres siempre disponible, envuélvelo en un servicio de systemd (u

@@ -97,3 +97,13 @@ US-001.
 - `library.json` son los comandos que el panel ejecuta. Un test que los
   corrompa en `backend/data/` sería el peor bug de toda la fase: comprueba
   que el conftest te está aislando antes de escribir el primer test.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-27 16:41:15 UTC
+- Fin:    2026-07-27 16:57:35 UTC
+- Tiempo transcurrido: 00:16:20 (HH:mm:ss)
+- PR:     #10
+- Estado: in-review

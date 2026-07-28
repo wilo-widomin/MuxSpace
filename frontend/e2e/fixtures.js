@@ -33,6 +33,40 @@ export const T = JSON.parse(
   fs.readFileSync(path.join(AQUI, '..', 'src', 'i18n', 'locales', 'es.json'), 'utf8'),
 )
 
+/**
+ * Localizadores del formulario de login.
+ *
+ * Por atributo y no con `getByLabel`: los `<label>` del panel son etiquetas
+ * visuales, sin `for`/`id` que los aten a su `<input>`, así que la consulta
+ * accesible no los encuentra. `autocomplete` es igual de estable y no obliga
+ * a tocar la UI desde un test.
+ */
+export const campoUsuario = (page) => page.locator('input[autocomplete="username"]')
+export const campoPassword = (page) => page.locator('input[type="password"]')
+
+/**
+ * Una sesión, en la LISTA del sidebar.
+ *
+ * Acotado al `<aside>` a propósito: al abrir una sesión su nombre aparece
+ * también en el tile del grid, y sin acotar el localizador casa con dos
+ * elementos. Lo que se afirma aquí es "está en el listado".
+ */
+export const sesionEnLista = (page, nombre) =>
+  page.locator('aside').getByText(nombre, { exact: true })
+
+/**
+ * Entra al panel con las credenciales del backend de pruebas.
+ *
+ * Vive aquí y no en cada spec porque lo necesitan todos: es el prólogo de
+ * cualquier recorrido, no parte de lo que ninguno prueba.
+ */
+export async function entrar(page, entorno) {
+  await campoUsuario(page).fill(entorno.usuario)
+  await campoPassword(page).fill(entorno.password)
+  await page.getByRole('button', { name: T['login.submit'] }).click()
+  await expect(page.getByRole('button', { name: T['sidebar.logout'] })).toBeVisible()
+}
+
 /** Un nombre de sesión único y con el prefijo que el teardown reconoce. */
 export function nombreSesion(sufijo = '') {
   return `${PREFIJO_SESION}${Date.now().toString(36)}${sufijo}`
@@ -73,6 +107,21 @@ export const test = base.extend({
       await use(ejecutar)
     },
     { scope: 'test' },
+  ],
+
+  /**
+   * Deja cada test en la página del panel, ya cargada.
+   *
+   * `auto` y en las fixtures en vez de un `beforeEach` por spec: ningún test
+   * del E2E empieza en otro sitio, y olvidarlo produce un fallo confuso
+   * ("no encuentro el campo de usuario") en lugar de uno claro.
+   */
+  irAlPanel: [
+    async ({ page, entorno }, use) => {
+      await page.goto(entorno.baseURL)
+      await use(undefined)
+    },
+    { auto: true },
   ],
 
   /**

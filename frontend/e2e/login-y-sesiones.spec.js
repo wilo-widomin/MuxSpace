@@ -13,53 +13,25 @@
  *   - Que el recorrido entero no dispara ni una violación de CSP.
  */
 import { PREFIJO_SESION } from './entorno.js'
-import { T, expect, nombreSesion, test } from './fixtures.js'
-
-/**
- * Localizadores del formulario de login.
- *
- * Por atributo y no con `getByLabel`: los `<label>` del panel son etiquetas
- * visuales, sin `for`/`id` que los ate a su `<input>`, así que la consulta
- * accesible no los encuentra. `autocomplete` es igual de estable —lo pone el
- * navegador en juego, nadie lo cambia por gusto— y no obliga a tocar la UI
- * desde un test. Queda anotado en el PR como mejora de accesibilidad
- * pendiente, que es de otra historia.
- */
-const campoUsuario = (page) => page.locator('input[autocomplete="username"]')
-const campoPassword = (page) => page.locator('input[type="password"]')
+import {
+  T,
+  campoPassword,
+  campoUsuario,
+  entrar,
+  expect,
+  nombreSesion,
+  sesionEnLista,
+  test,
+} from './fixtures.js'
 
 /**
  * El campo "nombre de la nueva sesión" del modal.
  *
- * Es el primer `input` de texto del formulario del modal, y se ancla al
- * diálogo para no confundirlo con nada de fuera.
+ * Solo lo usa este spec, así que se queda aquí y no en las fixtures: es el
+ * primer `input` de texto del formulario del modal.
  */
 const campoNombreSesion = (page) =>
   page.locator('form input[type="text"], form input:not([type])').first()
-
-/**
- * Una sesión, en la LISTA del sidebar.
- *
- * Acotado al `<aside>` a propósito: al crear una sesión el panel también abre
- * su terminal en el grid, así que el nombre aparece dos veces en la página.
- * Sin acotar, el localizador casa con dos elementos y Playwright falla por
- * ambigüedad — que es lo correcto por su parte, y aquí lo que se afirma es
- * "está en el listado".
- */
-const sesionEnLista = (page, nombre) =>
-  page.locator('aside').getByText(nombre, { exact: true })
-
-/** Entra al panel con las credenciales buenas y espera al sidebar. */
-async function entrar(page, entorno) {
-  await campoUsuario(page).fill(entorno.usuario)
-  await campoPassword(page).fill(entorno.password)
-  await page.getByRole('button', { name: T['login.submit'] }).click()
-  await expect(page.getByRole('button', { name: T['sidebar.logout'] })).toBeVisible()
-}
-
-test.beforeEach(async ({ page, entorno }) => {
-  await page.goto(entorno.baseURL)
-})
 
 test('sin sesión, el panel muestra la pantalla de login', async ({ page }) => {
   await expect(page.getByText(T['login.subtitle'])).toBeVisible()

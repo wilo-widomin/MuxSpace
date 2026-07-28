@@ -59,3 +59,13 @@ merece la comprobación manual completa.
   helpers), resuélvelo con imports; nada de copiar.
 - El diff sigue siendo un movimiento. Lo único que puede aparecer de nuevo
   son las líneas de `import`/`export`.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 11:02:41 UTC
+- Fin:    2026-07-28 11:04:50 UTC
+- Tiempo transcurrido: 00:02:09 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-progress

@@ -69,3 +69,13 @@ Ninguna.
 - El criterio que de verdad importa es el del **código de salida**: un
   `check-i18n` que siempre devuelve 0 no bloquea nada, y todo el valor de
   US-009 depende de que este bloquee.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 10:29:53 UTC
+- Fin:    2026-07-28 10:34:33 UTC
+- Tiempo transcurrido: 00:04:39 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-progress

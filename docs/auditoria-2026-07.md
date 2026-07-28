@@ -29,25 +29,33 @@ De ahí salen las dos consecuencias que ordenan toda la auditoría:
 
 ## Resumen de hallazgos
 
-| Id | Severidad | Hallazgo | Estado |
-|----|-----------|----------|--------|
-| S1 | Alta | Sin cabeceras de seguridad → clickjacking a ejecución de comandos | CONFIRMADO |
-| S2 | Alta *(este despliegue)* | API sin autenticación accesible desde localhost | CONFIRMADO |
-| S3 | Media | Escritura fuera de las raíces vía symlink en `/api/upload` | CONFIRMADO (PoC) |
-| S4 | Media | Agotamiento de memoria: el cuerpo se bufferiza antes del límite | Por lectura |
-| S5 | Media-baja | Peticiones sin `Origin` pasan el guard CSRF | Por lectura |
-| S6 | Baja | Cookie de sesión sin `Secure` por defecto | Por lectura |
-| S7 | Baja | `CORS_ORIGINS` se parsea distinto en dos controles | Por lectura |
-| S8 | Baja | Sin registro de auditoría de comandos ejecutados | Por lectura |
-| S9 | Baja | Ficheros de datos con permisos 0644 | Por lectura |
-| S10 | Baja | Sesiones: sin caducidad por inactividad ni revocación global | Por lectura |
-| S11 | Informativo | `preexec_fn` en un proceso con hilos | Por lectura |
-| S12 | Media-baja | Documentación de la API publicada sin autenticación | CONFIRMADO |
-| S13 | Baja | `suggest`/`browse` listan rutas de fuera de las raíces | **CORREGIDO** |
-| S14 | Baja | Un bucle de symlinks devuelve 500 en vez de rechazo | **CORREGIDO** |
-| S15 | Baja | `UnicodeDecodeError` no capturado en los tres stores | **CORREGIDO** |
-| S16 | Baja | `spaces.json` no-objeto → `AttributeError` → 500 | **CORREGIDO** |
-| S17 | Baja | Una sesión con nombre que empieza por `$` no se puede matar | **CORREGIDO** |
+Dos columnas distintas, que hasta ahora iban mezcladas en una: **Detección** es
+cómo se comprobó el hallazgo (ejecutándolo contra el backend o leyendo el
+código) y no cambia nunca; **Estado** es si está arreglado.
+
+| Id | Severidad | Hallazgo | Detección | Estado |
+|----|-----------|----------|-----------|--------|
+| S1 | Alta | Sin cabeceras de seguridad → clickjacking a ejecución de comandos | CONFIRMADO | ✅ fase 0.1 |
+| S2 | Alta *(este despliegue)* | API sin autenticación accesible desde localhost | CONFIRMADO | ✅ fase 0.2 |
+| S3 | Media | Escritura fuera de las raíces vía symlink en `/api/upload` | CONFIRMADO (PoC) | ✅ fase 1 |
+| S4 | Media | Agotamiento de memoria: el cuerpo se bufferiza antes del límite | Por lectura | ✅ fase 1 |
+| S5 | Media-baja | Peticiones sin `Origin` pasan el guard CSRF | Por lectura | ✅ vía S2 |
+| S6 | Baja | Cookie de sesión sin `Secure` por defecto | Por lectura | ✅ fase 1 |
+| S7 | Baja | `CORS_ORIGINS` se parsea distinto en dos controles | Por lectura | ✅ fase 1 |
+| S8 | Baja | Sin registro de auditoría de comandos ejecutados | Por lectura | ⬜ fase 5 |
+| S9 | Baja | Ficheros de datos con permisos 0644 | Por lectura | ✅ fase 1 |
+| S10 | Baja | Sesiones: sin caducidad por inactividad ni revocación global | Por lectura | ⬜ fase 5 |
+| S11 | Informativo | `preexec_fn` en un proceso con hilos | Por lectura | ⬜ fase 5 |
+| S12 | Media-baja | Documentación de la API publicada sin autenticación | CONFIRMADO | ✅ |
+| S13 | Baja | `suggest`/`browse` listan rutas de fuera de las raíces | CONFIRMADO | ✅ PR #17 |
+| S14 | Baja | Un bucle de symlinks devuelve 500 en vez de rechazo | CONFIRMADO | ✅ PR #16 |
+| S15 | Baja | `UnicodeDecodeError` no capturado en los tres stores | CONFIRMADO | ✅ PR #13 |
+| S16 | Baja | `spaces.json` no-objeto → `AttributeError` → 500 | CONFIRMADO | ✅ PR #15 |
+| S17 | Baja | Una sesión con nombre que empieza por `$` no se puede matar | CONFIRMADO | ✅ PR #14 |
+
+**Los dos hallazgos de severidad alta están cerrados**, y con ellos todo lo que
+llevaba a ejecución de comandos por un tercero. Lo que queda (S8, S10, S11) es
+la fase 5 del plan: observabilidad y deuda, nada explotable.
 
 **Los seis últimos (S12-S17) aparecieron al escribir los tests de la fase 2**,
 no en la revisión inicial. Ninguno es de severidad alta, y ese es justo el
@@ -115,7 +123,7 @@ con mejor relación coste/impacto de toda la auditoría.
 
 ---
 
-## S2 · ALTA (en este despliegue) — API sin autenticación en localhost · CONFIRMADO
+## S2 · ALTA (en este despliegue) — API sin autenticación en localhost · CORREGIDO
 
 `backend/.env` tiene `MUXSPACE_AUTH_ENABLED=false`:
 
@@ -141,12 +149,54 @@ Cualquiera de esos servicios comprometido —o cualquier proceso local,
 contenedor o script— llega a `127.0.0.1:8000` y obtiene una shell sin dar
 un paso más. Un SSRF en cualquiera de ellos vale igual.
 
-**Corrección** — reactivar `MUXSPACE_AUTH_ENABLED=true`. El `.env` ya tiene
-`MUXSPACE_AUTH_MODE=pam`, así que no hay contraseña nueva que gestionar, y
-con `SESSION_TTL_HOURS=168` supone **un login cada 7 días**. El mTLS sigue
-siendo la primera puerta; esto es la segunda. La propia documentación lo
-recomienda ("algo que tienes + algo que sabes") y hoy solo está la primera
-mitad.
+**Corregido el 2026-07-28** — `MUXSPACE_AUTH_ENABLED=true` y
+`MUXSPACE_COOKIE_SECURE=true` en `backend/.env`, con el modo `pam` que ya
+estaba configurado (no hay contraseña nueva que gestionar). Con
+`SESSION_TTL_HOURS=168` supone **un login cada 7 días**. El mTLS sigue siendo
+la primera puerta; esto es la segunda: "algo que tienes + algo que sabes", que
+es lo que la propia documentación recomienda y hasta hoy estaba a medias.
+
+### Cómo se hizo sin arriesgar el acceso
+
+PAM se validó **antes** de tocar el `.env`, con un script que fuerza
+`MUXSPACE_AUTH_MODE=pam` por entorno y llama a la misma `verify_credentials`
+que usa `/api/login`. Si `unix_chkpwd` no hubiera podido verificar la
+contraseña del usuario del backend, el `.env` habría quedado intacto y el
+plan B era `MUXSPACE_AUTH_MODE=env` con una contraseña generada.
+
+Un detalle que casi lo estropea y conviene dejar escrito: **el entorno gana
+sobre el `.env`** (`load_dotenv` no hace override), y la shell desde la que se
+verificó tenía las `MUXSPACE_*` viejas exportadas. La primera comprobación
+después de editar el `.env` decía `AUTH_ENABLED: False` y era mentira. Lo que
+manda es el entorno del **servicio**, que no tiene ninguna:
+
+```console
+$ systemctl --user show-environment | grep -i muxspace     # nada
+$ tr '\0' '\n' < /proc/$(systemctl --user show proj-tmux.service -p MainPID --value)/environ | grep -i muxspace
+                                                            # nada
+```
+
+### Verificación tras el reinicio
+
+Las 16 rutas `/api` sin parámetros, sin credenciales:
+
+```console
+GET  /api/sessions          401      GET  /api/health   200   <- pública
+GET  /api/commands          401      POST /api/login    422   <- pública (sin cuerpo)
+GET  /api/projects          401      POST /api/logout   200   <- pública
+GET  /api/spaces            401
+GET  /api/dir-suggestions   401      ws://…/api/terminal/<x>  -> HTTP 403
+GET  /api/dir-browse        401         (cierre antes del accept: no hay terminal
+POST /api/upload            401          sin sesión)
+GET  /api/uploads           401
+GET  /api/pastes            401
+GET  /api/me                401
+POST /api/paste-image       401
+POST /api/dir-create        401
+```
+
+Y las sesiones de tmux del usuario sobrevivieron al reinicio (6 antes, las
+mismas 6 después): el `KillMode=process` de la unit hace su trabajo.
 
 ---
 
@@ -197,15 +247,21 @@ tumba el proceso. Con S2, sin credenciales.
 
 ---
 
-## S5 · MEDIA-BAJA — Peticiones sin `Origin` pasan el guard
+## S5 · MEDIA-BAJA — Peticiones sin `Origin` pasan el guard · RESUELTO (vía S2)
 
 `backend/main.py:324` (HTTP) y `backend/main.py:665` (WebSocket) dejan pasar
 todo lo que no traiga cabecera `Origin`. Es una decisión documentada ("el
 CSRF es un ataque de navegador") y con la autenticación activada es
 razonable: `curl` necesita credenciales igualmente.
 
-Con la autenticación desactivada, en cambio, es exactamente la puerta de S2:
-un `wscat` sin `Origin` abre un terminal. Se resuelve al resolver S2.
+Con la autenticación desactivada, en cambio, era exactamente la puerta de S2:
+un `wscat` sin `Origin` abría un terminal. **Resuelto al resolver S2**: el
+handshake del WebSocket sin cookie de sesión se rechaza con 403 antes del
+`accept`, comprobado contra el despliegue tras reactivar la autenticación.
+
+El comportamiento del guard no cambia y no hace falta que cambie: sigue
+dejando pasar lo que no trae `Origin`, y con la autenticación puesta eso es
+justo lo razonable (`curl` necesita credenciales igualmente).
 
 ---
 

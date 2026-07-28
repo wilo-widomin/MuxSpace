@@ -141,6 +141,7 @@ def suggest(q: str, limit: int = 50) -> list[str]:
             return []
 
     items: list[str] = []
+    vistos: set[str] = set()
     try:
         children = sorted(list_dir.iterdir(), key=lambda c: c.name)
     except (OSError, PermissionError):
@@ -155,7 +156,24 @@ def suggest(q: str, limit: int = 50) -> list[str]:
         # un nombre que empieza por punto.
         if child.name.startswith(".") and not prefix.startswith("."):
             continue
-        items.append(_abbreviate(child, roots))
+        # Que el DIRECTORIO listado esté dentro de una raíz no basta: un
+        # symlink plantado dentro de él puede apuntar fuera, y `_abbreviate`
+        # resuelve el enlace, así que lo que se enseñaba era la ruta real de
+        # fuera de las raíces. Entrar seguía bloqueado (`resolve_within_roots`
+        # lo rechaza), pero era filtración de rutas del sistema de ficheros
+        # a quien pudiera crear un enlace dentro de la raíz (S13).
+        if not _is_within(child, roots):
+            continue
+        abreviada = _abbreviate(child, roots)
+        # El otro efecto del mismo fallo: `_abbreviate` resuelve el enlace,
+        # así que `raiz/enlace_dentro -> raiz/sub` y `raiz/sub` producen la
+        # MISMA línea y el desplegable la enseñaba dos veces. Dos rutas
+        # abreviadas iguales son el mismo directorio real, así que descartar
+        # la repetida no esconde nada.
+        if abreviada in vistos:
+            continue
+        vistos.add(abreviada)
+        items.append(abreviada)
         if len(items) >= limit:
             break
     return items
@@ -203,11 +221,20 @@ def browse(q: str = "") -> dict | None:
         children = sorted(target.iterdir(), key=lambda c: c.name.lower())
     except (OSError, PermissionError):
         children = []
-    dirs = [
-        _abbreviate(c, roots)
-        for c in children
-        if c.is_dir() and not c.name.startswith(".")
-    ]
+    # Mismos dos controles que `suggest` y por los mismos motivos: un symlink
+    # dentro de la carpeta puede apuntar fuera, y como `_abbreviate` resuelve
+    # el enlace, un enlace y su destino producían la misma línea dos veces
+    # (S13).
+    dirs: list[str] = []
+    vistos: set[str] = set()
+    for c in children:
+        if not c.is_dir() or c.name.startswith(".") or not _is_within(c, roots):
+            continue
+        abreviada = _abbreviate(c, roots)
+        if abreviada in vistos:
+            continue
+        vistos.add(abreviada)
+        dirs.append(abreviada)
     parent = target.parent
     parent_abbr = (
         _abbreviate(parent, roots)

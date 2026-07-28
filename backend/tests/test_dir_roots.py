@@ -902,35 +902,88 @@ def test_suggest_lista_la_raiz_aunque_se_escriba_de_forma_retorcida(
 # Nacieron con `xfail(strict=True)` porque el PR de un test no cambia
 # `dir_suggestions.py`. El mecanismo funcionó como se quería: el día del
 # arreglo el test pasó, el XPASS se reportó como FALLO y quien arregló vino a
-# quitar la marca.
+# quitar la marca. Los dos (S13 y S14) están cerrados y lo que queda aquí son
+# regresiones normales.
 #
-# S14 (el bucle de symlinks) ya está cerrado y sus tests son regresiones
-# normales. S13 (`suggest`/`browse` listan hijos de fuera de las raíces) sigue
-# abierto con su marcador. Ninguno de los dos permite escribir fuera de las
-# raíces: el primero tumbaba la petición y el segundo filtra información.
+# Ninguno de los dos permitía escribir fuera de las raíces: S14 tumbaba la
+# petición y S13 filtraba rutas. Los controles positivos que acompañan a cada
+# uno son la parte que no se puede quitar: sin ellos, un módulo que rechazara
+# absolutamente todo pasaría este bloque entero.
 # ======================================================================
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "HALLAZGO: `suggest` y `browse` no filtran los HIJOS. Un symlink "
-        "plantado dentro de una raíz y apuntando fuera se lista, y como la "
-        "abreviatura resuelve el enlace, lo que se muestra es la ruta real "
-        "de fuera de las raíces. No permite entrar (resolve_within_roots lo "
-        "sigue rechazando), pero revela rutas del sistema de ficheros a "
-        "quien pueda crear un enlace en la raíz. Falta un _is_within sobre "
-        "cada hijo antes de listarlo."
-    ),
-)
 def test_suggest_nunca_ofrece_algo_de_fuera_de_las_raices(
     escenario: Escenario,
 ) -> None:
-    """Ninguna sugerencia puede caer fuera de las raíces configuradas."""
+    """S13: ninguna sugerencia puede caer fuera de las raíces configuradas.
+
+    Que el DIRECTORIO listado esté dentro de una raíz no bastaba: `suggest`
+    no miraba los HIJOS, así que un symlink plantado dentro y apuntando fuera
+    se listaba — y como `_abbreviate` resuelve el enlace, lo que se enseñaba
+    era la ruta real de fuera. Entrar seguía bloqueado, así que no permitía
+    leer ni escribir ahí: era filtración de rutas del sistema de ficheros.
+
+    El prefijo "e" es el que casa con los DOS enlaces del escenario a la vez
+    (`enlace_fuera` y `enlace_dentro`), que es justo lo que hace falta para
+    que el mismo test mida el rechazo y el control positivo de abajo.
+    """
     raiz = escenario.raiz.resolve()
     sugerencias = dir_suggestions.suggest(f"{escenario.raiz}/e")
     for s in sugerencias:
         assert Path(s).resolve().is_relative_to(raiz), f"{s} está fuera de la raíz"
+
+
+def test_suggest_sigue_ofreciendo_el_enlace_que_apunta_dentro(
+    escenario: Escenario,
+) -> None:
+    """El control positivo del filtro anterior.
+
+    Un `suggest` que devolviera la lista vacía pasaría el test de arriba sin
+    demostrar nada. Lo que se exige no es "no listes enlaces", es "resuelve el
+    enlace y decide con el destino": `enlace_dentro -> raiz/sub` está dentro,
+    así que su destino tiene que seguir apareciendo.
+    """
+    assert dir_suggestions.suggest(f"{escenario.raiz}/e") == [
+        str(escenario.sub.resolve())
+    ]
+
+
+def test_browse_tampoco_lista_hijos_de_fuera_de_las_raices(
+    escenario: Escenario,
+) -> None:
+    """La otra mitad de S13: `browse` tenía el mismo hueco que `suggest`.
+
+    Es la que alimenta el modal de "subir archivo", así que la ruta de fuera
+    se enseñaba en la lista de carpetas destino.
+    """
+    contenido = dir_suggestions.browse(str(escenario.raiz))
+    assert contenido is not None
+
+    raiz = escenario.raiz.resolve()
+    for d in contenido["dirs"]:
+        assert Path(d).resolve().is_relative_to(raiz), f"{d} está fuera de la raíz"
+
+    # Control positivo, por el mismo motivo que el de `suggest`: el destino
+    # del enlace que apunta dentro sigue estando.
+    assert str(escenario.sub.resolve()) in contenido["dirs"]
+
+
+def test_un_enlace_y_su_destino_no_salen_dos_veces(
+    escenario: Escenario,
+) -> None:
+    """El otro efecto del mismo fallo, y el que ve el usuario.
+
+    `_abbreviate` resuelve el enlace, así que `raiz/enlace_dentro` y
+    `raiz/sub` producen exactamente la misma cadena: el desplegable enseñaba
+    la misma carpeta dos veces sin forma de distinguirlas. Dos rutas
+    abreviadas iguales son el mismo directorio real, así que descartar la
+    repetida no esconde ningún destino.
+    """
+    sugerencias = dir_suggestions.suggest(f"{escenario.raiz}/")
+    assert len(sugerencias) == len(set(sugerencias)), sugerencias
+
+    dirs = dir_suggestions.browse(str(escenario.raiz))["dirs"]
+    assert len(dirs) == len(set(dirs)), dirs
 
 
 def test_un_bucle_de_symlinks_se_rechaza_sin_excepcion(

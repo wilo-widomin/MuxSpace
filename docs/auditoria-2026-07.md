@@ -44,7 +44,7 @@ De ahí salen las dos consecuencias que ordenan toda la auditoría:
 | S11 | Informativo | `preexec_fn` en un proceso con hilos | Por lectura |
 | S12 | Media-baja | Documentación de la API publicada sin autenticación | CONFIRMADO |
 | S13 | Baja | `suggest`/`browse` listan rutas de fuera de las raíces | CONFIRMADO |
-| S14 | Baja | Un bucle de symlinks devuelve 500 en vez de rechazo | CONFIRMADO |
+| S14 | Baja | Un bucle de symlinks devuelve 500 en vez de rechazo | **CORREGIDO** |
 | S15 | Baja | `UnicodeDecodeError` no capturado en los tres stores | **CORREGIDO** |
 | S16 | Baja | `spaces.json` no-objeto → `AttributeError` → 500 | **CORREGIDO** |
 | S17 | Baja | Una sesión con nombre que empieza por `$` no se puede matar | **CORREGIDO** |
@@ -61,10 +61,10 @@ cuando alguien se pregunta "¿y si el JSON está cortado a medio carácter?".
 | S15, S16 | US-006, en los casos de JSON corrupto |
 | S17 | US-007, al probar el ciclo de vida contra tmux real |
 
-S12, S15, S16 y S17 están corregidos. S13 y S14 siguen **cubiertos por tests
-`xfail(strict=True)`**: existen en la suite, no la bloquean, y el día que
-alguien los arregle sin quitar el marcador se ponen en rojo. El arreglo no se
-puede colar sin enterarse.
+S12, S14, S15, S16 y S17 están corregidos. S13 sigue **cubierto por un test
+`xfail(strict=True)`**: existe en la suite, no la bloquea, y el día que alguien
+lo arregle sin quitar el marcador se pone en rojo. El arreglo no se puede colar
+sin enterarse.
 
 S17 fue la excepción a ese mecanismo, y conviene saber por qué: su test era de
 **caracterización**, no un `xfail`. Fijaba el comportamiento de tmux
@@ -440,7 +440,7 @@ la marca.
 
 ---
 
-## S14 · BAJA — Un bucle de symlinks devuelve 500
+## S14 · BAJA — Un bucle de symlinks devuelve 500 · CORREGIDO
 
 ```
 resolve_within_roots(raiz/bucle) -> RuntimeError: Symlink loop from '.../bucle'
@@ -460,11 +460,32 @@ sugerencias y la subida de archivos.
 De paso explica por qué los `except OSError` de ese módulo no llegan a
 ejercitarse: están muertos justo para el caso que los justificaba.
 
-**Corrección** — capturar también `RuntimeError` (o `(OSError, RuntimeError)`)
-en los tres puntos.
+**Corregido** — pero no "en los tres puntos": el módulo llama a `resolve()` en
+**cinco** (`_resolve_roots`, `_is_within`, `_abbreviate`,
+`resolve_within_roots` y `create_dir`), y basta con que a uno se le olvide un
+tipo de excepción para reabrir el agujero. Se centraliza en dos helpers:
 
-Cubierto por `test_dir_roots.py::test_un_bucle_de_symlinks_se_rechaza_sin_excepcion`,
-`xfail(strict=True)`.
+- `_resolve(path) -> Path | None`, que captura `(OSError, RuntimeError)`. Lo
+  usa `resolve_within_roots`, que es quien **decide** si algo es accesible: un
+  destino irresoluble se rechaza.
+- `_resolve_or_same(path) -> Path`, que cae a la ruta sin resolver. Lo usan los
+  sitios que solo comparan o imprimen, que es el comportamiento que ya tenían.
+
+Regresiones en `test_dir_roots.py` (ya sin `xfail`), una por puerta de entrada:
+
+| Test | Cubre |
+|---|---|
+| `test_un_bucle_de_symlinks_se_rechaza_sin_excepcion` | `resolve_within_roots`, `browse`, `suggest` |
+| `test_un_bucle_de_symlinks_tampoco_revienta_al_crear_una_carpeta` | `create_dir`, el único que escribe |
+| `test_una_raiz_configurada_que_es_un_bucle_no_tumba_el_modulo_entero` | `_resolve_roots`: el peor caso |
+
+El tercero es el que faltaba: con una **raíz** irresuelble no se rompe una
+petición, se caen a la vez el navegador, las sugerencias y la subida, y no hay
+forma de arreglarlo desde el panel. Lleva una raíz sana en la misma lista para
+distinguir "no revienta" de "no devuelve nada".
+
+Verificado por mutación: devolver `_resolve` a `except OSError` pone en rojo
+los tres.
 
 
 ---

@@ -897,15 +897,17 @@ def test_suggest_lista_la_raiz_aunque_se_escriba_de_forma_retorcida(
 
 
 # ======================================================================
-# Hallazgos: casos del criterio de aceptación que HOY no se cumplen.
+# Hallazgos: casos del criterio de aceptación que US-003 destapó.
 #
-# Van con `xfail(strict=True)` a propósito. No se arreglan aquí (cambiar
-# `dir_suggestions.py` no entra en el PR de un test) y no se borran (el
-# criterio de aceptación los pide). `strict=True` es la parte importante: el
-# día que alguien arregle el módulo, estos tests pasarán, el XPASS se
-# reportará como FALLO y quien arregle tendrá que venir a quitar la marca.
-# Ninguno de los dos permite escribir fuera de las raíces: el primero filtra
-# información y el segundo tumba la petición.
+# Nacieron con `xfail(strict=True)` porque el PR de un test no cambia
+# `dir_suggestions.py`. El mecanismo funcionó como se quería: el día del
+# arreglo el test pasó, el XPASS se reportó como FALLO y quien arregló vino a
+# quitar la marca.
+#
+# S14 (el bucle de symlinks) ya está cerrado y sus tests son regresiones
+# normales. S13 (`suggest`/`browse` listan hijos de fuera de las raíces) sigue
+# abierto con su marcador. Ninguno de los dos permite escribir fuera de las
+# raíces: el primero tumbaba la petición y el segundo filtra información.
 # ======================================================================
 
 
@@ -931,24 +933,76 @@ def test_suggest_nunca_ofrece_algo_de_fuera_de_las_raices(
         assert Path(s).resolve().is_relative_to(raiz), f"{s} está fuera de la raíz"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "HALLAZGO: un bucle de symlinks dentro de una raíz hace que "
-        "`Path.resolve()` lance RuntimeError (Python <=3.12 convierte el "
-        "ELOOP), y `resolve_within_roots` solo captura OSError. La "
-        "excepción sube hasta el endpoint: 500 en vez del rechazo limpio "
-        "que promete el contrato (`None`). Lo puede provocar cualquiera que "
-        "pueda crear un enlace dentro de la raíz, incluido el propio usuario "
-        "sin querer."
-    ),
-)
 def test_un_bucle_de_symlinks_se_rechaza_sin_excepcion(
     escenario: Escenario,
 ) -> None:
-    """Un enlace que apunta a sí mismo no es navegable, pero tampoco revienta."""
+    """S14: un enlace que apunta a sí mismo no es navegable, pero no revienta.
+
+    `Path.resolve()` no traduce todos sus fallos a `OSError`: el ELOOP sale
+    como **`RuntimeError`**, que no es subclase suya. El módulo capturaba solo
+    `OSError`, así que la excepción subía hasta el endpoint: **500** en vez del
+    rechazo limpio que promete el contrato (`None`). Lo provoca cualquiera que
+    pueda crear un enlace dentro de la raíz, incluido el propio usuario sin
+    querer.
+
+    Se recorren las tres puertas de entrada porque cada una llega al `resolve()`
+    por su camino: `resolve_within_roots` directamente, `browse` a través de
+    ella, y `suggest` por `_is_within` (que además tiene que sobrevivir al
+    `iterdir` del propio bucle).
+    """
     bucle = escenario.raiz / "bucle"
     bucle.symlink_to(bucle)
     assert dir_suggestions.resolve_within_roots(str(bucle)) is None
     assert dir_suggestions.browse(str(bucle)) is None
     assert dir_suggestions.suggest(str(bucle) + "/") == []
+
+
+def test_un_bucle_de_symlinks_tampoco_revienta_al_crear_una_carpeta(
+    escenario: Escenario,
+) -> None:
+    """La cuarta puerta: `create_dir` resuelve el destino por su cuenta.
+
+    No pasa por `resolve_within_roots` para comprobar la contención del
+    destino final —lo hace con su propio `resolve()`—, así que es un sitio
+    donde el ELOOP podía subir aunque los otros tres estuvieran arreglados. Es
+    también el único de los cuatro que ESCRIBE, así que un 500 aquí es un 500
+    a mitad de una operación.
+    """
+    bucle = escenario.raiz / "bucle"
+    bucle.symlink_to(bucle)
+
+    # El bucle como padre: `resolve_within_roots` lo rechaza y no se crea nada.
+    assert dir_suggestions.create_dir(str(bucle), "nueva") is None
+    # Y como nombre: el padre es legítimo, pero el destino ya existe y es el
+    # bucle, así que quien revienta es el `resolve()` del propio `create_dir`.
+    assert dir_suggestions.create_dir(str(escenario.raiz), "bucle") is None
+
+
+def test_una_raiz_configurada_que_es_un_bucle_no_tumba_el_modulo_entero(
+    escenario: Escenario, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """El peor caso de S14: el bucle no está DENTRO de la raíz, es la raíz.
+
+    `_resolve_roots()` corre en las cuatro funciones públicas del módulo, así
+    que una raíz irresoluble no rompe una petición: se caen a la vez el
+    navegador de carpetas, las sugerencias y la subida de archivos, y no hay
+    forma de arreglarlo desde el panel.
+
+    La raíz buena va en la lista para que el test distinga "no revienta" de
+    "no devuelve nada": las sugerencias de la raíz sana tienen que seguir
+    saliendo con la enferma al lado.
+    """
+    raiz_bucle = tmp_path / "raiz-bucle"
+    raiz_bucle.symlink_to(raiz_bucle)
+    _fijar_raices(monkeypatch, raiz_bucle, escenario.raiz)
+
+    assert dir_suggestions.resolve_within_roots(str(raiz_bucle)) is None
+    assert dir_suggestions.browse(str(raiz_bucle)) is None
+
+    # La raíz sana sigue funcionando con la enferma en la misma lista.
+    assert dir_suggestions.suggest(f"{escenario.raiz}/su") == [
+        str(escenario.sub.resolve())
+    ]
+    assert dir_suggestions.resolve_within_roots(str(escenario.sub)) == (
+        escenario.sub.resolve()
+    )

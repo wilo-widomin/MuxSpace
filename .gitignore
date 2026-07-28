@@ -40,10 +40,17 @@ frontend/dist/
 backend/data/*
 !backend/data/banned_ips.json.example
 
-# Pipeline de historias de usuario: worktrees efímeros (uno por US) y el
-# estado del loop, que es local a cada máquina. La config SÍ se versiona.
+# Pipeline de historias de usuario: worktrees efímeros (uno por US).
 .trees/
-.claude/state/
+
+# Todo lo de `.claude/` es local a cada máquina —el estado del loop, notas de
+# traspaso entre sesiones, lo que haga falta— MENOS las dos piezas que hacen
+# funcionar el pipeline en cualquier clon. Se listan una a una a propósito:
+# con `.claude/` a secas, el día que alguien toque la config o el script sus
+# cambios dejarían de versionarse sin que nada avise.
+.claude/*
+!.claude/us-pipeline.config.json
+!.claude/us-worktree.sh
 
 # Pruebas
 .pytest_cache/

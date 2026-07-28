@@ -50,3 +50,13 @@ select = ["E", "F", "I", "B", "S"]
 # Los alias de este repo (`create_session as create_auth_session`) existen para
 # desambiguar, no para separarse del resto de su módulo.
 combine-as-imports = true
+
+# ----------------------------------------------------------------------
+# coverage (US-009).
+# ----------------------------------------------------------------------
+[tool.coverage.run]
+# Los tests se excluyen de la MEDIDA. Medir la cobertura de los propios tests
+# infla el total (90% con ellos, 76% sin ellos) sin decir nada útil: un test
+# se ejecuta entero por definición. El número que va al gate tiene que hablar
+# del código que sirve el panel.
+omit = ["backend/tests/*"]

@@ -40,6 +40,7 @@ import pwd
 import secrets
 import threading
 import time
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from fastapi import HTTPException, Request, WebSocket, status
@@ -50,6 +51,7 @@ from config import (
     AUTH_PASSWORD,
     AUTH_USERNAME,
     PAM_SERVICE,
+    SESSION_IDLE_HOURS,
     SESSION_TTL_HOURS,
 )
 from datafiles import write_private
@@ -58,9 +60,25 @@ from errors import error_detail, http_error
 # Nombre de la cookie de sesión que emite /api/login.
 SESSION_COOKIE = "muxspace_session"
 
-# token -> (username, expira_epoch). Protegido por lock porque los endpoints
-# síncronos de FastAPI corren en un threadpool.
-_sessions: dict[str, tuple[str, float]] = {}
+@dataclass(frozen=True)
+class Sesion:
+    """Una sesión viva. Dos relojes, y los dos hacen falta.
+
+    `expira_absoluto` se fija en el login y **no se renueva nunca**;
+    `ultimo_uso` se actualiza en cada petición autenticada. La sesión muere
+    con el primero de los dos que venza. Sin el techo absoluto, un TTL
+    deslizante es peor que el TTL fijo que sustituye: una cookie robada dura
+    para siempre mientras el atacante la use una vez al día.
+    """
+
+    username: str
+    expira_absoluto: float
+    ultimo_uso: float
+
+
+# token -> Sesion. Protegido por lock porque los endpoints síncronos de
+# FastAPI corren en un threadpool.
+_sessions: dict[str, Sesion] = {}
 _sessions_lock = threading.Lock()
 
 # Anti fuerza bruta del login: ip -> registro con la ventana de rate limit
@@ -148,13 +166,32 @@ def verify_credentials(username: str, password: str) -> bool:
 # ----------------------------------------------------------------------
 # Sesiones (token aleatorio en cookie HttpOnly)
 # ----------------------------------------------------------------------
+def _now() -> float:
+    """El reloj, a través de una función propia para poder simularlo.
+
+    Los tests de caducidad necesitan saltar 24 horas hacia delante. La
+    alternativa —parchear `time.time` del módulo estándar— se lo cambiaría
+    también a todo lo demás que corre en el proceso, incluido el rate limit
+    del login, que mide en la misma escala.
+    """
+    return time.time()
+
+
 def create_session(username: str) -> str:
     """Crea una sesión nueva y devuelve su token (valor de la cookie)."""
     token = secrets.token_urlsafe(32)
-    expires = time.time() + SESSION_TTL_HOURS * 3600
+    ahora = _now()
     with _sessions_lock:
         _purge_expired_locked()
-        _sessions[token] = (username, expires)
+        _sessions[token] = Sesion(
+            username=username,
+            # Techo ABSOLUTO, fijado en el login y nunca renovado. Es lo que
+            # impide que la ventana deslizante convierta una cookie robada en
+            # un acceso permanente: basta con que el atacante toque el panel
+            # una vez al día.
+            expira_absoluto=ahora + SESSION_TTL_HOURS * 3600,
+            ultimo_uso=ahora,
+        )
     return token
 
 
@@ -166,26 +203,55 @@ def destroy_session(token: str | None) -> None:
         _sessions.pop(token, None)
 
 
+def destroy_all_sessions() -> int:
+    """Invalida TODAS las sesiones y devuelve cuántas había.
+
+    La usa `POST /api/logout-all`. Incluye la de quien la llama: es una
+    respuesta a "creo que me han robado la cookie", y una revocación con
+    excepciones no revoca nada.
+    """
+    with _sessions_lock:
+        cuantas = len(_sessions)
+        _sessions.clear()
+    return cuantas
+
+
+def _caducada(sesion: Sesion, ahora: float) -> bool:
+    """¿La sesión pasó el techo absoluto o la ventana de inactividad?"""
+    return (
+        ahora >= sesion.expira_absoluto
+        or ahora - sesion.ultimo_uso >= SESSION_IDLE_HOURS * 3600
+    )
+
+
 def session_user(token: str | None) -> str | None:
-    """Usuario de la sesión, o None si el token no existe o expiró."""
+    """Usuario de la sesión, o None si el token no existe o caducó.
+
+    **Renueva la ventana de inactividad**: cada petición autenticada pasa por
+    aquí, así que usar el panel mantiene la sesión viva. Lo que no renueva es
+    el techo absoluto, que se fija en el login y no se mueve.
+    """
     if not token:
         return None
-    now = time.time()
+    ahora = _now()
     with _sessions_lock:
-        entry = _sessions.get(token)
-        if entry is None:
+        sesion = _sessions.get(token)
+        if sesion is None:
             return None
-        username, expires = entry
-        if expires < now:
+        if _caducada(sesion, ahora):
             del _sessions[token]
             return None
-        return username
+        # La ventana se desliza aquí, y no en un middleware, porque este es el
+        # único punto por el que pasan TODAS las peticiones autenticadas: la
+        # API por `require_auth` y el WebSocket del terminal por `ws_user`.
+        _sessions[token] = replace(sesion, ultimo_uso=ahora)
+        return sesion.username
 
 
 def _purge_expired_locked() -> None:
-    now = time.time()
-    expired = [t for t, (_, exp) in _sessions.items() if exp < now]
-    for t in expired:
+    ahora = _now()
+    caducadas = [t for t, s in _sessions.items() if _caducada(s, ahora)]
+    for t in caducadas:
         del _sessions[t]
 
 

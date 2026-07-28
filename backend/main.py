@@ -35,6 +35,7 @@ from auth import (
     check_login_allowed,
     clear_login_failures,
     create_session as create_auth_session,
+    destroy_all_sessions as destroy_all_auth_sessions,
     destroy_session as destroy_auth_session,
     is_ip_banned,
     register_login_failure,
@@ -186,6 +187,12 @@ class DetachSessionResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class LogoutAllResponse(BaseModel):
+    # Cuántas sesiones se han revocado. Sirve para saber, en la respuesta a
+    # una sospecha, si había alguna sesión abierta además de la tuya.
+    revoked: int
 
 
 # ---------------------------------------------------------------------- #
@@ -514,6 +521,15 @@ def login(body: LoginBody, request: Request, response: Response) -> UserResponse
     response.set_cookie(
         SESSION_COOKIE,
         token,
+        # El `Max-Age` es el techo ABSOLUTO (168 h), no la ventana de
+        # inactividad (24 h), y NO se re-emite en cada petición. Es una
+        # decisión, no un olvido: la caducidad de verdad la decide el
+        # servidor en `session_user`, y una cookie que el navegador conserve
+        # de más no da ningún acceso —la petición sale con 401 y el frontend
+        # manda al login—. Re-emitirla en cada respuesta obligaría a que cada
+        # endpoint del panel acepte un `Response` solo para eso, y a mandar
+        # un `Set-Cookie` con una credencial viva en TODAS las respuestas,
+        # incluidas las del sondeo cada 8 s. Peor por los dos lados.
         max_age=config.SESSION_TTL_HOURS * 3600,
         httponly=True,
         samesite="lax",
@@ -532,6 +548,32 @@ def logout(request: Request, response: Response) -> MessageResponse:
     destroy_auth_session(request.cookies.get(SESSION_COOKIE))
     response.delete_cookie(SESSION_COOKIE, path="/")
     return MessageResponse(message="ok")
+
+
+@app.post("/api/logout-all", response_model=LogoutAllResponse)
+def logout_all(
+    request: Request, response: Response, user: str = _auth
+) -> LogoutAllResponse:
+    """Invalida **todas** las sesiones abiertas, incluida la de quien llama.
+
+    Para cuando se sospecha que una cookie de sesión anda por donde no debe:
+    hasta ahora la única forma de revocarlas era reiniciar el backend, que
+    además se lleva por delante las terminales abiertas.
+
+    Se lleva la propia por delante a propósito. Una revocación con
+    excepciones no revoca nada: si el atacante es quien la llama, dejarle su
+    sesión viva convierte el endpoint en un arma en su favor.
+
+    Exige autenticación (`_auth`): sin ella sería un botón de "echar al
+    dueño" accesible a cualquiera que alcance el puerto.
+    """
+    cuantas = destroy_all_auth_sessions()
+    # La cookie del que llama ya no vale para nada, pero se borra igual para
+    # que su navegador no siga mandándola en cada petición.
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    audit.record("logout-all", request=request, user=user,
+                 detail={"revoked": cuantas})
+    return LogoutAllResponse(revoked=cuantas)
 
 
 @app.get("/api/me", response_model=UserResponse)

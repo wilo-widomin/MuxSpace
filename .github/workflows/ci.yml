@@ -1,0 +1,118 @@
+# Gate de calidad. Merge bloqueado si algo de esto se pone en rojo.
+#
+# Dos jobs en paralelo y deliberadamente simétricos con lo que se corre en
+# local (ver el README): si el CI comprueba algo que no se puede reproducir en
+# la máquina de uno, el CI deja de ser útil y pasa a ser un obstáculo.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Un push nuevo sobre la misma rama cancela la ejecución anterior: lo que
+# importa es el estado del último commit, no la cola de los intermedios.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # La misma que el venv del despliegue: una diferencia de menor
+          # aquí y el CI empieza a aprobar cosas que en producción fallan.
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      # tmux de verdad, no un mock: `test_tmux_service.py` habla con él por
+      # un socket propio (`-L`). Sin esto sus 55 tests se saltarían en
+      # silencio —el `skipif` los marca como omitidos, no como fallo— y nadie
+      # se enteraría de que la mitad con más riesgo del módulo no se prueba.
+      - name: Instalar tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux
+
+      - name: Instalar dependencias
+        run: pip install -r backend/requirements-dev.txt
+
+      - name: ruff
+        run: ruff check backend/
+
+      # `--cov-fail-under=60` con la cobertura real en el 76% de las
+      # sentencias de código fuente (los tests se excluyen en la config de
+      # coverage: medir la cobertura de los tests infla el número sin decir
+      # nada). El margen es a propósito: los endpoints `async` no se miden
+      # bien —coverage deja de trazar la corrutina en cuanto se suspende, ver
+      # docs/historias/contexto-tecnico.md— y subir el listón chocaría con ese
+      # techo artificial, no con la calidad de las pruebas.
+      - name: pytest
+        run: pytest --cov=backend --cov-fail-under=60
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # `bun`, nunca `setup-node` + npm: el lockfile del proyecto es
+      # `bun.lock` y npm generaría otro distinto (ver contexto-tecnico.md).
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Caché de bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Instalar dependencias
+        working-directory: frontend
+        # `--frozen-lockfile`: si alguien tocó package.json sin actualizar el
+        # lockfile, el CI lo dice aquí en vez de instalar otra cosa.
+        run: bun install --frozen-lockfile
+
+      - name: eslint
+        working-directory: frontend
+        run: bun run lint
+
+      # El paso de vitest no existe todavía y NO se disfraza de comprobación
+      # que pasa siempre: se detecta si el script `test` existe y, si no, el
+      # paso se salta de forma visible en el log. Lo activa US-017 sin tocar
+      # este archivo, con solo añadir el script a package.json.
+      - name: ¿Hay vitest?
+        id: detectar-vitest
+        working-directory: frontend
+        run: |
+          if bun -e 'const s=require("./package.json").scripts||{};process.exit(s.test?0:1)'; then
+            echo "hay=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "hay=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Sin script \`test\` en frontend/package.json: vitest se omite. Lo activa US-017."
+          fi
+
+      - name: vitest
+        if: steps.detectar-vitest.outputs.hay == 'true'
+        working-directory: frontend
+        run: bun run test
+
+      - name: build
+        working-directory: frontend
+        run: bun run build
+
+      # Como ERROR, no como aviso (US-022 lo dejó sin avisos para que esto
+      # fuera posible): una clave que falte degrada la interfaz en silencio en
+      # los otros cinco idiomas, que es justo lo que nadie va a ver probando.
+      - name: check-i18n
+        working-directory: frontend
+        run: bun run check-i18n

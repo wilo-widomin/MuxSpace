@@ -186,6 +186,44 @@ aunque se recargue la web: solo se cierra la "ventana" de visualización.
   caracteres que interpretaría el shell, para poder pegarlas de una pieza.
 - La anchura del sidebar es arrastrable.
 
+## CI: qué bloquea un merge
+
+`.github/workflows/ci.yml` corre en cada `pull_request` y en cada `push` a
+`main`, con dos jobs en paralelo. **Si alguno se pone en rojo, no se mergea.**
+
+| Job | Pasos |
+|---|---|
+| `backend` | instalar tmux → `pip install -r backend/requirements-dev.txt` → `ruff check backend/` → `pytest --cov=backend --cov-fail-under=60` |
+| `frontend` | `bun install --frozen-lockfile` → `bun run lint` → *(vitest, cuando exista)* → `bun run build` → `bun run check-i18n` |
+
+Todo eso se reproduce en local con los comandos de la sección siguiente: si el
+CI comprueba algo que no puedes ejecutar en tu máquina, deja de ser útil y pasa
+a ser un obstáculo.
+
+Tres detalles que no son evidentes:
+
+- **El job de backend instala `tmux`**, y no es un adorno:
+  `test_tmux_service.py` habla con un tmux real por un socket propio (`-L`).
+  Sin el paquete, sus 55 tests se **saltan en silencio** —el `skipif` los marca
+  como omitidos, no como fallo— y nadie se entera de que la mitad con más
+  riesgo del módulo no se está probando.
+- **`check-i18n` corre como error, no como aviso.** Una clave que falte degrada
+  la interfaz en silencio en los otros cinco idiomas, que es justo lo que nadie
+  va a ver probando a mano.
+- **La cobertura se mide sin los tests** (`[tool.coverage.run] omit` en
+  `pyproject.toml`). Con ellos sale 90% y no significa nada: un test se ejecuta
+  entero por definición. Sin ellos, hoy es el **76%**, y el gate está en 60.
+  El margen es deliberado — los endpoints `async` no se miden bien (coverage
+  deja de trazar la corrutina en cuanto se suspende), así que subir el listón
+  chocaría con ese techo artificial y no con la calidad de las pruebas.
+
+### Protección de rama (se configura a mano, una vez)
+
+El workflow **por sí solo no impide mergear**: hace falta marcar los checks
+como obligatorios en GitHub. En *Settings → Branches → Add branch protection
+rule* para `main`, activar *Require status checks to pass before merging* y
+seleccionar `backend` y `frontend`.
+
 ## Calidad: tests, linters y formato
 
 ```bash

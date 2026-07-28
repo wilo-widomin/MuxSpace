@@ -57,3 +57,11 @@ backend/data/*
 .coverage
 htmlcov/
 coverage.xml
+
+# E2E (US-024). El backend de pruebas y sus datos viven en un temporal del
+# sistema; aquí solo quedan el log y el `entorno.json` que el arranque escribe
+# para los tests, más lo que Playwright genera al fallar.
+frontend/e2e/.tmp/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/

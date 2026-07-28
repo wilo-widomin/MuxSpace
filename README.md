@@ -197,6 +197,9 @@ aunque se recargue la web: solo se cierra la "ventana" de visualización.
 | `backend` | instalar tmux → `pip install -r backend/requirements-dev.txt` → `ruff check backend/` → `pytest --cov=backend --cov-fail-under=60` |
 | `frontend` | `bun install --frozen-lockfile` → `bun run lint` → `bun run test` (vitest) → `bun run build` → `bun run check-i18n` |
 
+Los E2E de Playwright (`bun run test:e2e`) **no** están en esta lista: ver
+[abajo](#tests-de-extremo-a-extremo-playwright).
+
 Todo eso se reproduce en local con los comandos de la sección siguiente: si el
 CI comprueba algo que no puedes ejecutar en tu máquina, deja de ser útil y pasa
 a ser un obstáculo.
@@ -267,6 +270,43 @@ bun run format         # reformatea (cambio grande, hacerlo en su propio PR)
 Formatear entero es un cambio mecánico de ~1.100 líneas, y 950 caen en
 `Sidebar.jsx`. Tiene más sentido después de trocearlo (fase 4) que antes, así
 que `format:check` **no** forma parte del gate de CI.
+
+### Tests de extremo a extremo (Playwright)
+
+```bash
+cd frontend
+bunx playwright install chromium   # una vez: ~120 MB de navegador
+bun run test:e2e                   # el recorrido completo en un navegador
+bun run test:e2e:ui                # el modo interactivo, para depurar
+```
+
+Prueban lo que ni `vitest` ni el `TestClient` de FastAPI pueden: que el login,
+la cookie, el listado y la creación de sesiones encajan **en un navegador de
+verdad**, contra el *build* servido por el `StaticFiles` del backend —el mismo
+montaje que producción, con la CSP y las cabeceras de seguridad puestas—. De
+paso comprueban que el recorrido no dispara **ni una violación de CSP**, que es
+la comprobación que la fase 0 dejó pendiente de automatizar.
+
+**Nada de esto toca tu instalación.** Cada ejecución levanta su propio
+MuxSpace, y el aislamiento son tres capas independientes:
+
+| Qué | Cómo |
+|---|---|
+| Los datos | El backend se **copia a un temporal**, así que su `data/` (que `main.py` calcula como `Path(__file__).parent / "data"`) cae dentro del temporal por construcción. No hay variable que se pueda olvidar. |
+| tmux | Servidor propio, seleccionado por socket (`-L`) mediante un wrapper. Dos sockets son dos procesos `tmux` que no comparten ni sesiones ni nada. |
+| El puerto | Se pide uno libre al sistema. Nunca el 8000. |
+
+El arranque **verifica** el aislamiento antes de correr ningún test: crea una
+sesión por el wrapper y comprueba que no aparece en tu servidor de tmux. Si
+apareciera, aborta.
+
+Las sesiones que crea llevan el prefijo `muxspace-e2e-` y el teardown mata
+**solo** esas, apaga el servidor de tmux de pruebas y borra el temporal. Si
+algo falla, el log del backend de pruebas queda en `frontend/e2e/.tmp/` y las
+trazas de Playwright en `frontend/test-results/`.
+
+**No están en el CI**, y es deliberado: necesitan `tmux` y un navegador de
+120 MB. Se decide con datos cuando haya más recorridos; el actual tarda ~9 s.
 
 ## Estructura del proyecto
 

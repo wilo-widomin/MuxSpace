@@ -132,6 +132,37 @@ Conforme una US cree uno, **añádelo a `verify` en
 `.claude/us-pipeline.config.json` en el mismo PR**. Ese es el mecanismo por el
 que el DoD se va apretando solo.
 
+### `kill-server` de tmux es asíncrono (y hacía intermitente la suite)
+
+`kill-server` vuelve cuando ha **mandado** la orden, no cuando el servidor ha
+muerto. Un `new-session` que caiga en esa ventana falla con **"server exited
+unexpectedly"**, que `create_session` no reconoce —no dice "duplicate
+session"— y eleva como `TmuxError`.
+
+El teardown de `tmux_aislado` hacía exactamente eso antes de cada test
+siguiente, así que la suite entera fallaba **una pasada completa de cada ~20**,
+en un test distinto cada vez. Medido en tmux 3.4, encadenando las dos
+operaciones sin pausa:
+
+| Encadenando | Fallos |
+|---|---|
+| `kill-server` + `new-session` | 30 / 500 (6 %) |
+| `ServidorDePruebas.apagar()` + `new-session` | 0 / 1200 |
+
+En la suite la tasa era mucho más baja porque entre test y test pytest gasta
+decenas de milisegundos (deshacer `monkeypatch`, fixtures) que casi siempre
+bastan. **"Casi siempre" es lo que no sirve con un CI que bloquea merges**: un
+rojo intermitente enseña a reintentar hasta que pase, y ahí el CI deja de
+valer para nada.
+
+Por eso en `test_tmux_service.py` nunca se llama a `kill-server` directamente:
+se usa `ServidorDePruebas.apagar()`, que mata y **espera** a que
+`list-sessions` conteste "no server running". Si escribes un test que necesite
+apagar el servidor de pruebas, usa ese helper.
+
+No afecta a producción: `tmux_service` no llama a `kill-server` en ningún
+sitio, ni debe (mataría las sesiones del usuario).
+
 ### La cobertura de los endpoints `async` no se mide (US-004)
 
 `coverage.py` deja de trazar el frame de una corrutina en cuanto el bucle de

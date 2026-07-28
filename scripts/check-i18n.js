@@ -40,6 +40,21 @@ const placeholders = (value) => {
 const pluralForms = (lang) =>
   new Set(new Intl.PluralRules(lang).resolvedOptions().pluralCategories)
 
+// Formas plurales que este panel no puede alcanzar, así que echarlas en falta
+// es ruido y no una traducción pendiente.
+//
+// `many` en es/fr/it/pt es la categoría de las cantidades enormes escritas de
+// forma COMPACTA ("1 millón de ventanas"): CLDR solo la selecciona con
+// `Intl.NumberFormat(..., {notation: 'compact'})`. Aquí los dos únicos plurales
+// del catálogo cuentan ventanas de tmux y sesiones a borrar, se formatean como
+// enteros normales y jamás llegan a esa notación — el runtime cae a `other`,
+// que se lee perfectamente.
+//
+// Se silencia esta forma concreta en vez de inventar traducciones que ningún
+// idioma de la lista usa de verdad: ver docs/i18n.md. Si algún día se muestra
+// una cantidad en notación compacta, hay que quitar `many` de aquí.
+const FORMAS_INALCANZABLES = new Set(['many'])
+
 const base = load(BASE)
 const baseKeys = Object.keys(base)
 const langs = readdirSync(LOCALES_DIR)
@@ -73,18 +88,14 @@ for (const lang of langs) {
         `${key}: ${basePlural ? 'debería tener formas plurales' : 'no debería tener formas plurales'}`,
       )
     } else if (basePlural) {
-      // `other` es obligatorio: es la forma a la que cae el runtime cuando
-      // no encuentra la que toca. Las demás formas que distingue el idioma
-      // (p. ej. "many", que en es/fr/it/pt solo aplica a cantidades enormes
-      // escritas de forma compacta —"1 millón de ventanas"—) se avisan pero
-      // no bloquean: con un contador de ventanas nunca se alcanzan y `other`
-      // se lee bien.
+      // `other` es obligatorio: es la forma a la que cae el runtime cuando no
+      // encuentra la que toca.
       if (catalog[key].other == null) {
         report(lang, `${key}: falta la forma plural obligatoria "other"`)
       }
-      const missing = [...pluralForms(lang)].filter(
-        (form) => catalog[key][form] == null,
-      )
+      const missing = [...pluralForms(lang)]
+        .filter((form) => !FORMAS_INALCANZABLES.has(form))
+        .filter((form) => catalog[key][form] == null)
       if (missing.length) {
         warnings.push(
           `[${lang}] ${key}: sin forma(s) ${missing.join(', ')} (cae a "other")`,
@@ -99,8 +110,14 @@ for (const lang of langs) {
 }
 
 // ---- Claves usadas en el código pero ausentes del catálogo ----
-// Solo detecta las literales `t('clave')`; una clave construida en tiempo de
-// ejecución no se puede comprobar así, y por eso no las usamos.
+// Detecta las literales `t('clave')` y, por separado, los PREFIJOS de las
+// claves que el código construye en tiempo de ejecución —hoy solo
+// t(`grid.layout_${modo}`)—. El comentario que había aquí decía que no se
+// usaban claves dinámicas; sí se usan, y creérselo llevaba a que las tres
+// `grid.layout_*` salieran listadas como "sin uso" y a que el plan las diera
+// por borrables. Borrarlas dejaría los tres botones de disposición
+// enseñando "grid.layout_auto" como tooltip y como aria-label, porque `t()`
+// devuelve la propia clave cuando no la encuentra.
 const sources = []
 const walk = (dir) => {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -112,18 +129,41 @@ const walk = (dir) => {
 walk(SRC_DIR)
 
 const used = new Map()
+// Prefijos literales de claves dinámicas: de t(`grid.layout_${x}`) sale
+// "grid.layout_". Cualquier clave del catálogo que empiece así cuenta como
+// usada, que es lo más que se puede afirmar sin ejecutar el código.
+const usedPrefixes = new Map()
 for (const file of sources) {
   const code = readFileSync(file, 'utf8')
   for (const m of code.matchAll(/(?:\bt|\.current)\(\s*'([\w.]+)'/g)) {
     if (!used.has(m[1])) used.set(m[1], relative(ROOT, file))
   }
+  for (const m of code.matchAll(/(?:\bt|\.current)\(\s*`([\w.]*)\$\{/g)) {
+    if (m[1] && !usedPrefixes.has(m[1])) {
+      usedPrefixes.set(m[1], relative(ROOT, file))
+    }
+  }
 }
+const usedDynamically = (key) =>
+  [...usedPrefixes.keys()].some((prefix) => key.startsWith(prefix))
 for (const [key, file] of used) {
   if (!(key in base)) problems.push(`[código] ${file}: clave inexistente ${key}`)
 }
 // Aviso, no error: un catálogo puede llevar claves que solo usa el backend
 // (los `err.*` no aparecen en el código del frontend).
-const unused = baseKeys.filter((k) => !used.has(k) && !k.startsWith('err.'))
+const unused = baseKeys.filter(
+  (k) => !used.has(k) && !usedDynamically(k) && !k.startsWith('err.'),
+)
+// Un prefijo dinámico sin ninguna clave detrás es lo contrario: código que
+// pide algo que el catálogo no tiene. Eso sí es un problema, y hasta ahora no
+// lo veía nadie.
+for (const [prefix, file] of usedPrefixes) {
+  if (!baseKeys.some((k) => k.startsWith(prefix))) {
+    problems.push(
+      `[código] ${file}: clave dinámica ${prefix}… sin ninguna clave en ${BASE}`,
+    )
+  }
+}
 if (warnings.length) {
   console.warn('Avisos:')
   for (const w of warnings) console.warn(`  ${w}`)

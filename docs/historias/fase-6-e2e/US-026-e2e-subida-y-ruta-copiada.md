@@ -64,3 +64,13 @@ US-024.
   ruta simple, has probado la parte que nunca falla.
 - Comprobar el filesystem además del DOM es lo que separa este test de una
   prueba de maquetación.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 16:57:02 UTC
+- Fin:    2026-07-28 17:03:24 UTC
+- Tiempo transcurrido: 00:06:21 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-review

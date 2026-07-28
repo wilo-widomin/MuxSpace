@@ -52,3 +52,13 @@ Ninguna.
 Comprueba si arrastra helpers definidos en `Sidebar.jsx`. Si es así, decide
 entre moverlos también o importarlos, y **dilo en el PR**; lo que no vale es
 duplicarlos.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 11:00:43 UTC
+- Fin:    2026-07-28 11:01:36 UTC
+- Tiempo transcurrido: 00:00:54 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-progress

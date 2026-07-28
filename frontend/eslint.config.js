@@ -54,9 +54,9 @@ export default [
       ],
     },
   },
-  {
-    // Los scripts del repo corren en bun/node, no en el navegador.
-    files: ['../scripts/**/*.js'],
-    languageOptions: { globals: { ...globals.node } },
-  },
 ]
+
+// `scripts/check-i18n.js` (fuera de `frontend/`) NO se linta: eslint 10 solo
+// resuelve la configuración para archivos bajo el directorio que la contiene,
+// y sacarla a la raíz del repo para cubrir un archivo es un cambio de
+// estructura que no toca a esta historia.

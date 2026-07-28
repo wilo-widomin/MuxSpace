@@ -46,12 +46,15 @@ export default [
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       // Una variable sin usar es casi siempre un resto de un refactor a medias.
-      // Se permite el prefijo `_` para lo que se ignora a propósito, y las
-      // mayúsculas para los `catch (E)` de librerías.
-      'no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^[_A-Z]' },
-      ],
+      // Se permite el prefijo `_` para lo que se ignora a propósito.
+      //
+      // El `varsIgnorePattern` original era `^[_A-Z]`, y eso eximía a TODO
+      // identificador que empezara por mayúscula: o sea, a todos los
+      // componentes y todos los iconos. La regla dejaba pasar exactamente los
+      // imports muertos que producen estas extracciones — se coló al extraer
+      // `UploadFiles`, con `FolderIcon` y `DirBrowserModal` ya sin usar en
+      // `Sidebar.jsx` y eslint callado.
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
 ]

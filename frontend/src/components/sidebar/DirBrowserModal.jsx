@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { ApiError, api } from '../../api.js'
 import { useT } from '../../i18n/index.jsx'
-import { CloseIcon, FolderIcon, Modal } from './Modal.jsx'
+import { FolderIcon, Modal } from './Modal.jsx'
 
 // Navegador de carpetas tipo explorador: entra en subcarpetas con clic, sube
 // un nivel, crea carpetas nuevas y confirma el destino con "Guardar aquí".

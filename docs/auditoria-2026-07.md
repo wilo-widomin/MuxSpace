@@ -43,7 +43,7 @@ De ahí salen las dos consecuencias que ordenan toda la auditoría:
 | S10 | Baja | Sesiones: sin caducidad por inactividad ni revocación global | Por lectura |
 | S11 | Informativo | `preexec_fn` en un proceso con hilos | Por lectura |
 | S12 | Media-baja | Documentación de la API publicada sin autenticación | CONFIRMADO |
-| S13 | Baja | `suggest`/`browse` listan rutas de fuera de las raíces | CONFIRMADO |
+| S13 | Baja | `suggest`/`browse` listan rutas de fuera de las raíces | **CORREGIDO** |
 | S14 | Baja | Un bucle de symlinks devuelve 500 en vez de rechazo | **CORREGIDO** |
 | S15 | Baja | `UnicodeDecodeError` no capturado en los tres stores | **CORREGIDO** |
 | S16 | Baja | `spaces.json` no-objeto → `AttributeError` → 500 | **CORREGIDO** |
@@ -61,17 +61,19 @@ cuando alguien se pregunta "¿y si el JSON está cortado a medio carácter?".
 | S15, S16 | US-006, en los casos de JSON corrupto |
 | S17 | US-007, al probar el ciclo de vida contra tmux real |
 
-S12, S14, S15, S16 y S17 están corregidos. S13 sigue **cubierto por un test
-`xfail(strict=True)`**: existe en la suite, no la bloquea, y el día que alguien
-lo arregle sin quitar el marcador se pone en rojo. El arreglo no se puede colar
-sin enterarse.
+**Los seis están corregidos** (S12 a S17). Los cinco últimos se cerraron el
+2026-07-28, uno por PR, y el mecanismo del `xfail(strict=True)` funcionó como
+se había diseñado: el día del arreglo el test pasó, `strict` lo puso en rojo y
+quien arregló tuvo que venir a quitar el marcador. Ninguno se coló sin
+enterarse.
 
-S17 fue la excepción a ese mecanismo, y conviene saber por qué: su test era de
+La excepción fue S17, y conviene saber por qué: su test era de
 **caracterización**, no un `xfail`. Fijaba el comportamiento de tmux
 (`kill_session("$…") is False`) llamando a `tmux_service` directamente, así que
 el arreglo —que va una capa más arriba, en `_tmux_safe_label`— lo habría dejado
 en verde sin enterarse de nada. Necesitó un test nuevo, no la retirada de un
-marcador.
+marcador. Es el aviso de que un test que describe el sistema operativo no
+sustituye a uno que describe el camino del panel hasta él.
 
 ---
 
@@ -415,7 +417,7 @@ propias aserciones porque el censo no las ve.
 
 ---
 
-## S13 · BAJA — `suggest`/`browse` listan rutas de fuera de las raíces
+## S13 · BAJA — `suggest`/`browse` listan rutas de fuera de las raíces · CORREGIDO
 
 Un symlink de directorio plantado dentro de una raíz y apuntando fuera **se
 lista**, y como la abreviatura resuelve el enlace, lo que se muestra es la ruta
@@ -431,12 +433,24 @@ permite leer ni escribir ahí: es filtración de rutas del sistema de ficheros.
 Efecto secundario del mismo fallo: un enlace y su destino salen **duplicados**
 en el desplegable.
 
-**Corrección** — aplicar `_is_within` a cada hijo antes de listarlo
-(`dir_suggestions.py`, el `items.append` de `suggest` y el `dirs` de `browse`).
+**Corregido** — `_is_within` sobre cada hijo antes de listarlo, en los dos
+sitios (`dir_suggestions.py`, el bucle de `suggest` y el `dirs` de `browse`).
+El duplicado se cierra con una deduplicación por ruta abreviada en los mismos
+dos bucles: dos abreviaturas iguales son el mismo directorio real, así que
+descartar la repetida no esconde ningún destino.
 
-Cubierto por `test_dir_roots.py::test_suggest_nunca_ofrece_algo_de_fuera_de_las_raices`,
-marcado `xfail(strict=True)`: se pondrá en rojo el día que se arregle sin quitar
-la marca.
+Regresiones en `test_dir_roots.py` (ya sin `xfail`), verificadas por mutación:
+
+| Test | Mutación que lo mata |
+|---|---|
+| `test_suggest_nunca_ofrece_algo_de_fuera_de_las_raices` | quitar el `_is_within` de `suggest` |
+| `test_browse_tampoco_lista_hijos_de_fuera_de_las_raices` | quitar el `_is_within` de `browse` |
+| `test_un_enlace_y_su_destino_no_salen_dos_veces` | quitar la deduplicación |
+| `test_suggest_sigue_ofreciendo_el_enlace_que_apunta_dentro` | control positivo |
+
+El último no es relleno: sin él, un `suggest` que devolviera la lista vacía
+pasaría los tres primeros. Lo que se exige no es "no listes enlaces", es
+"resuelve el enlace y decide con el destino".
 
 ---
 

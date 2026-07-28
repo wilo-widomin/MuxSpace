@@ -1267,10 +1267,6 @@ def test_espacios_escribir_sobre_un_json_roto_lo_deja_consistente(
 
 
 @pytest.mark.parametrize("contenido", JSON_QUE_NO_ES_UN_OBJETO, ids=_IDS_NO_OBJETO)
-def test_PRUEBA_DEL_CI_ESTE_DEBE_FALLAR(data_dir):
-    assert 1 == 2, 'roto a proposito para comprobar que el CI muerde'
-
-
 def test_regresion_s16_un_spaces_json_que_no_es_un_objeto_no_hace_lanzar_la_lectura(
     data_dir: Path, contenido: bytes
 ) -> None:

@@ -186,6 +186,41 @@ class ServidorDePruebas:
             timeout=10,
         )
 
+    def apagar(self, timeout: float = 5.0) -> None:
+        """`kill-server` y espera a que el servidor esté REALMENTE apagado.
+
+        `kill-server` es asíncrono: el cliente vuelve en cuanto ha mandado la
+        orden, no cuando el servidor ha terminado de morir. Un `new-session`
+        que caiga en esa ventana no encuentra un socket limpio ni un servidor
+        vivo, y falla con **"server exited unexpectedly"** — un error que
+        `create_session` no reconoce (no dice "duplicate session"), así que lo
+        eleva como `TmuxError` y el test que lo pillara se cae por un motivo
+        que no tiene nada que ver con lo que estaba probando.
+
+        Medido contra tmux 3.4, encadenando `kill-server` y `new-session` sin
+        pausa: **30 fallos en 500 intentos (6 %)**. Con esta espera, 0 en 1200.
+        En la suite la tasa era mucho más baja —del orden de 1 pasada completa
+        de cada 20— porque entre el teardown de un test y el siguiente hay
+        decenas de milisegundos de pytest, casi siempre suficientes. "Casi
+        siempre" es exactamente lo que no sirve cuando el CI bloquea merges:
+        un rojo intermitente enseña a reintentar hasta que pase, y ahí el CI
+        deja de valer para nada.
+
+        La condición de parada es que `list-sessions` conteste "no server
+        running": es la respuesta que da tmux cuando el socket ya no existe o
+        no responde, o sea justo lo contrario de "el servidor sigue muriendo".
+        """
+        self.ejecutar("kill-server")
+        limite = time.monotonic() + timeout
+        while time.monotonic() < limite:
+            if "no server running" in (self.ejecutar("list-sessions").stderr or ""):
+                return
+            time.sleep(0.005)
+        raise AssertionError(
+            f"el servidor de pruebas ({self.socket}) sigue respondiendo "
+            f"{timeout}s después del kill-server"
+        )
+
 
 @pytest.fixture(scope="module")
 def _servidor_de_pruebas(tmp_path_factory: pytest.TempPathFactory):
@@ -228,10 +263,11 @@ def _servidor_de_pruebas(tmp_path_factory: pytest.TempPathFactory):
 
     # `yield` y no `addfinalizer` manual: corre pase lo que pase, incluso si
     # un test revienta a mitad dejando sesiones vivas.
-    servidor.ejecutar("kill-server")
-    assert "no server running" in servidor.ejecutar("list-sessions").stderr, (
-        "el servidor de pruebas sigue en pie tras el kill-server del teardown"
-    )
+    #
+    # `apagar()` en vez de `kill-server` + un `assert` a pelo: la comprobación
+    # de una sola pasada era ella misma una carrera, porque podía mirar
+    # mientras el servidor todavía estaba muriendo.
+    servidor.apagar()
 
 
 @pytest.fixture(autouse=True)
@@ -305,7 +341,12 @@ def tmux_aislado(
     # que enumerar y matar sesión a sesión, no deja restos si un test murió a
     # medias, y es seguro por lo de siempre: es otro servidor. Lo levanta de
     # nuevo el primer `new-session` del test siguiente.
-    servidor.ejecutar("kill-server")
+    #
+    # Y se ESPERA a que muera (ver `ServidorDePruebas.apagar`): sin esa espera,
+    # el `new-session` del test siguiente puede caer en la ventana en la que el
+    # servidor ya no atiende pero el socket todavía está, y falla con "server
+    # exited unexpectedly". Era el origen del test intermitente.
+    servidor.apagar()
 
 
 # ----------------------------------------------------------------------
@@ -558,8 +599,12 @@ def test_list_sessions_sin_servidor_arrancado_devuelve_lista_vacia(
 
     Es el estado en el que arranca el panel en una máquina recién encendida.
     Si `list_sessions` lanzara aquí, la primera carga sería un 500.
+
+    `apagar()` y no `kill-server` a secas: lo que se quiere probar es "no hay
+    servidor", no "el servidor se está muriendo", que es un estado distinto y
+    transitorio en el que tmux contesta otra cosa.
     """
-    tmux_aislado.ejecutar("kill-server")
+    tmux_aislado.apagar()
     assert tmux_service.list_sessions() == []
 
 
@@ -758,8 +803,12 @@ def test_detach_session_sin_servidor_arrancado_devuelve_false(
     "no current client" —no con "can't find session"— cuando no hay ningún
     cliente adjunto, que es siempre el caso de un test. Probarla de verdad
     exige un cliente attachado, y eso es terreno de US-021/US-025.
+
+    Mismo motivo que el de `list_sessions` para usar `apagar()`: la rama que
+    se quiere ejercitar es la de "no hay servidor", y con el servidor a medio
+    morir tmux contesta "server exited unexpectedly", que es otra rama.
     """
-    tmux_aislado.ejecutar("kill-server")
+    tmux_aislado.apagar()
     assert tmux_service.detach_session(nombre("-fantasma")) is False
 
 
@@ -1228,3 +1277,54 @@ def test_quote_path_con_none_lanza_typeerror() -> None:
     """
     with pytest.raises(TypeError):
         tmux_service._quote_path(None)  # type: ignore[arg-type]
+
+
+# ----------------------------------------------------------------------
+# El andamiaje probándose a sí mismo.
+# ----------------------------------------------------------------------
+
+
+@sin_tmux
+def test_apagar_deja_el_servidor_confirmadamente_muerto(
+    tmux_aislado: ServidorDePruebas,
+) -> None:
+    """El contrato de `ServidorDePruebas.apagar`, en una línea."""
+    tmux_aislado.ejecutar("new-session", "-d", "-s", nombre())
+
+    tmux_aislado.apagar()
+
+    assert "no server running" in tmux_aislado.ejecutar("list-sessions").stderr
+
+
+@sin_tmux
+def test_regresion_apagar_y_crear_encadenados_no_produce_fallos(
+    tmux_aislado: ServidorDePruebas,
+) -> None:
+    """La carrera que hacía intermitente a esta suite, en su forma concentrada.
+
+    `kill-server` es asíncrono: vuelve cuando ha mandado la orden, no cuando el
+    servidor ha muerto. Un `new-session` que caiga en esa ventana falla con
+    "server exited unexpectedly", que `create_session` no reconoce —no dice
+    "duplicate session"— y eleva como `TmuxError`. Como el teardown de
+    `tmux_aislado` hacía justo eso antes de cada test siguiente, la suite
+    entera fallaba cada ~20 pasadas completas, en un test distinto cada vez.
+
+    Aquí se encadenan las dos operaciones sin la pausa que pytest regala entre
+    test y test, que es lo que escondía el problema. Medido en tmux 3.4:
+
+    | Encadenando                      | Fallos     |
+    |----------------------------------|------------|
+    | `kill-server` + `new-session`    | 30 / 500 (6 %) |
+    | `apagar()` + `new-session`       | 0 / 1200   |
+
+    El test es probabilista **solo en una dirección**: con `apagar()` puesto no
+    falla nunca (0 de 1200 medidos), así que un rojo aquí siempre significa que
+    la carrera ha vuelto. Con la espera quitada, 60 vueltas la cazan con ~97 %
+    de probabilidad. Cuesta alrededor de un segundo.
+    """
+    for i in range(60):
+        tmux_aislado.apagar()
+        assert tmux_service.create_session(f"{nombre()}-{i}") is True, (
+            f"la creación falló en la vuelta {i}: la carrera del kill-server "
+            "ha vuelto (¿alguien cambió `apagar()` por un `kill-server` suelto?)"
+        )

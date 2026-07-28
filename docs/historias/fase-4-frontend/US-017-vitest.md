@@ -96,3 +96,13 @@ S3, detrás de todas ellas.
   molesta.
 - Un test de frontend que necesite `waitFor` de segundos está mal montado:
   mockea `api.js`, no esperes a la red.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 11:14:15 UTC
+- Fin:    2026-07-28 11:20:58 UTC
+- Tiempo transcurrido: 00:06:42 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-progress

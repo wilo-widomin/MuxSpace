@@ -75,3 +75,13 @@ endpoints de `main.py`.
   distingue un log de auditoría útil de una nueva forma de caerse. Pruébalo.
 - Un JSONL se lee con `jq` desde el propio panel; ese es el consumidor real.
   Diseña los campos pensando en `jq 'select(.action=="send-command")'`.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 11:23:15 UTC
+- Fin:    2026-07-28 14:43:45 UTC
+- Tiempo transcurrido: 03:20:30 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-review

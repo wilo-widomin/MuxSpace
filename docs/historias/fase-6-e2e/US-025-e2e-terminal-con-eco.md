@@ -67,3 +67,13 @@ US-024.
   causa casi siempre es esperar por tiempo en vez de por condición.
 - El criterio de la CSP y el WebSocket cierra formalmente el riesgo que el
   plan dejó abierto en la fase 0.1.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 16:40:30 UTC
+- Fin:    2026-07-28 16:55:22 UTC
+- Tiempo transcurrido: 00:14:52 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-review

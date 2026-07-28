@@ -30,10 +30,14 @@ una copia hecha al importar.
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import os
 import shlex
 import shutil
+import signal
+import struct
 import subprocess
+import termios
 import time
 import uuid
 from pathlib import Path
@@ -427,3 +431,91 @@ def test_diez_terminales_a_la_vez_abren_todas(tmux_aislado: Path) -> None:
         assert zombis() == [], "hijos sin cosechar con 10 puentes en paralelo"
 
     asyncio.run(_correr())
+
+
+# ----------------------------------------------------------------------
+# El hijo, mirado de cerca
+# ----------------------------------------------------------------------
+#
+# Los dos tests de abajo se añadieron porque la verificación por mutación los
+# echó de menos: romper el `winsize` del hijo y quitarle el `os._exit(127)`
+# dejaba la suite entera en verde. Son dos afirmaciones que el código hace en
+# sus comentarios y que nadie estaba comprobando.
+
+
+def leer_winsize(fd: int) -> tuple[int, int]:
+    """Filas y columnas que tiene ahora mismo el PTY."""
+    crudo = fcntl.ioctl(fd, termios.TIOCGWINSZ, b"\0" * 8)
+    filas, columnas, _, _ = struct.unpack("HHHH", crudo)
+    return filas, columnas
+
+
+@sin_tmux
+def test_el_pty_arranca_con_un_tamano_de_verdad_y_no_a_cero(
+    tmux_aislado: Path,
+) -> None:
+    """`os.forkpty()` deja el PTY a 0x0 si nadie lo remedia.
+
+    La envoltura de Python no acepta un `winsize` (la libc sí), así que el
+    hijo lo fija él mismo antes del `exec`. Se prueba llamando a
+    `_spawn_attach` en directo y NO por `bridge`, porque `bridge` lo ajusta
+    también desde el padre: por ahí no se distinguiría quién de los dos hizo
+    el trabajo, y el del padre es una carrera contra el `exec`.
+    """
+    nombre = f"winsize-{uuid.uuid4().hex[:6]}"
+    crear_sesion(tmux_aislado, nombre)
+
+    pid, fd = pty_bridge._spawn_attach(nombre)
+    try:
+        limite = time.monotonic() + 5
+        visto = (0, 0)
+        while time.monotonic() < limite:
+            visto = leer_winsize(fd)
+            if visto != (0, 0):
+                break
+            time.sleep(0.01)
+        assert visto == (24, 80), (
+            f"el PTY arrancó a {visto[0]}x{visto[1]}: con 0x0 tmux puede "
+            "arrancar sin saber dónde pintar"
+        )
+    finally:
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+        os.close(fd)
+
+
+def test_si_el_exec_falla_el_hijo_sale_con_127_y_no_sigue_vivo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El `os._exit(127)`, que es la línea más importante del hijo.
+
+    Sin ella, el hijo vuelve de `_spawn_attach` con `pid == 0` y **sigue
+    ejecutando el backend**: dos intérpretes corriendo el mismo código, cada
+    uno con su copia del `finally` de `bridge`, y un `os.kill(0, SIGTERM)`
+    que apunta al grupo de procesos entero. No es un detalle de limpieza.
+
+    127 es la convención del shell para "orden no encontrada".
+    """
+    monkeypatch.setattr(config, "TMUX_BINARY", "/no/existe/tmux-de-mentira")
+
+    pid, fd = pty_bridge._spawn_attach("da-igual")
+    assert pid > 0, (
+        "`_spawn_attach` ha devuelto pid=0: estamos en el HIJO, o sea que no "
+        "murió tras fallar el exec"
+    )
+    try:
+        limite = time.monotonic() + 5
+        estado = None
+        while time.monotonic() < limite:
+            recogido, st = os.waitpid(pid, os.WNOHANG)
+            if recogido == pid:
+                estado = st
+                break
+            time.sleep(0.01)
+        assert estado is not None, "el hijo del exec fallido no terminó"
+        assert os.WIFEXITED(estado), "el hijo no salió por os._exit"
+        assert os.WEXITSTATUS(estado) == 127, (
+            f"el hijo salió con {os.WEXITSTATUS(estado)} en vez de 127"
+        )
+    finally:
+        os.close(fd)

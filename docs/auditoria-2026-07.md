@@ -47,7 +47,7 @@ De ahí salen las dos consecuencias que ordenan toda la auditoría:
 | S14 | Baja | Un bucle de symlinks devuelve 500 en vez de rechazo | CONFIRMADO |
 | S15 | Baja | `UnicodeDecodeError` no capturado en los tres stores | **CORREGIDO** |
 | S16 | Baja | `spaces.json` no-objeto → `AttributeError` → 500 | CONFIRMADO |
-| S17 | Baja | Una sesión con nombre que empieza por `$` no se puede matar | CONFIRMADO |
+| S17 | Baja | Una sesión con nombre que empieza por `$` no se puede matar | **CORREGIDO** |
 
 **Los seis últimos (S12-S17) aparecieron al escribir los tests de la fase 2**,
 no en la revisión inicial. Ninguno es de severidad alta, y ese es justo el
@@ -61,11 +61,17 @@ cuando alguien se pregunta "¿y si el JSON está cortado a medio carácter?".
 | S15, S16 | US-006, en los casos de JSON corrupto |
 | S17 | US-007, al probar el ciclo de vida contra tmux real |
 
-S12 y S15 están corregidos. S13, S14 y S16 siguen **cubiertos por tests
+S12, S15 y S17 están corregidos. S13, S14 y S16 siguen **cubiertos por tests
 `xfail(strict=True)`**: existen en la suite, no la bloquean, y el día que
 alguien los arregle sin quitar el marcador se ponen en rojo. El arreglo no se
-puede colar sin enterarse. S17 es el único que no tiene `xfail` sino un test
-de caracterización (ver su sección).
+puede colar sin enterarse.
+
+S17 fue la excepción a ese mecanismo, y conviene saber por qué: su test era de
+**caracterización**, no un `xfail`. Fijaba el comportamiento de tmux
+(`kill_session("$…") is False`) llamando a `tmux_service` directamente, así que
+el arreglo —que va una capa más arriba, en `_tmux_safe_label`— lo habría dejado
+en verde sin enterarse de nada. Necesitó un test nuevo, no la retirada de un
+marcador.
 
 ---
 
@@ -516,7 +522,7 @@ Cubierto por `test_stores.py`, `xfail(strict=True)`.
 
 ---
 
-## S17 · BAJA — Una sesión cuyo nombre empieza por `$` no se puede matar · CONFIRMADO
+## S17 · BAJA — Una sesión cuyo nombre empieza por `$` no se puede matar · CORREGIDO
 
 ```console
 $ tmux new-session -d -s '$MI_COMANDO'   # creada
@@ -546,7 +552,16 @@ label '$(id) build'  ->  nombre de sesión '$(id) build'
 Un comando de la biblioteca cuya **etiqueta** empiece por `$`, o un proyecto
 cuyo **título** empiece por `$`, deja una sesión incerrable desde el panel.
 
-**Corrección** — añadir `$` a los caracteres que sustituye `_tmux_safe_label`,
-o validar el nombre resultante contra `_SESSION_NAME_RE` antes de crear.
+**Corregido** — `_tmux_safe_label` sustituye ahora también el `$`:
+`re.sub(r"[.:/\\$]", "_", …)`. Se sustituyen **todos** los `$`, no solo el
+inicial (que es el único que rompe el `-t`), para no depender de dónde pone
+tmux exactamente la frontera al parsear un target.
 
-Cubierto por `test_tmux_service.py`, `xfail(strict=True)`.
+El comportamiento de tmux no cambia, así que el test de caracterización
+(`test_una_sesion_cuyo_nombre_empieza_por_dolar_no_se_puede_matar`) se queda
+como está: describe a tmux, no al panel. La regresión del camino alcanzable es
+`test_regresion_s17_una_etiqueta_con_dolar_da_una_sesion_que_si_se_puede_matar`,
+que va de extremo a extremo —etiqueta → `_tmux_safe_label` → `create_session` →
+`kill_session`— contra tmux real, porque el fallo no estaba en ninguna de las
+dos capas sino en la juntura. Verificado por mutación: quitar el `$` de la
+clase de caracteres pone en rojo sus cuatro parámetros.

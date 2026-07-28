@@ -87,6 +87,7 @@ from pathlib import Path
 import pytest
 
 import config
+import main
 import tmux_service
 from tmux_service import TmuxError
 
@@ -920,9 +921,12 @@ def test_una_sesion_cuyo_nombre_empieza_por_dolar_no_se_puede_matar(
     prefijo `=` de coincidencia exacta la rescata (comprobado en tmux 3.4).
 
     No es una vulnerabilidad —nada se ejecuta, eso lo cubren los tests de
-    arriba— pero sí una sesión que el panel no puede cerrar. Se fija para que
-    quien lo arregle (previsiblemente validando el nombre en la capa HTTP)
-    vea este test caerse y se entere de que el hueco era conocido.
+    arriba— pero sí una sesión que el panel no puede cerrar.
+
+    Este test NO cambia con el arreglo de S17 y por eso se queda como está:
+    describe a tmux, no al panel. Lo que se arregló fue el camino por el que
+    el panel llegaba a crear uno de estos nombres, y eso lo cubre el test de
+    abajo.
     """
     rara = f"$(true {tmp_path})"
     assert tmux_service.create_session(rara) is True
@@ -932,6 +936,47 @@ def test_una_sesion_cuyo_nombre_empieza_por_dolar_no_se_puede_matar(
     assert rara in [s.name for s in tmux_service.list_sessions()], (
         "tmux ya sabe apuntar sesiones que empiezan por '$': borra este test"
     )
+
+
+@sin_tmux
+@pytest.mark.parametrize(
+    "etiqueta",
+    ["$MI_COMANDO", "$(id) build", "$", "$HOME/proyecto"],
+    ids=["variable", "sustitucion", "solo-el-dolar", "con-barra"],
+)
+def test_regresion_s17_una_etiqueta_con_dolar_da_una_sesion_que_si_se_puede_matar(
+    tmux_aislado: ServidorDePruebas, etiqueta: str
+) -> None:
+    """S17: el camino por el que el panel llegaba a crear una sesión incerrable.
+
+    `_SESSION_NAME_RE` bloquea el '$' en `/api/create-session`, pero
+    `/api/commands/{id}/launch` y `/api/projects/{id}/run` no pasan por ahí:
+    derivan el nombre de sesión de la **etiqueta** del comando o del **título**
+    del proyecto con `_tmux_safe_label`, que solo sustituía `[.:/\\]`. Una
+    etiqueta que empezara por '$' —perfectamente teclearble en el panel— dejaba
+    la sesión del test de arriba: creada, listada y sin forma de cerrarla.
+
+    Se prueba de extremo a extremo y contra tmux de verdad porque el fallo no
+    está en ninguna de las dos capas por separado: `_tmux_safe_label` producía
+    un nombre razonable y `kill_session` hacía su trabajo. Está en la juntura,
+    y una aserción sobre la cadena que devuelve `_tmux_safe_label` no
+    demostraría que tmux sabe apuntar el resultado.
+
+    El sustituto se aplica a TODOS los '$', no solo al inicial (que es el
+    único que rompe el `-t`). Es deliberado: la alternativa es depender de
+    dónde exactamente pone tmux la frontera al parsear un target, que es justo
+    la clase de detalle que ya sorprendió una vez.
+    """
+    nombre_sesion = main._tmux_safe_label(etiqueta)
+    assert "$" not in nombre_sesion, (
+        f"_tmux_safe_label dejó pasar un '$': {nombre_sesion!r}"
+    )
+
+    assert tmux_service.create_session(nombre_sesion) is True
+    assert nombre_sesion in [s.name for s in tmux_service.list_sessions()]
+
+    assert tmux_service.kill_session(nombre_sesion) is True
+    assert nombre_sesion not in [s.name for s in tmux_service.list_sessions()]
 
 
 @sin_tmux

@@ -101,8 +101,18 @@ def _tmux_safe_label(label: str) -> str:
     `%2F` y la petición deja de casar la ruta. El resto (espacios,
     paréntesis…) se conserva tal cual, ya que pasamos el nombre siempre
     como argumento, nunca por shell.
+
+    Y '$', porque en un `-t` tmux lo lee como el prefijo de un **ID de
+    sesión** (`$0`, `$1`…) y no como el primer carácter de un nombre: una
+    sesión llamada '$X' se crea y se lista con su nombre entero, pero
+    después no hay forma de apuntarla y `kill_session` devuelve False para
+    siempre (ni el prefijo `=` de coincidencia exacta la rescata, tmux 3.4).
+    `_SESSION_NAME_RE` ya lo bloquea en `/api/create-session`, pero esta
+    función es la que usan `launch` y `run-project`, así que sin esto la
+    etiqueta de un comando o el título de un proyecto que empiece por '$'
+    deja una sesión que el panel no puede cerrar (S17).
     """
-    safe = re.sub(r"[.:/\\]", "_", (label or "")).strip()
+    safe = re.sub(r"[.:/\\$]", "_", (label or "")).strip()
     return safe or "comando"
 
 

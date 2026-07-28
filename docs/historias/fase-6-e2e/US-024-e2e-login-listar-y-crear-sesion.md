@@ -83,3 +83,13 @@ US-009.
   frágil: un test que falla aleatoriamente es peor que ninguno.
 - La comprobación de la consola sin errores de CSP es, ella sola, media
   justificación de esta US.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 16:19:53 UTC
+- Fin:    2026-07-28 16:38:04 UTC
+- Tiempo transcurrido: 00:18:10 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-review

@@ -57,6 +57,28 @@ export default [
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  {
+    // El E2E (US-024) corre en Node, no en el navegador: arranca el backend
+    // de pruebas con `child_process`, mira ficheros y mata procesos. Sin los
+    // globales de Node, `process`, `console` y compañía salen como
+    // `no-undef` — que es el linter haciendo bien su trabajo con la
+    // configuración equivocada, no un problema del código.
+    //
+    // `playwright.config.js` va en la misma lista por el mismo motivo.
+    files: ['e2e/**/*.js', 'playwright.config.js'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+    rules: {
+      // Playwright INSPECCIONA el código de cada fixture para saber de qué
+      // otras depende, y exige la desestructuración del primer parámetro
+      // aunque no dependa de ninguna: un `async ({}, use)` es obligatorio y
+      // un `async (_x, use)` hace que la suite entera se niegue a arrancar
+      // ("First argument must use the object destructuring pattern"). La
+      // regla está bien en general; aquí choca con el framework.
+      'no-empty-pattern': 'off',
+    },
+  },
 ]
 
 // `scripts/check-i18n.js` (fuera de `frontend/`) NO se linta: eslint 10 solo

@@ -76,11 +76,16 @@ pudiera colarse sin que nadie actualizara el test.
    visto desde el otro lado. **Corregido**: los tres capturan `ValueError`, y
    el `xfail` de abajo es hoy un test de regresión normal.
 
-2. **`spaces.json` que es JSON válido pero no un objeto** (S16, sigue abierto).
-   `space_store._read()` llama a `raw.get("spaces")` sin comprobar antes que
-   `raw` sea un `dict`: una lista, un número o `null` hacen que `list_spaces()`
-   lance `AttributeError`. `library_store` y `upload_store` sí comprueban el
-   tipo. Sigue con su `xfail(strict=True)`.
+2. **`spaces.json` que es JSON válido pero no un objeto** (S16).
+   `space_store._read()` llamaba a `raw.get("spaces")` sin comprobar antes que
+   `raw` fuera un `dict`: una lista, un número o `null` hacían que
+   `list_spaces()` lanzara `AttributeError`. `library_store` y `upload_store`
+   sí comprobaban el tipo — era una asimetría, no una decisión. **Corregido**:
+   `space_store` hace el mismo `isinstance`, y su `xfail` es hoy un test de
+   regresión normal.
+
+Con las dos cerradas, "leer nunca lanza" vuelve a ser cierto en los tres
+stores para cualquier contenido de disco.
 """
 from __future__ import annotations
 
@@ -1215,25 +1220,24 @@ def test_espacios_escribir_sobre_un_json_roto_lo_deja_consistente(data_dir: Path
 
 
 @pytest.mark.parametrize("contenido", JSON_QUE_NO_ES_UN_OBJETO, ids=_IDS_NO_OBJETO)
-@pytest.mark.xfail(
-    raises=AttributeError,
-    strict=True,
-    reason=(
-        "HUECO CONOCIDO, no arreglado aquí. `space_store._read()` hace "
-        "`raw.get('spaces')` sin comprobar antes que `raw` sea un dict, así que "
-        "un spaces.json que sea JSON válido pero no un objeto (una lista, un "
-        "número, null) hace que list_spaces() lance AttributeError y el panel "
-        "devuelva 500. `library_store` y `upload_store` sí comprueban el tipo "
-        "(isinstance(data, dict) / isinstance(data, list)). Arreglarlo es un "
-        "cambio de PRODUCCIÓN y US-006 no toca producción. Cuando se arregle, "
-        "este test pasará y strict=True lo pondrá en rojo: entonces hay que "
-        "borrar el marcador y dejarlo como test normal."
-    ),
-)
-def test_hueco_conocido_un_spaces_json_que_no_es_un_objeto_hace_lanzar_la_lectura(
+def test_regresion_s16_un_spaces_json_que_no_es_un_objeto_no_hace_lanzar_la_lectura(
     data_dir: Path, contenido: bytes
 ) -> None:
-    """Documenta la única grieta de la regla "leer nunca lanza"."""
+    """S16: `space_store._read()` llamaba a `raw.get("spaces")` sin mirar el tipo.
+
+    `json.loads` acepta de buen grado una lista, un número, `null`, una cadena
+    o un booleano, y con los cinco el `.get` lanzaba `AttributeError`: el panel
+    devolvía 500 en cada carga. `library_store` (`isinstance(data, dict)`) y
+    `upload_store` (`isinstance(data, list)`) ya comprobaban el tipo — era una
+    asimetría, no una decisión.
+
+    Es el mismo caso que cubre `test_biblioteca_un_json_que_no_es_un_objeto_...`
+    sobre la biblioteca, y va con los mismos datos a propósito: los tres stores
+    tienen que comportarse igual ante la misma basura.
+
+    Quitar el `isinstance(raw, dict)` de `space_store._read()` vuelve a poner
+    en rojo los cinco parámetros.
+    """
     space_store._STORE_PATH.write_bytes(contenido)
 
     assert space_store.list_spaces() == []
@@ -1620,10 +1624,12 @@ def test_write_private_crea_el_directorio_que_falte_ya_cerrado(tmp_path: Path) -
 # ======================================================================
 # Los bordes de la regla "leer nunca lanza".
 #
-# El primero (S15) ya está corregido y su test es una regresión normal. El
-# segundo (S16) sigue con `xfail(strict=True)`: existe en la suite con su
-# reproducción exacta, no la bloquea, y el día que se arregle el test pasará,
-# `strict` lo pondrá en rojo y quien lo arregle vendrá a borrar el marcador.
+# Los dos (S15 y S16) están corregidos y sus tests son ya regresiones
+# normales. Nacieron como `xfail(strict=True)` porque US-006 no tocaba
+# producción: existían en la suite con su reproducción exacta, sin
+# bloquearla, y el día del arreglo pasaron a verde, `strict` los puso en rojo
+# y quien arregló vino a borrar el marcador. Que es exactamente lo que se
+# quería.
 # ======================================================================
 
 

@@ -74,6 +74,12 @@ def _read() -> dict:
         # Un archivo ilegible no debe tumbar el panel: se parte de vacío y
         # la primera escritura lo deja consistente otra vez.
         return {"spaces": [], "assignments": {}}
+    if not isinstance(raw, dict):
+        # `json.loads` acepta de buen grado una lista, un número o `null`, y
+        # el `.get` de abajo lanzaría `AttributeError` con los tres. Mismo
+        # control que ya tenían `library_store` (dict) y `upload_store`
+        # (list): era una asimetría, no una decisión (S16).
+        return {"spaces": [], "assignments": {}}
     spaces = raw.get("spaces")
     assignments = raw.get("assignments")
     return {

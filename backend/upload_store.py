@@ -10,6 +10,12 @@ El historial se persiste en un único JSON (`data/upload_history.json`) para
 que sobreviva a reinicios del backend. Cada entrada es `{name, path, dir}`
 (nombre final del archivo, ruta absoluta y carpeta destino, ambas en el
 host). "Quitar del historial" borra solo el registro, jamás el archivo.
+
+**Un solo worker.** El `Lock` de abajo es un `threading.Lock`: protege entre
+hilos, no entre procesos. Cada `add` recorta a las últimas `KEEP` entradas y
+reescribe el JSON completo, así que con dos workers de uvicorn dos subidas
+simultáneas dejan solo una en el historial. Por eso el panel arranca con
+`--workers 1` y `main.py` avisa si detecta más. Ver `docs/un-solo-worker.md`.
 """
 from __future__ import annotations
 

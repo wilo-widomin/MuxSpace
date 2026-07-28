@@ -13,8 +13,10 @@ Ver `docs/muxspace.md` para la especificación completa.
 from __future__ import annotations
 
 import errno
+import logging
 import os
 import re
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -299,6 +301,54 @@ class UserResponse(BaseModel):
 _DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
+def _workers_configurados(argv: list[str] | None = None,
+                          entorno: dict[str, str] | None = None) -> int:
+    """Cuántos workers pidió quien arrancó el proceso. 1 si no se pidió nada.
+
+    El panel **solo puede correr con un worker**: los stores se protegen con
+    `threading.Lock`, que es de proceso, así que dos workers hacen
+    read-modify-write concurrente sobre los mismos JSON y se pierden datos
+    (ver `docs/un-solo-worker.md`). Esto es lo que permite avisar en vez de
+    que se descubra perdiendo la biblioteca.
+
+    Se mira el `sys.argv` y el entorno, y NO `multiprocessing.parent_process()`,
+    que sería lo obvio. Motivo, medido: uvicorn arranca los workers con
+    `spawn`, y `multiprocessing.spawn` **restaura el `sys.argv` del padre en
+    el hijo**, así que la bandera llega intacta al proceso que sirve. Pero
+    `--reload` usa el mismo mecanismo de subproceso con UN solo worker, de
+    modo que `parent_process()` también devuelve algo en desarrollo: avisaría
+    de una corrupción que no existe. La bandera y la variable no se confunden.
+
+    Los parámetros existen para poder probar la función sin montar cuatro
+    despliegues de uvicorn.
+    """
+    argv = list(sys.argv if argv is None else argv)
+    entorno = os.environ if entorno is None else entorno
+
+    # `-w`/`--workers` es la bandera de uvicorn y también la de gunicorn, por
+    # si algún día el panel se sirve con él.
+    for i, arg in enumerate(argv):
+        if arg in ("--workers", "-w") and i + 1 < len(argv):
+            candidato = argv[i + 1]
+        elif arg.startswith("--workers="):
+            candidato = arg.split("=", 1)[1]
+        else:
+            continue
+        try:
+            return int(candidato)
+        except ValueError:
+            # `--workers hola` no es asunto nuestro: que se queje uvicorn.
+            continue
+
+    # uvicorn toma `WEB_CONCURRENCY` como default cuando no hay bandera
+    # (`uvicorn/config.py`), así que un `export` heredado del entorno basta
+    # para arrancar cuatro workers sin haber escrito nada en `start.sh`.
+    try:
+        return int(entorno.get("WEB_CONCURRENCY", "1"))
+    except ValueError:
+        return 1
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Todo lo de data/ es del usuario y solo suyo, pero se venía escribiendo
@@ -306,6 +356,23 @@ async def lifespan(app: FastAPI):
     # en una máquina donde el panel ya da una shell. Las escrituras nuevas
     # ya salen a 0600 (`datafiles`); esto cierra las que quedaron de antes.
     harden_tree(_DATA_DIR)
+    workers = _workers_configurados()
+    if workers > 1:
+        # `uvicorn.error` es el logger por el que ya salen los mensajes de
+        # arranque: el aviso aparece en la misma consola y con el mismo
+        # formato, en vez de en un canal que nadie mira. Se emite una vez por
+        # worker, y eso es deliberado: N copias del aviso son exactamente la
+        # señal de que hay N procesos peleándose por los mismos ficheros.
+        logging.getLogger("uvicorn.error").warning(
+            "MuxSpace está arrancando con %d workers y SOLO admite 1. Los "
+            "stores (biblioteca, espacios, subidas, sesiones) se protegen con "
+            "threading.Lock, que no cruza procesos: con más de un worker dos "
+            "peticiones simultáneas reescriben el mismo JSON entero y la "
+            "biblioteca de comandos se corrompe (se pierden entradas sin "
+            "aviso). Arranca con --workers 1 y sin WEB_CONCURRENCY. "
+            "Ver docs/un-solo-worker.md.",
+            workers,
+        )
     yield
     # La terminal la sirve el puente PTY (`pty_bridge`) y qué se ve en el
     # grid lo decide cada pestaña del navegador: no hay ni procesos externos

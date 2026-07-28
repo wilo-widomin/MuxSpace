@@ -63,3 +63,13 @@ Ninguna.
   vive solo en el README, no cumple: por eso los docstrings.
 - Un comentario que diga "no usar más de un worker" sin explicar el porqué
   se borra en el primer refactor. El porqué es lo que hay que escribir.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 14:52:29 UTC
+- Fin:    2026-07-28 15:04:30 UTC
+- Tiempo transcurrido: 00:12:00 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-review

@@ -76,3 +76,13 @@ US-001, US-008, US-022.
   cobertura real.
 - Que el job de backend instale tmux es lo que permite que US-007 no se
   quede en `skip` permanente y nadie se entere.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 10:35:26 UTC
+- Fin:    2026-07-28 10:45:39 UTC
+- Tiempo transcurrido: 00:10:12 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-progress

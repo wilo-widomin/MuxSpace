@@ -51,3 +51,13 @@ Ninguna.
 
 Es la extracción más pequeña de la serie. Si el diff crece más allá de mover
 seis líneas y añadir un import, algo se está colando.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 10:57:37 UTC
+- Fin:    2026-07-28 10:59:25 UTC
+- Tiempo transcurrido: 00:01:48 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-progress

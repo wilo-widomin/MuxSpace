@@ -61,3 +61,13 @@ si funcionó deja el panel roto hasta reiniciar.
   no la has hecho**. Cuenta procesos, no supongas.
 - No conviertas esto en una caché. El objetivo es no relanzar el servidor,
   no dejar de preguntar por las sesiones.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 15:05:37 UTC
+- Fin:    2026-07-28 15:59:39 UTC
+- Tiempo transcurrido: 00:54:02 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-review

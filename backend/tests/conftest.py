@@ -91,6 +91,7 @@ import config  # noqa: E402
 import library_store  # noqa: E402
 import main  # noqa: E402
 import space_store  # noqa: E402
+import tmux_service  # noqa: E402
 import upload_store  # noqa: E402
 
 # El directorio que nadie puede tocar, deducido de dónde vive el módulo que
@@ -110,6 +111,20 @@ DATOS_REALES = (Path(config.__file__).resolve().parent / "data").resolve()
 def _raiz_permitida(tmp_path: Path) -> Path:
     """La única raíz de directorios que ven los tests (bajo tmp)."""
     return tmp_path / "roots" / "home"
+
+
+@pytest.fixture(autouse=True)
+def _tmux_server_flag_limpio(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cada test arranca sin que conste que `tmux start-server` ya corrió.
+
+    `tmux_service._server_started` es estado **de proceso** (US-019): dura lo
+    que dura el intérprete, y el intérprete de pytest dura toda la suite. Sin
+    esto, el primer test que hable con tmux deja el flag puesto y todos los
+    demás se saltan el `start-server` —incluidos los que lo están contando o
+    los que apuntan a otro binario—. El resultado sería una suite cuyo verde
+    depende del orden en que corran los tests, que es peor que una roja.
+    """
+    monkeypatch.setattr(tmux_service, "_server_started", False)
 
 
 @pytest.fixture(autouse=True)

@@ -1,13 +1,20 @@
 """Servicio de interacción con tmux.
 
 Encapsula las llamadas a `tmux` para listar las sesiones activas del
-servidor. No mantiene estado: simplemente consulta el sistema.
+servidor. No cachea nada de lo que tmux responde: cada consulta es una
+consulta de verdad.
+
+El único estado que mantiene es un flag —`_server_started`— que recuerda si
+ya se lanzó `tmux start-server` en este proceso, porque eso solo hace falta
+una vez y se venía haciendo en cada listado (US-019). Que el servidor de tmux
+muera por debajo no lo invalida: ver el docstring de `list_sessions`.
 """
 from __future__ import annotations
 
 import os
 import shlex
 import subprocess
+import threading
 from dataclasses import dataclass
 
 from config import TMUX_BINARY
@@ -43,13 +50,64 @@ class TmuxSession:
 _FORMAT = "#{session_name}\t#{session_windows}\t#{session_attached}\t#{session_created}"
 
 
-def _ensure_tmux_server() -> None:
-    """Asegura que el servidor de tmux esté iniciado."""
-    subprocess.run(  # noqa: S603 — argv, nunca shell: ver la cabecera del módulo
-        [TMUX_BINARY, "start-server"],
-        capture_output=True,
-        timeout=5,
-    )
+def _run_tmux(args: list[str]) -> subprocess.CompletedProcess[str]:
+    """Ejecuta un comando de tmux y devuelve el resultado en crudo."""
+    try:
+        return subprocess.run(  # noqa: S603 — argv, nunca shell
+            [TMUX_BINARY, *args],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except FileNotFoundError as exc:
+        raise TmuxError("err.tmux_not_found", {"binary": TMUX_BINARY}) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise TmuxError("err.tmux_timeout") from exc
+
+
+# `start-server` solo hace falta UNA vez por proceso del backend, pero se
+# venía lanzando en cada `list_sessions()`. Con el refresco del frontend a 8
+# segundos eso son dos procesos cada 8 s **por pestaña abierta**, todo el día,
+# para volver a decirle a tmux algo que ya sabe.
+#
+# El flag va protegido por un lock porque los endpoints síncronos de FastAPI
+# corren en un threadpool: dos peticiones simultáneas pasarían las dos por el
+# `if` y lanzarían dos `start-server`, que es justo lo que se quiere evitar.
+_server_lock = threading.Lock()
+_server_started = False
+
+
+def _ensure_tmux_server() -> bool:
+    """Arranca el servidor de tmux si no consta que lo esté ya.
+
+    Devuelve **True si ha lanzado `start-server` en esta llamada**. En
+    producción nadie mira ese valor; existe para que los tests puedan
+    distinguir "no hizo falta" de "lo intentó y falló", que son los dos casos
+    en los que el flag queda a False y desde fuera se ven igual.
+
+    Si el arranque falla, el flag **no** se marca: un fallo transitorio no
+    puede dejar el panel muerto hasta el próximo reinicio, así que la
+    siguiente llamada lo vuelve a probar.
+    """
+    global _server_started
+    if _server_started:
+        return False
+    with _server_lock:
+        # Doble comprobación: entre el `if` de arriba y el lock, otro hilo ha
+        # podido arrancarlo ya. Sin esto, N peticiones simultáneas en frío
+        # lanzarían N `start-server` en fila, una por hilo.
+        if _server_started:
+            return False
+        # Por `_run_tmux` y no con un `subprocess.run` suelto: es lo que
+        # traduce "tmux no está instalado" a un `TmuxError` con código
+        # localizable. Con el run a pelo, el `FileNotFoundError` salía en
+        # crudo desde aquí ANTES de llegar al `except` de `list_sessions`, y
+        # esa rama era código muerto: el panel devolvía un 500 con traceback
+        # en vez del mensaje traducido (el hueco conocido que dejó US-007).
+        result = _run_tmux(["start-server"])
+        if result.returncode == 0:
+            _server_started = True
+        return True
 
 
 def list_sessions() -> list[TmuxSession]:
@@ -58,20 +116,22 @@ def list_sessions() -> list[TmuxSession]:
     Si el servidor de tmux no está arrancado (no hay sesiones), tmux
     devuelve un código de error y el texto "no server running"; en ese
     caso devolvemos una lista vacía en lugar de propagar el error.
+
+    No hay caché del listado: lo que se evita es relanzar el servidor, no
+    dejar de preguntar por las sesiones. Cada llamada consulta a tmux.
+
+    Qué pasa si el servidor muere con el backend vivo: **nada que arreglar**.
+    El listado devuelve la lista vacía, que es la verdad, y el siguiente
+    `new-session` levanta el servidor por su cuenta. No se relanza aquí a
+    propósito, y no es un olvido: tmux trae `exit-empty on` por defecto, así
+    que un `start-server` sin sesiones deja CERO servidores —medido—. O sea
+    que "no server running" es también la respuesta normal cuando el panel no
+    tiene ninguna sesión, indistinguible de "el servidor se ha muerto".
+    Relanzar al verla devolvería el gasto de dos procesos por sondeo que esta
+    función viene a quitar, para levantar un servidor que se apaga solo.
     """
     _ensure_tmux_server()
-    
-    try:
-        result = subprocess.run(  # noqa: S603 — argv, nunca shell
-            [TMUX_BINARY, "list-sessions", "-F", _FORMAT],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except FileNotFoundError as exc:  # tmux no instalado
-        raise TmuxError("err.tmux_not_found", {"binary": TMUX_BINARY}) from exc
-    except subprocess.TimeoutExpired as exc:
-        raise TmuxError("err.tmux_timeout") from exc
+    result = _run_tmux(["list-sessions", "-F", _FORMAT])
 
     if result.returncode != 0:
         stderr = (result.stderr or "").lower()
@@ -120,21 +180,6 @@ def _quote_path(path: str) -> str:
     parta el comando, o que uno con `;`/`$()` ejecute lo que lleve dentro.
     """
     return shlex.quote(os.path.expanduser(path))
-
-
-def _run_tmux(args: list[str]) -> subprocess.CompletedProcess[str]:
-    """Ejecuta un comando de tmux y devuelve el resultado en crudo."""
-    try:
-        return subprocess.run(  # noqa: S603 — argv, nunca shell
-            [TMUX_BINARY, *args],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except FileNotFoundError as exc:
-        raise TmuxError("err.tmux_not_found", {"binary": TMUX_BINARY}) from exc
-    except subprocess.TimeoutExpired as exc:
-        raise TmuxError("err.tmux_timeout") from exc
 
 
 def create_session(

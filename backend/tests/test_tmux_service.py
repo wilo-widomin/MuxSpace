@@ -837,24 +837,22 @@ def test_si_el_binario_de_tmux_no_existe_se_lanza_un_error_con_codigo(
     assert exc.value.params == {"binary": inexistente}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="HUECO CONOCIDO, no arreglado aquí. `list_sessions()` empieza "
-    "llamando a `_ensure_tmux_server()`, que hace un `subprocess.run` SIN "
-    "try/except. Con tmux no instalado ese run lanza `FileNotFoundError` "
-    "antes de que se llegue al `except FileNotFoundError` de `list_sessions`, "
-    "así que la rama que traduce el fallo a `TmuxError('err.tmux_not_found')` "
-    "es código muerto y el panel devuelve un 500 con traceback en vez del "
-    "mensaje localizado. El resto del módulo sí lo hace bien porque pasa por "
-    "`_run_tmux`. El arreglo es envolver el run de `_ensure_tmux_server` (o "
-    "llamarlo a través de `_run_tmux`), pero es código de PRODUCCIÓN y US-007 "
-    "no lo toca. Cuando se arregle, este test pasará y strict=True lo pondrá "
-    "en rojo: entonces hay que borrar el marcador.",
-)
-def test_hueco_conocido_list_sessions_sin_tmux_lanza_filenotfounderror(
+def test_list_sessions_sin_tmux_instalado_lanza_error_con_codigo(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """La misma promesa que el test de arriba, por la puerta de `list_sessions`."""
+    """La misma promesa que el test de arriba, por la puerta de `list_sessions`.
+
+    Fue un `xfail(strict=True)` desde US-007: `_ensure_tmux_server` hacía un
+    `subprocess.run` suelto, así que con tmux sin instalar el
+    `FileNotFoundError` salía en crudo desde ahí ANTES de llegar al `except`
+    de `list_sessions` —que quedaba como código muerto— y el panel devolvía un
+    500 con traceback en vez del mensaje traducido.
+
+    US-019 lo arregla de paso, porque el `start-server` pasa ahora por
+    `_run_tmux`, que es quien traduce el error. El marcador se borra en este
+    mismo PR: con `strict=True`, un xfail que pasa se pone en ROJO, así que
+    dejarlo habría roto la suite.
+    """
     inexistente = str(tmp_path / "no-hay-tmux-aqui")
     monkeypatch.setattr(tmux_service, "TMUX_BINARY", inexistente)
 
@@ -1341,3 +1339,233 @@ def test_regresion_apagar_y_crear_encadenados_no_produce_fallos(
             f"la creación falló en la vuelta {i}: la carrera del kill-server "
             "ha vuelto (¿alguien cambió `apagar()` por un `kill-server` suelto?)"
         )
+
+
+# ----------------------------------------------------------------------
+# `start-server` una sola vez por proceso (US-019)
+# ----------------------------------------------------------------------
+#
+# Antes, `list_sessions()` lanzaba `start-server` Y `list-sessions` en cada
+# llamada. Con el refresco del frontend a 8 s eso son dos procesos cada 8 s
+# **por pestaña abierta**, todo el día, para repetirle a tmux algo que ya
+# sabe. Lo que se prueba aquí no es que el flag exista: es que se lanza un
+# proceso menos por listado y que el panel sigue recuperándose si el servidor
+# de tmux se muere por debajo.
+#
+# Se cuenta con un wrapper que registra cada invocación en un fichero, en vez
+# de parchear `subprocess.run`. Es la misma decisión que documenta la cabecera
+# del módulo: un mock probaría que sé escribir el mock. Aquí se cuentan los
+# `exec` de verdad.
+
+
+@pytest.fixture
+def tmux_contador(
+    _binario_prohibido: Path,
+    _servidor_de_pruebas: ServidorDePruebas,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Como `tmux_aislado`, pero anotando cada invocación de tmux.
+
+    Devuelve un objeto con `.invocaciones()` (la lista de subcomandos en
+    orden) y `.contar(sub)`. No usa la fixture `tmux_aislado` para no
+    contaminar la cuenta con el canario que aquella crea para verificar el
+    aislamiento: el test quiere contar SUS llamadas y ninguna más.
+
+    El aislamiento se hereda igual, porque este wrapper delega en el mismo
+    wrapper con `-L` propio.
+    """
+    servidor = _servidor_de_pruebas
+    registro = tmp_path / "invocaciones.log"
+    contador = tmp_path / "tmux-contador"
+    contador.write_text(
+        "#!/bin/sh\n"
+        # Solo el primer argumento: es el subcomando, que es lo que se cuenta.
+        f'echo "$1" >> {shlex.quote(str(registro))}\n'
+        f'exec {shlex.quote(str(servidor.wrapper))} "$@"\n'
+    )
+    contador.chmod(0o755)
+    monkeypatch.setattr(tmux_service, "TMUX_BINARY", str(contador))
+    monkeypatch.setattr(config, "TMUX_BINARY", str(contador))
+
+    # Se ata a un nombre distinto a propósito: dentro de un cuerpo de clase,
+    # `servidor = servidor` NO lee el `servidor` de la función de fuera (el
+    # nombre se vuelve local del cuerpo de clase y la búsqueda salta el scope
+    # envolvente) y revienta con NameError.
+    servidor_de_pruebas = servidor
+
+    class Contador:
+        wrapper = contador
+        # El servidor por debajo, para poder apagarlo con la espera de
+        # `apagar()`. Sus comandos van por el wrapper de siempre, así que
+        # matar el servidor no se cuela en la cuenta de invocaciones.
+        servidor = servidor_de_pruebas
+
+        def invocaciones(self) -> list[str]:
+            if not registro.is_file():
+                return []
+            return registro.read_text().split()
+
+        def contar(self, sub: str) -> int:
+            return self.invocaciones().count(sub)
+
+        def limpiar(self) -> None:
+            registro.write_text("")
+
+    yield Contador()
+
+    servidor.apagar()
+
+
+@sin_tmux
+def test_diez_listados_lanzan_un_start_server_y_diez_list_sessions(
+    tmux_contador,
+) -> None:
+    """El criterio de la historia, contado y no supuesto.
+
+    Antes: 10 llamadas = 10 `start-server` + 10 `list-sessions` = 20 procesos.
+    Ahora: 1 + 10 = 11. La cuenta de `list-sessions` tiene que seguir siendo
+    10: el objetivo es no relanzar el servidor, **no** cachear el listado.
+    """
+    for _ in range(10):
+        tmux_service.list_sessions()
+
+    assert tmux_contador.contar("start-server") == 1, (
+        f"se lanzó start-server {tmux_contador.contar('start-server')} veces; "
+        "el arranque del servidor es una vez por proceso, no por listado"
+    )
+    assert tmux_contador.contar("list-sessions") == 10, (
+        "el listado tiene que seguir siendo fresco: esto no es una caché"
+    )
+    assert len(tmux_contador.invocaciones()) == 11
+
+
+@sin_tmux
+def test_varios_hilos_a_la_vez_tampoco_lanzan_dos_start_server(
+    tmux_contador,
+) -> None:
+    """El flag sin lock no vale: los endpoints corren en un threadpool.
+
+    Sin el lock (o sin la doble comprobación dentro), varios hilos pasan a la
+    vez por el `if _server_started` en frío y lanzan un `start-server` cada
+    uno, que es justo el proceso de más que esta historia viene a quitar.
+    """
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(lambda _: tmux_service.list_sessions(), range(8)))
+
+    assert tmux_contador.contar("start-server") == 1, (
+        f"{tmux_contador.contar('start-server')} start-server con 8 hilos: "
+        "el flag no está protegido por el lock"
+    )
+    assert tmux_contador.contar("list-sessions") == 8
+
+
+@sin_tmux
+def test_si_el_servidor_muere_por_debajo_el_panel_se_recupera(
+    tmux_contador,
+) -> None:
+    """El riesgo de recordar algo: que deje de ser verdad.
+
+    El usuario hace `tmux kill-server` con el panel abierto. El flag sigue
+    diciendo "ya está arrancado", y aun así el panel tiene que seguir
+    funcionando: listar da la lista vacía (que es la verdad) y crear una
+    sesión vuelve a levantar el servidor.
+
+    Lo que este test **no** exige es un `start-server` de rescate, y no por
+    dejadez. `exit-empty` viene `on` por defecto en tmux: un servidor sin
+    sesiones se apaga solo, así que relanzarlo aquí sería gastar un proceso
+    para levantar algo que muere en el acto. Quien de verdad levanta el
+    servidor es el `new-session` de las líneas de abajo, que es como se
+    recuperaba el panel también antes de esta historia.
+    """
+    tmux_service.create_session(nombre())
+    assert len(tmux_service.list_sessions()) == 1
+
+    # El usuario mata su servidor de tmux con el panel abierto.
+    #
+    # Por `apagar()` y no por un `kill-server` suelto: `kill-server` vuelve
+    # cuando ha mandado la orden, no cuando el servidor ha muerto, y las
+    # llamadas de abajo caían en esa ventana. La primera versión de este test
+    # usaba el `kill-server` a pelo y falló 1 de cada 60 pasadas del archivo
+    # —el mismo intermitente que ya documenta `apagar()`, reintroducido por la
+    # puerta de atrás—.
+    tmux_contador.servidor.apagar()
+    tmux_contador.limpiar()
+
+    # Listar no puede lanzar: la lista vacía es la respuesta correcta.
+    assert tmux_service.list_sessions() == []
+    assert tmux_contador.contar("start-server") == 0, (
+        "se relanzó el servidor al ver 'no server running', que es también la "
+        "respuesta normal cuando no hay sesiones: eso devuelve el gasto de "
+        "dos procesos por sondeo que esta historia viene a quitar"
+    )
+
+    # Y el panel vuelve a funcionar sin reiniciar nada.
+    creada = nombre()
+    assert tmux_service.create_session(creada) is True
+    assert [s.name for s in tmux_service.list_sessions()] == [creada]
+
+
+@sin_tmux
+def test_un_panel_sin_sesiones_tampoco_relanza_el_servidor_en_cada_sondeo(
+    tmux_contador,
+) -> None:
+    """El caso que hacía inútil la primera versión de este arreglo.
+
+    Un panel recién arrancado no tiene sesiones, y sin sesiones tmux no
+    mantiene servidor (`exit-empty on`): los diez sondeos ven "no server
+    running". Si el módulo tomara eso por "se ha muerto, hay que relanzarlo",
+    volveríamos a dos procesos por sondeo justo en el estado más común al
+    empezar el día. Diez listados, once procesos, y ni uno más.
+    """
+    for _ in range(10):
+        assert tmux_service.list_sessions() == []
+
+    assert tmux_contador.contar("start-server") == 1
+    assert tmux_contador.contar("list-sessions") == 10
+
+
+@sin_tmux
+def test_un_arranque_fallido_no_marca_el_flag_y_se_reintenta(
+    _binario_prohibido: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """El criterio con más riesgo de toda la historia.
+
+    Marcar el flag antes de saber si funcionó deja el panel muerto hasta el
+    próximo reinicio del backend por un fallo que a lo mejor duró un segundo.
+    Aquí `start-server` falla dos veces y funciona a la tercera: si el flag se
+    marcara igualmente, la tercera llamada no lo reintentaría.
+    """
+    intentos = tmp_path / "intentos"
+    intentos.write_text("")
+    guion = tmp_path / "tmux-que-falla-al-principio"
+    guion.write_text(
+        "#!/bin/sh\n"
+        f'echo x >> {shlex.quote(str(intentos))}\n'
+        f'n=$(wc -l < {shlex.quote(str(intentos))})\n'
+        # Las dos primeras invocaciones fallan; de la tercera en adelante, ok.
+        '[ "$n" -le 2 ] && { echo "fallo transitorio" >&2; exit 1; }\n'
+        "exit 0\n"
+    )
+    guion.chmod(0o755)
+    monkeypatch.setattr(tmux_service, "TMUX_BINARY", str(guion))
+
+    assert tmux_service._ensure_tmux_server() is True
+    assert tmux_service._server_started is False, (
+        "el flag se marcó con un start-server que devolvió error: un fallo "
+        "transitorio dejaría el panel sin servidor hasta reiniciar el backend"
+    )
+
+    assert tmux_service._ensure_tmux_server() is True
+    assert tmux_service._server_started is False
+
+    # Tercera: esta sí funciona, y ahora sí se recuerda.
+    assert tmux_service._ensure_tmux_server() is True
+    assert tmux_service._server_started is True
+
+    # Y a partir de aquí ya no se vuelve a lanzar.
+    antes = intentos.stat().st_size
+    assert tmux_service._ensure_tmux_server() is False
+    assert intentos.stat().st_size == antes

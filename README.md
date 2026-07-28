@@ -336,6 +336,57 @@ muxspace/
 - **Portapapeles**: xterm.js propio + OSC 52. El backend activa en cada
   sesión, *best-effort*, `allow-passthrough on` y `set-clipboard on`
   (ignora errores en tmux antiguos).
+- **Registro de auditoría**: `backend/data/audit.log` (ver abajo).
+
+### Registro de auditoría
+
+Este panel da shell, así que deja traza de **qué** se ejecutó, **en qué
+sesión**, **cuándo** y **desde qué IP**. Vive en `backend/data/audit.log`,
+con permisos `0600` (registra los comandos del usuario: no puede quedar
+legible para el resto del sistema).
+
+El formato es **JSONL**: un objeto JSON por línea, sin envoltorio. Se elige
+por lo aburrido que es —se lee con `tail`, se filtra con `grep`, se procesa
+con `jq`, y una línea corrupta no arrastra a las demás—; un array JSON
+habría que reescribirlo entero en cada anotación.
+
+Campos de cada línea:
+
+| Campo | Contenido |
+|---|---|
+| `ts` | Marca de tiempo ISO 8601 **con zona** (UTC). Nunca epoch pelado |
+| `ip` | IP del cliente (respetando `X-Forwarded-For` de proxies de confianza) |
+| `user` | Usuario autenticado que lanzó la acción |
+| `action` | El verbo: `login`, `login-failed`, `create-session`, `kill-session`, `rename-session`, `send-command`, `launch`, `run-project`, `upload` |
+| `target` | El objeto sobre el que se actúa (normalmente el nombre de la sesión, o la ruta en `upload`) |
+| `detail` | Lo necesario para reconstruir qué pasó: el comando enviado, la ruta subida, el nombre nuevo al renombrar… |
+
+```bash
+# Todo lo que se ha ejecutado en las sesiones, con su hora e IP
+jq -r 'select(.action=="send-command") | "\(.ts) \(.ip) \(.target) → \(.detail.command)"' \
+   backend/data/audit.log
+```
+
+**Nunca** se registran credenciales: del login solo queda si hubo éxito,
+desde dónde y con qué usuario; ni la contraseña ni el token de sesión
+llegan al fichero (un log de auditoría que lleve el token es una llave, no
+una traza).
+
+Dos decisiones conscientes sobre la rotación, que conviene conocer antes de
+montar nada encima:
+
+- **Solo rota por tamaño, nunca por tiempo.** Al superar los 5 MB el
+  fichero pasa a `audit.log.1` y se abre uno nuevo. No hay rotación diaria
+  ni semanal: si necesitas cortes por fecha, filtra por `ts` con `jq`.
+- **Se conserva una sola rotación.** Al rotar de nuevo, el `audit.log.1`
+  anterior se pierde. Sin ese techo el log crecería sin límite en el mismo
+  disco que guarda las sesiones del usuario. Quien necesite histórico
+  completo debe llevarse los ficheros fuera (un `rsync` periódico basta).
+
+Escribir en el log **nunca** tumba una petición: si el disco se llena o los
+permisos cambian, el error se traga y la acción sigue adelante. Un panel
+que deja de funcionar porque no puede escribir su propio log de auditoría
+es peor que un panel sin log.
 
 > **Auditoría (2026-07-27)**: hay hallazgos abiertos, dos de severidad alta
 > (falta de cabeceras de seguridad y API accesible sin autenticación desde

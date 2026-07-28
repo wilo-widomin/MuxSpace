@@ -68,3 +68,13 @@ del terminal, que es la razón de ser del panel. Por eso va el último.
   y déjalo escrito en el PR.
 - El backend de producción del usuario sirve terminales abiertas. **No lo
   reinicies para probar**: levanta una copia en otro puerto.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 16:03:10 UTC
+- Fin:    2026-07-28 16:17:06 UTC
+- Tiempo transcurrido: 00:13:57 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-review

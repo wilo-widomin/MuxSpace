@@ -85,6 +85,7 @@ if str(_BACKEND) not in sys.path:
 # ----------------------------------------------------------------------
 # Bloque 3 · Ya se puede importar el backend.
 # ----------------------------------------------------------------------
+import audit  # noqa: E402
 import auth  # noqa: E402
 import config  # noqa: E402
 import library_store  # noqa: E402
@@ -129,6 +130,11 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(auth, "_FAILURES_PATH", datos / "login_failures.json")
     monkeypatch.setattr(auth, "_BANNED_PATH", datos / "banned_ips.json")
     monkeypatch.setattr(main, "_PASTE_DIR", datos / "pastes")
+    # El log de auditoría (US-018) escribe por su cuenta, sin pasar por los
+    # stores: si no se apunta también a `tmp_path`, cada test que ejecute algo
+    # deja una línea en el `data/` real. Lo cazó el centinela de esta misma
+    # sesión la primera vez que se ejecutó la suite con el log ya enganchado.
+    monkeypatch.setattr(audit, "_LOG_PATH", datos / "audit.log")
     # Crítico: el `lifespan` de la app llama a `harden_tree(_DATA_DIR)`, que es
     # un chmod recursivo. Sin este parche, abrir el TestClient como contexto
     # cambiaría los permisos de los ficheros reales del usuario.

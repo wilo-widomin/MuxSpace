@@ -24,6 +24,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import audit
 import config
 import space_store
 import upload_store
@@ -433,6 +434,12 @@ def login(body: LoginBody, request: Request, response: Response) -> UserResponse
         raise http_error(429, "err.login_rate_limited")
     if not verify_credentials(body.username, body.password):
         register_login_failure(ip)
+        # Se anota el intento fallido, NUNCA la contraseña: quien lea el log
+        # necesita saber que alguien probó desde esa IP con ese usuario, y
+        # nada más. Ver la regla 2 del docstring de `audit`.
+        audit.record(
+            "login-failed", request=request, user=body.username, target=None
+        )
         raise http_error(401, "err.bad_credentials")
 
     clear_login_failures(ip)
@@ -446,6 +453,9 @@ def login(body: LoginBody, request: Request, response: Response) -> UserResponse
         secure=config.COOKIE_SECURE,
         path="/",
     )
+    # Tampoco el token de sesión: es una credencial viva, y un log de
+    # auditoría que la lleve convierte el propio log en una llave.
+    audit.record("login", request=request, user=body.username, target=None)
     return UserResponse(user=body.username)
 
 
@@ -731,6 +741,10 @@ async def upload_file(
         raise http_error(500, "err.upload_failed") from exc
 
     upload_store.add(target.name, str(target), dir)
+    audit.record(
+        "upload", request=request, user=user, target=str(target),
+        detail={"name": target.name, "dir": dir, "bytes": len(data)},
+    )
     return UploadResponse(name=target.name, path=str(target), dir=dir)
 
 
@@ -801,6 +815,7 @@ def get_sessions(user: str = _auth) -> list[SessionInfo]:
 
 @app.post("/api/create-session/{name}", response_model=CreateSessionResponse)
 def create_session_endpoint(
+    request: Request,
     name: str,
     # `Body(...)` en el default ES la forma de declarar un cuerpo opcional en
     # FastAPI: el framework lo lee como metadato del parámetro, no como un
@@ -823,11 +838,20 @@ def create_session_endpoint(
         raise http_from(500, exc) from exc
     if not created:
         raise http_error(409, "err.session_exists", name=name)
+    audit.record(
+        "create-session",
+        request=request,
+        user=user,
+        target=name,
+        detail={"command": body.command, "cwd": body.cwd},
+    )
     return CreateSessionResponse(name=name, created=True)
 
 
 @app.post("/api/kill-session/{name}", response_model=KillSessionResponse)
-def kill_session_endpoint(name: str, user: str = _auth) -> KillSessionResponse:
+def kill_session_endpoint(
+    request: Request, name: str, user: str = _auth
+) -> KillSessionResponse:
     """Termina la sesión de tmux `name` con `tmux kill-session`.
 
     Su terminal (puente PTY) se cierra sola al desaparecer la sesión, y la
@@ -840,6 +864,10 @@ def kill_session_endpoint(name: str, user: str = _auth) -> KillSessionResponse:
     # La sesión ya no existe: su asignación de espacio sobra y, si alguien
     # crea otra con el mismo nombre, no debe heredar el espacio de la vieja.
     space_store.forget_session(name)
+    audit.record(
+        "kill-session", request=request, user=user, target=name,
+        detail={"killed": killed},
+    )
     return KillSessionResponse(name=name, killed=killed)
 
 
@@ -855,6 +883,7 @@ def detach_session_endpoint(name: str, user: str = _auth) -> DetachSessionRespon
 
 @app.post("/api/send-command/{name}", response_model=MessageResponse)
 def send_command_endpoint(
+    request: Request,
     name: str,
     body: SendCommandBody,
     user: str = _auth,
@@ -870,11 +899,16 @@ def send_command_endpoint(
         send_command(name, body.command)
     except TmuxError as exc:
         raise http_from(500, exc) from exc
+    audit.record(
+        "send-command", request=request, user=user, target=name,
+        detail={"command": body.command},
+    )
     return MessageResponse(message="ok")
 
 
 @app.post("/api/rename-session/{name}", response_model=MessageResponse)
 def rename_session_endpoint(
+    request: Request,
     name: str,
     body: RenameSessionBody,
     user: str = _auth,
@@ -896,6 +930,10 @@ def rename_session_endpoint(
         raise http_from(500, exc) from exc
 
     space_store.rename_session(name, new_name)
+    audit.record(
+        "rename-session", request=request, user=user, target=name,
+        detail={"new_name": new_name},
+    )
     return MessageResponse(message="ok")
 
 
@@ -964,6 +1002,7 @@ def get_commands(user: str = _auth) -> list[CommandInfo]:
 
 @app.post("/api/commands/{cmd_id}/launch", response_model=CreateSessionResponse)
 def launch_command_endpoint(
+    request: Request,
     cmd_id: str,
     user: str = _auth,
 ) -> CreateSessionResponse:
@@ -993,6 +1032,10 @@ def launch_command_endpoint(
             created = create_session(name, command=cmd.command)
         except TmuxError as exc:
             raise http_from(500, exc) from exc
+    audit.record(
+        "launch", request=request, user=user, target=name,
+        detail={"command_id": cmd_id, "command": cmd.command},
+    )
     return CreateSessionResponse(name=name, created=True)
 
 
@@ -1091,6 +1134,7 @@ def delete_project_endpoint(
 
 @app.post("/api/projects/{project_id}/run", response_model=CreateSessionResponse)
 def run_project_endpoint(
+    request: Request,
     project_id: str,
     user: str = _auth,
 ) -> CreateSessionResponse:
@@ -1137,6 +1181,11 @@ def run_project_endpoint(
         except TmuxError as exc:
             raise http_from(500, exc) from exc
 
+    audit.record(
+        "run-project", request=request, user=user, target=name,
+        detail={"project_id": project_id, "cwd": proj.cwd,
+                "commands": proj.commands},
+    )
     return CreateSessionResponse(name=name, created=True)
 
 

@@ -20,6 +20,16 @@ iniciar sesión (aceptable para un panel personal). Los intentos fallidos de
 login, en cambio, persisten en `data/login_failures.json` para que un
 atacante no resetee el rate limit tirando/esperando un reinicio del backend,
 y para conservar un histórico de IPs atacantes consultable a posteriori.
+
+**Un solo worker.** Aquí el problema no es solo el `threading.Lock` (que
+protege entre hilos, no entre procesos): las sesiones viven en un diccionario
+**en memoria**, y la memoria no se comparte entre workers. Con dos workers,
+quien hace login contra el worker A recibe un 401 en la siguiente petición si
+el balanceo la manda al B, porque el B no conoce ese token. El rate limit de
+login se rompe de la misma forma: cada worker cuenta sus propios fallos, así
+que con N workers salen N veces los intentos permitidos. Por eso el panel
+arranca con `--workers 1` y `main.py` avisa si detecta más. Ver
+`docs/un-solo-worker.md`.
 """
 from __future__ import annotations
 

@@ -402,7 +402,39 @@ es peor que un panel sin log.
 2. Crea el venv del backend e instala `requirements.txt` si no existe.
 3. Compila el frontend (`bun run build` → `frontend/dist/`) si no existe.
 4. Arranca uvicorn sirviendo **API + frontend** en el `HOST:PORT` de
-   `backend/.env` (por defecto `127.0.0.1:8000`).
+   `backend/.env` (por defecto `127.0.0.1:8000`), con **un solo worker**
+   (ver abajo: no es opcional).
+
+### ⚠️ Un solo worker de uvicorn
+
+**MuxSpace solo puede correr con `--workers 1`.** No es una recomendación ni
+un default que nadie tocó: con más de un worker **se corrompe la biblioteca
+de comandos** y **el login deja de funcionar**.
+
+El porqué: los stores (`library_store`, `space_store`, `upload_store`) se
+protegen con `threading.Lock`, que es **de proceso**, y cada mutación
+reescribe su JSON **entero**. Con dos workers, dos peticiones simultáneas
+leen la misma copia del fichero y la segunda en guardar borra lo que hizo la
+primera. Sin excepción, sin log, sin 500: el usuario ve que su comando se
+creó y al refrescar ya no está.
+
+Y las sesiones de login viven en un diccionario **en memoria**, que no se
+comparte entre procesos: quien entre por el worker A recibe un 401 en cuanto
+una petición caiga en el B. El rate limit de login se multiplica por el
+número de workers por el mismo motivo.
+
+Cómo está protegido:
+
+- `start.sh` pasa `--workers 1` explícito y hace `unset WEB_CONCURRENCY`.
+- Si arrancas uvicorn a mano, **no** uses `--workers N` ni dejes
+  `WEB_CONCURRENCY` en el entorno: uvicorn lo toma como valor por defecto y
+  levanta varios workers sin que hayas escrito ninguna bandera.
+- Si aun así arranca con más de uno, el backend lo avisa por el log de
+  uvicorn en cada worker, diciendo qué se va a corromper.
+
+La alternativa para escalar de verdad (locking de fichero con `fcntl.flock`)
+está evaluada y descartada, con las razones y el orden correcto de
+implementación, en [`docs/un-solo-worker.md`](docs/un-solo-worker.md).
 
 Para reconstruir el frontend a mano tras cambios de UI:
 

@@ -58,9 +58,27 @@ if [ ! -f frontend/dist/index.html ]; then
 fi
 
 echo "Arrancando MuxSpace en http://${HOST}:${PORT} …"
+# UN SOLO WORKER, y es un requisito, no un default que nadie tocó.
+#
+# Los stores (biblioteca, espacios, historial de subidas) se protegen con
+# `threading.Lock`, que es de proceso, y cada mutación reescribe su JSON
+# entero. Con dos workers, dos peticiones simultáneas leen la misma copia y
+# la segunda en guardar borra lo que hizo la primera: la biblioteca de
+# comandos pierde entradas sin dar ningún error. Las sesiones de login son
+# peores todavía: viven en memoria, así que quien entre por un worker recibe
+# 401 en cuanto una petición caiga en otro.
+#
+# `--workers 1` va explícito aunque sea el default de uvicorn, para que
+# quitarlo sea una decisión y no un descuido. Ojo también con
+# `WEB_CONCURRENCY` en el entorno: uvicorn lo usa como default y arrancaría
+# varios workers sin tocar esta línea (por eso se limpia aquí abajo).
+# `main.py` avisa por el log si aun así detecta más de uno.
+# Ver docs/un-solo-worker.md.
+unset WEB_CONCURRENCY
 exec backend/venv/bin/python -m uvicorn main:app \
   --app-dir backend \
   --host "$HOST" \
   --port "$PORT" \
+  --workers 1 \
   --proxy-headers \
   --forwarded-allow-ips "$PROXIES"

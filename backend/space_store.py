@@ -20,6 +20,13 @@ Lo que sí es compartido —y por eso se persiste aquí— es la organización.
 Persistencia en `data/spaces.json`, con el mismo enfoque deliberadamente
 simple que `library_store`: un JSON plano que se reescribe entero en cada
 mutación. Suficiente para un dashboard de uso personal.
+
+**Un solo worker.** El `Lock` de este módulo es un `threading.Lock`, que
+protege entre hilos pero no entre procesos. Reescribir el JSON entero en
+cada mutación significa que con dos workers de uvicorn la asignación de
+sesiones a espacios se pierde en silencio: el segundo en guardar sobreescribe
+con la copia que leyó antes. Por eso el panel arranca con `--workers 1` y
+`main.py` avisa si detecta más. Ver `docs/un-solo-worker.md`.
 """
 from __future__ import annotations
 

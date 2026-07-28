@@ -10,6 +10,13 @@ biblioteca sobreviva a reinicios del backend. El almacenamiento es
 deliberadamente simple (un archivo JSON plano) y no mantiene estado en
 memoria más allá de la caché de lectura: cada mutación recarga y reescribe
 el archivo completo. Suficiente para un dashboard de uso personal.
+
+**Un solo worker.** El `Lock` de abajo es un `threading.Lock`: protege entre
+hilos, no entre procesos. Como cada mutación reescribe `library.json`
+**entero** (read-modify-write), dos workers de uvicorn que guarden a la vez
+producen la pérdida silenciosa de lo que escribió el otro: el segundo
+sobreescribe con la copia que leyó antes. Por eso el panel arranca con
+`--workers 1` y `main.py` avisa si detecta más. Ver `docs/un-solo-worker.md`.
 """
 from __future__ import annotations
 

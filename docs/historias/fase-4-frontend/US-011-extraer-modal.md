@@ -55,3 +55,13 @@ Ninguna.
 
 Mismo contrato que US-010: movimiento mecánico, cero cambios de
 comportamiento.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 10:51:06 UTC
+- Fin:    2026-07-28 10:53:01 UTC
+- Tiempo transcurrido: 00:01:54 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-progress

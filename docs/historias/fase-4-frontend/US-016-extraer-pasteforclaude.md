@@ -60,3 +60,13 @@ US-010, US-012.
 Esta sección es la que el usuario usa para compartir capturas con Claude
 (las deja en `backend/data/pastes/`). Si algo se rompe aquí, se nota en el
 uso diario: la comprobación manual en el navegador no es opcional.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 11:05:51 UTC
+- Fin:    2026-07-28 11:08:27 UTC
+- Tiempo transcurrido: 00:02:36 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-progress

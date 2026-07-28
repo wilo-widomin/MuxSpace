@@ -670,7 +670,8 @@ def test_list_sessions_tolera_lineas_en_blanco_y_campos_incompletos(
         "solo-nombre",
         "ventanas-no-numericas",
     }
-    assert (por_nombre["completa"].windows, por_nombre["completa"].attached) == (3, True)
+    completa = por_nombre["completa"]
+    assert (completa.windows, completa.attached) == (3, True)
     assert por_nombre["completa"].created == "1700000000"
     assert por_nombre["sin-fecha"].created is None
     assert por_nombre["sin-fecha"].attached is False
@@ -741,9 +742,12 @@ def test_crear_una_sesion_con_command_lo_ejecuta_en_su_shell(
     marcador = tmp_path / "el-comando-corrio"
     sesion = nombre()
 
-    assert tmux_service.create_session(
-        sesion, command=f"touch {shlex.quote(str(marcador))}"
-    ) is True
+    assert (
+        tmux_service.create_session(
+            sesion, command=f"touch {shlex.quote(str(marcador))}"
+        )
+        is True
+    )
 
     esperar(marcador.exists, "el comando no llegó a ejecutarse")
     assert tmux_service.session_exists(sesion) is True
@@ -763,9 +767,12 @@ def test_crear_con_cwd_y_command_ejecuta_el_comando_dentro_del_cwd(
     carpeta.mkdir()
     sesion = nombre()
 
-    assert tmux_service.create_session(
-        sesion, command="touch marcador-relativo", cwd=str(carpeta)
-    ) is True
+    assert (
+        tmux_service.create_session(
+            sesion, command="touch marcador-relativo", cwd=str(carpeta)
+        )
+        is True
+    )
 
     esperar(
         (carpeta / "marcador-relativo").exists,
@@ -1053,9 +1060,12 @@ def test_un_cwd_con_sustitucion_de_comandos_no_ejecuta_nada(
     carpeta_maliciosa.mkdir()
     sesion = nombre()
 
-    assert tmux_service.create_session(
-        sesion, command="touch marcador-relativo", cwd=str(carpeta_maliciosa)
-    ) is True
+    assert (
+        tmux_service.create_session(
+            sesion, command="touch marcador-relativo", cwd=str(carpeta_maliciosa)
+        )
+        is True
+    )
 
     # Se espera al marcador y no a un `sleep` fijo: cuando aparece, el shell
     # ya ha procesado la línea entera, así que si la sustitución fuera a
@@ -1086,9 +1096,12 @@ def test_command_si_es_shell_por_diseno(
     marcador = tmp_path / "las-dos-partes"
     sesion = nombre()
 
-    assert tmux_service.create_session(
-        sesion, command=f"true && touch {shlex.quote(str(marcador))}"
-    ) is True
+    assert (
+        tmux_service.create_session(
+            sesion, command=f"true && touch {shlex.quote(str(marcador))}"
+        )
+        is True
+    )
 
     esperar(marcador.exists, "el '&&' de command no se interpretó como shell")
 

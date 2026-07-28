@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from conftest import ORIGIN, USERNAME
 
 import auth
 import config
@@ -18,8 +19,6 @@ import library_store
 import main
 import space_store
 import upload_store
-
-from conftest import ORIGIN, USERNAME
 
 # La lista se DECLARA aquí y no se importa del conftest, a propósito. Es
 # contabilidad por partida doble: si el guardián leyera la misma lista que el

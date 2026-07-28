@@ -89,12 +89,11 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 import pytest
+from conftest import PASSWORD, USERNAME
 
 import auth
 import config
 import main
-
-from conftest import PASSWORD, USERNAME
 
 # ----------------------------------------------------------------------
 # Constantes del contrato. DECLARADAS aquí, no importadas de `auth`: es

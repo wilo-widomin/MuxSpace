@@ -95,3 +95,13 @@ choca.
   es un arreglo de lint**. Sácalo del PR y anótalo.
 - El lockfile cambia al añadir dependencias: commitéalo.
 - `bun`, nunca `npm` ni `npx`. También para ejecutar eslint: `bunx eslint`.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 10:12:37 UTC
+- Fin:    2026-07-28 10:26:12 UTC
+- Tiempo transcurrido: 00:13:36 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-progress

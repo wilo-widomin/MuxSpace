@@ -8,3 +8,45 @@ testpaths = ["backend/tests"]
 # `import config`, no `from backend import config`.
 pythonpath = ["backend"]
 addopts = "-ra --strict-markers"
+
+# ----------------------------------------------------------------------
+# ruff: linter del backend (US-008).
+# ----------------------------------------------------------------------
+[tool.ruff]
+# El backend se importa en plano (`import config`), no como paquete: ver el
+# comentario de pytest de arriba. `src` se lo dice a la regla `I` para que
+# ordene los imports del propio backend como primera parte y no como terceros.
+src = ["backend"]
+line-length = 88
+extend-exclude = ["backend/venv", "frontend"]
+
+[tool.ruff.lint]
+# `S` es flake8-bandit, y está aquí por lo que este panel hace: ejecuta
+# comandos como el usuario que corre el backend. `E`,`F` (pyflakes/pycodestyle),
+# `I` (orden de imports) y `B` (bugbear) son la base.
+select = ["E", "F", "I", "B", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# Los tests usan `assert` como su forma de expresarse: S101 los marcaría todos
+# y es exactamente lo que se quiere ahí. `S105`/`S106` saltan con las
+# contraseñas de mentira que los tests de autenticación necesitan por
+# definición.
+"backend/tests/*" = [
+    "S101",  # `assert` es cómo se expresa un test, no un descuido.
+    "S105",  # contraseñas de mentira: los tests de auth las necesitan.
+    "S106",
+    "S108",  # rutas bajo /tmp: son `tmp_path` de pytest, no ficheros temporales
+             # adivinables en producción.
+    "S603",  # subprocess por argv contra el servidor de tmux AISLADO. Igual que
+             # en producción, pero aquí son seis sitios del andamiaje y un
+             # `noqa` por línea solo añadiría ruido.
+    "S103",  # `chmod 0o755` sobre un directorio de `tmp_path` para montar el
+             # caso de "directorio legible pero no listable".
+]
+
+[tool.ruff.lint.isort]
+# Sin esto, isort saca cada `import x as y` a su propio bloque `from … import
+# (…)`, y `main.py` acaba con cuatro `from dir_suggestions import` seguidos.
+# Los alias de este repo (`create_session as create_auth_session`) existen para
+# desambiguar, no para separarse del resto de su módulo.
+combine-as-imports = true

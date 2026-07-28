@@ -18,26 +18,28 @@ import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Request, Response, WebSocket
+from fastapi import Body, Depends, FastAPI, Request, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import config
-from datafiles import ensure_dir as ensure_data_dir, harden_tree, write_private
+import space_store
+import upload_store
 from auth import (
     SESSION_COOKIE,
     check_login_allowed,
     clear_login_failures,
-    is_ip_banned,
     create_session as create_auth_session,
     destroy_session as destroy_auth_session,
+    is_ip_banned,
     register_login_failure,
     require_auth,
     verify_credentials,
     ws_user,
 )
+from datafiles import ensure_dir as ensure_data_dir, harden_tree, write_private
 from dir_suggestions import (
     browse as browse_dir,
     create_dir as create_dir_within_roots,
@@ -45,7 +47,6 @@ from dir_suggestions import (
     suggest as suggest_dirs,
 )
 from errors import http_error, http_from
-from pty_bridge import bridge, _prepare_session
 from library_store import (
     LibraryError,
     add_command,
@@ -59,8 +60,7 @@ from library_store import (
     update_command,
     update_project,
 )
-import space_store
-import upload_store
+from pty_bridge import _prepare_session, bridge
 from space_store import SpaceError
 from tmux_service import (
     TmuxError,
@@ -802,7 +802,11 @@ def get_sessions(user: str = _auth) -> list[SessionInfo]:
 @app.post("/api/create-session/{name}", response_model=CreateSessionResponse)
 def create_session_endpoint(
     name: str,
-    body: CreateSessionBody = Body(default_factory=CreateSessionBody),
+    # `Body(...)` en el default ES la forma de declarar un cuerpo opcional en
+    # FastAPI: el framework lo lee como metadato del parámetro, no como un
+    # valor mutable compartido entre llamadas, que es el fallo contra el que
+    # existe B008.
+    body: CreateSessionBody = Body(default_factory=CreateSessionBody),  # noqa: B008
     user: str = _auth,
 ) -> CreateSessionResponse:
     """Crea una nueva sesión de tmux con el nombre indicado.

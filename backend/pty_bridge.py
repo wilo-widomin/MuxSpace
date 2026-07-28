@@ -45,14 +45,16 @@ def _prepare_session(name: str) -> None:
     """
     for opt, val in (("allow-passthrough", "on"), ("set-clipboard", "on")):
         try:
-            subprocess.run(
+            subprocess.run(  # noqa: S603 — argv, nunca shell
                 [config.TMUX_BINARY, "set-option", "-t", name, opt, val],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=5,
                 check=False,
             )
-        except Exception:
+        except Exception:  # noqa: S110 — un tmux viejo puede no conocer la
+            # opción, y eso NO debe impedir abrir la terminal. Es el caso que
+            # el docstring de arriba describe.
             pass
 
 
@@ -70,7 +72,7 @@ async def bridge(websocket: WebSocket, name: str) -> None:
         "TERM": "xterm-256color",
     }
     try:
-        proc = subprocess.Popen(
+        proc = subprocess.Popen(  # noqa: S603 — argv, nunca shell
             [config.TMUX_BINARY, "-u", "attach", "-t", name],
             stdin=slave,
             stdout=slave,
@@ -137,11 +139,17 @@ async def bridge(websocket: WebSocket, name: str) -> None:
                 if ctl.get("type") == "resize":
                     try:
                         _set_winsize(master, int(ctl["rows"]), int(ctl["cols"]))
-                    except Exception:
+                    except Exception:  # noqa: S110 — un resize con valores
+                        # basura del cliente se descarta; tirar la terminal
+                        # entera por un mensaje mal formado sería peor.
                         pass
     except WebSocketDisconnect:
         pass
-    except Exception:
+    except Exception:  # noqa: S110 — el puente muere con la conexión: cualquier
+        # error aquí significa que el WebSocket o el PTY ya no están, y el
+        # `finally` de abajo es quien tiene que cerrar los descriptores pase lo
+        # que pase. Registrar el motivo es trabajo del logging estructurado de
+        # la fase 5 (Q6), no de este PR.
         pass
     finally:
         loop.remove_reader(master)

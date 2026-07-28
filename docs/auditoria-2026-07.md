@@ -46,7 +46,7 @@ De ahí salen las dos consecuencias que ordenan toda la auditoría:
 | S13 | Baja | `suggest`/`browse` listan rutas de fuera de las raíces | CONFIRMADO |
 | S14 | Baja | Un bucle de symlinks devuelve 500 en vez de rechazo | CONFIRMADO |
 | S15 | Baja | `UnicodeDecodeError` no capturado en los tres stores | **CORREGIDO** |
-| S16 | Baja | `spaces.json` no-objeto → `AttributeError` → 500 | CONFIRMADO |
+| S16 | Baja | `spaces.json` no-objeto → `AttributeError` → 500 | **CORREGIDO** |
 | S17 | Baja | Una sesión con nombre que empieza por `$` no se puede matar | **CORREGIDO** |
 
 **Los seis últimos (S12-S17) aparecieron al escribir los tests de la fase 2**,
@@ -61,7 +61,7 @@ cuando alguien se pregunta "¿y si el JSON está cortado a medio carácter?".
 | S15, S16 | US-006, en los casos de JSON corrupto |
 | S17 | US-007, al probar el ciclo de vida contra tmux real |
 
-S12, S15 y S17 están corregidos. S13, S14 y S16 siguen **cubiertos por tests
+S12, S15, S16 y S17 están corregidos. S13 y S14 siguen **cubiertos por tests
 `xfail(strict=True)`**: existen en la suite, no la bloquean, y el día que
 alguien los arregle sin quitar el marcador se ponen en rojo. El arreglo no se
 puede colar sin enterarse.
@@ -503,7 +503,7 @@ pone en rojo su parámetro y solo el suyo.
 
 ---
 
-## S16 · BAJA — `spaces.json` que no es un objeto → 500 · CONFIRMADO
+## S16 · BAJA — `spaces.json` que no es un objeto → 500 · CORREGIDO
 
 ```console
 b'[]'      -> AttributeError: 'list' object has no attribute 'get'
@@ -516,9 +516,17 @@ b'"hola"'  -> AttributeError: 'str' object has no attribute 'get'
 `library_store` (`isinstance(data, dict)`) y `upload_store`
 (`isinstance(data, list)`) **sí** comprueban: es una asimetría, no una decisión.
 
-**Corrección** — el mismo `isinstance(raw, dict)` que ya tienen los otros dos.
+**Corregido** — el mismo `isinstance(raw, dict)` que ya tenían los otros dos.
 
-Cubierto por `test_stores.py`, `xfail(strict=True)`.
+La regresión es
+`test_stores.py::test_regresion_s16_un_spaces_json_que_no_es_un_objeto_no_hace_lanzar_la_lectura`
+(ya sin `xfail`), con los mismos cinco contenidos que el test equivalente de la
+biblioteca: los tres stores tienen que comportarse igual ante la misma basura.
+Verificado por mutación: quitar el `isinstance` pone en rojo los cinco
+parámetros.
+
+Con S15 y S16 cerrados, "leer nunca lanza" vuelve a ser cierto en los tres
+stores para cualquier contenido de disco.
 
 ---
 

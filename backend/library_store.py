@@ -71,7 +71,12 @@ def _load_raw() -> _Library:
         return lib
     try:
         data = json.loads(_STORE_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    # `ValueError` y no `json.JSONDecodeError`: el archivo se serializa con
+    # `ensure_ascii=False`, así que uno cortado en medio de un carácter
+    # multibyte hace lanzar al `read_text` un `UnicodeDecodeError` — hermano
+    # de `JSONDecodeError` bajo `ValueError`, y no subclase suya. Capturar
+    # solo el segundo rompía el contrato "leer nunca lanza" (S15).
+    except (ValueError, OSError):
         return lib
     if not isinstance(data, dict):
         return lib

@@ -60,3 +60,13 @@ Ninguna.
   tiene 2.572 líneas y es el archivo que más se toca del proyecto.
 - Un PR de extracción con un cambio funcional escondido es peor que no
   extraer. Si algo no se puede mover sin tocarlo, dilo y para.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 10:47:09 UTC
+- Fin:    2026-07-28 10:49:33 UTC
+- Tiempo transcurrido: 00:02:24 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-progress

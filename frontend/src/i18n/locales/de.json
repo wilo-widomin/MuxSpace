@@ -1,18 +1,14 @@
 {
   "app.title": "MuxSpace – Sessions-Dashboard",
-  "app.brand": "MuxSpace",
   "app.loading": "Lädt…",
   "app.session_expired": "Sitzung abgelaufen. Melde dich erneut an.",
   "app.server_unreachable": "Keine Verbindung zum Server möglich.",
-
   "lang.label": "Sprache",
-
   "login.subtitle": "Gib deine Zugangsdaten ein, um fortzufahren.",
   "login.username": "Benutzer",
   "login.password": "Passwort",
   "login.submit": "Anmelden",
   "login.submitting": "Verbinde…",
-
   "grid.empty_title": "Keine Terminals geöffnet",
   "grid.empty_hint": "Wähle in der Seitenleiste eine Session aus, um sie hier anzuzeigen.",
   "grid.resize_hint": "Zum Ändern der Größe ziehen (Doppelklick: gleichmäßig aufteilen)",
@@ -20,7 +16,6 @@
   "grid.layout_cols": "Nebeneinander (Spalten)",
   "grid.layout_rows": "Übereinander (Zeilen)",
   "grid.restore": "Layout wiederherstellen",
-
   "tile.drag_hint": "Zum Umsortieren ziehen",
   "tile.kill": "tmux-Session beenden (kill-session)",
   "tile.close": "Terminal schließen und stoppen",
@@ -28,9 +23,7 @@
   "tile.restore": "Layout wiederherstellen",
   "tile.search_placeholder": "Befehl suchen oder tippen (Enter zum Senden)… (Esc zum Leeren)",
   "tile.confirm_kill": "tmux-Session „{name}“ beenden?\n\nAuf dem Server wird „tmux kill-session“ ausgeführt: die Session und alles, was darin läuft, geht verloren. Das lässt sich nicht rückgängig machen.",
-
   "term.disconnected": "[Verbindung zum Server getrennt]",
-
   "sidebar.expand": "Panel ausklappen",
   "sidebar.collapse": "Panel ausblenden",
   "sidebar.new_session": "Neue Session",
@@ -52,7 +45,6 @@
   "sidebar.kill_session": "tmux-Session beenden (kill-session)",
   "sidebar.hide_tile": "Fenster schließen (das Terminal läuft weiter)",
   "sidebar.logout": "Abmelden",
-
   "sidebar.commands": "Befehle",
   "sidebar.commands_hint": "Werden im fokussierten Terminal ausgeführt (oder in einem neuen, falls keines da ist).",
   "sidebar.new_command": "Neuer Befehl",
@@ -61,7 +53,6 @@
   "sidebar.confirm_delete_command": "Befehl „{label}“ aus der Bibliothek löschen?",
   "sidebar.run_in_terminal": "Im Terminal „{name}“ ausführen",
   "sidebar.run_in_new_session": "In neuer Session öffnen und ausführen",
-
   "sidebar.projects": "Projekte",
   "sidebar.projects_hint": "Öffnen eine neue Session: cd ins Verzeichnis + Befehlsliste.",
   "sidebar.new_project": "Neues Projekt",
@@ -70,7 +61,6 @@
   "sidebar.confirm_delete_project": "Projekt „{title}“ aus der Bibliothek löschen?",
   "sidebar.run_project": "In neuer Session öffnen und die Abfolge ausführen",
   "sidebar.run_project_new_tab": "Projekt in seinem Space in einem neuen Tab öffnen",
-
   "form.new_session_title": "Neue Session",
   "form.session_name_label": "Name der neuen Session",
   "form.session_name_hint": "Nur Buchstaben, Ziffern, Bindestrich (-) und Unterstrich (_). Der Schrägstrich „/“ wird durch „_“ ersetzt.",
@@ -83,7 +73,6 @@
   "form.project_title_default_placeholder": "Projekttitel (Standard: Name der Session)",
   "form.create_session": "Session anlegen",
   "form.creating": "Lege an…",
-
   "form.new_command_title": "Neuer Befehl",
   "form.edit_command_title": "Befehl bearbeiten",
   "form.name_optional_label": "Name (optional)",
@@ -91,7 +80,6 @@
   "form.command_label": "Befehl",
   "form.command_only_placeholder": "Befehl",
   "form.quick_command_placeholder": "Befehl (z. B. {example})",
-
   "form.new_project_title": "Neues Projekt",
   "form.edit_project_title": "Projekt bearbeiten",
   "form.title_label": "Titel",
@@ -107,13 +95,11 @@
   "form.save_project": "Projekt speichern",
   "form.save": "Speichern",
   "form.saving": "Speichere…",
-
   "form.need_one_command": "Füge mindestens einen Befehl hinzu.",
   "form.create_session_failed": "Session konnte nicht angelegt werden.",
   "form.rename_session_failed": "Session konnte nicht umbenannt werden.",
   "form.save_command_failed": "Befehl konnte nicht gespeichert werden.",
   "form.save_project_failed": "Projekt konnte nicht gespeichert werden.",
-
   "spaces.title": "Spaces",
   "spaces.unassigned": "Ohne Zuordnung",
   "spaces.option": "{title} ({count})",
@@ -133,7 +119,6 @@
     "other": "Space „{title}“ löschen?\n\nSeine {count} Sessions werden NICHT beendet: sie gehen zurück zu „Ohne Zuordnung“."
   },
   "spaces.move": "In anderen Space verschieben",
-
   "paste.title": "Bild für Claude einfügen",
   "paste.uploading": "Lädt hoch…",
   "paste.placeholder": "Hier klicken und das Bild einfügen (Ctrl+V)",
@@ -153,7 +138,6 @@
   "paste.copied": "Pfad kopiert! Gib ihn Claude:",
   "paste.copy_hint": "Auf den Pfad klicken, um ihn zu kopieren:",
   "paste.copy_path": "Klicken, um den Pfad zu kopieren",
-
   "upload.title": "Datei hochladen",
   "upload.dest_label": "Zielordner:",
   "upload.choose_dir": "Ordner wählen",
@@ -178,22 +162,18 @@
   "upload.save_here": "Hier speichern",
   "upload.browse_failed": "Ordner konnte nicht aufgelistet werden.",
   "upload.create_failed": "Ordner konnte nicht erstellt werden.",
-
   "modal.close": "Schließen",
-
   "err.unknown": "Unerwarteter Fehler.",
   "err.http": "Fehler {status}",
   "err.unauthorized": "Nicht autorisiert.",
   "err.unauthenticated": "Nicht authentifiziert.",
   "err.bad_credentials": "Benutzer oder Passwort falsch.",
   "err.login_rate_limited": "Zu viele Fehlversuche. Warte eine Minute.",
-
   "err.image_unsupported_format": "Format nicht unterstützt. Füge ein Bild als PNG, JPEG, WebP oder GIF ein.",
   "err.image_missing": "Es wurde kein Bild empfangen.",
   "err.image_too_large": "Das Bild überschreitet das Limit von {mb} MB.",
   "err.paste_not_found": "Screenshot nicht gefunden.",
   "err.paste_delete_failed": "Screenshot konnte nicht gelöscht werden.",
-
   "err.upload_missing": "Keine Datei empfangen.",
   "err.upload_too_large": "Die Datei überschreitet das Limit von {mb} MB.",
   "err.upload_name_invalid": "Ungültiger Dateiname.",
@@ -203,7 +183,6 @@
   "err.dir_not_found": "Ordner nicht gefunden oder außerhalb des erlaubten Bereichs.",
   "err.dir_name_invalid": "Ungültiger Ordnername.",
   "err.dir_create_failed": "Ordner konnte nicht erstellt werden.",
-
   "err.session_name_invalid": "Ungültiger Name. Verwende nur Buchstaben, Ziffern, Bindestrich (-) und Unterstrich (_), maximal 64 Zeichen.",
   "err.session_exists": "Es gibt bereits eine Session namens „{name}“.",
   "err.session_missing": "Die tmux-Session „{name}“ existiert nicht.",
@@ -214,18 +193,15 @@
   "err.session_kill_failed": "Session konnte nicht beendet werden.",
   "err.session_detach_failed": "Session konnte nicht abgetrennt werden.",
   "err.send_command_failed": "Der Befehl konnte nicht an die Session „{name}“ gesendet werden.",
-
   "err.tmux_not_found": "Die tmux-Binärdatei („{binary}“) wurde nicht gefunden.",
   "err.tmux_timeout": "tmux hat nicht rechtzeitig geantwortet.",
   "err.tmux_unknown": "Unbekannter Fehler in tmux.",
-
   "err.command_empty": "Der Befehl darf nicht leer sein.",
   "err.command_not_found": "Befehl nicht gefunden.",
   "err.project_not_found": "Projekt nicht gefunden.",
   "err.project_title_required": "Das Projekt braucht einen Titel.",
   "err.project_needs_command": "Das Projekt braucht mindestens einen Befehl.",
   "err.project_no_commands": "Das Projekt hat keine Befehle zum Ausführen.",
-
   "err.space_title_empty": "Der Titel des Space darf nicht leer sein.",
   "err.space_title_too_long": "Der Titel darf {max} Zeichen nicht überschreiten.",
   "err.space_not_found": "Der Space „{id}“ existiert nicht.",

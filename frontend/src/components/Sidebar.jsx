@@ -3,6 +3,7 @@ import { ApiError, api } from '../api.js'
 import { LANGUAGES, useT } from '../i18n/index.jsx'
 import { quotePath } from '../lib/paths.js'
 import { CloseIcon, Modal } from './sidebar/Modal.jsx'
+import { SectionCaret } from './sidebar/SectionCaret.jsx'
 import { UNASSIGNED, spaceKeyOf } from '../spaces.js'
 import { LAYOUTS, LayoutIcon } from './SessionGrid.jsx'
 
@@ -1610,16 +1611,6 @@ export function Resizer({ onDrag, orientation = 'horizontal' }) {
 // backend conserva solo las 5 más recientes): al hacer clic en cualquiera se
 // copia su ruta absoluta para poder dársela a Claude. También admite elegir
 // un fichero.
-// Triángulo de plegar/desplegar de las persianas del lateral. Caja de tamaño
-// fijo para que los cuatro queden del mismo tamaño y a la misma altura.
-function SectionCaret({ open }) {
-  return (
-    <span className="flex h-[21px] w-[21px] shrink-0 items-center justify-center text-[21px] leading-none">
-      {open ? '▾' : '▸'}
-    </span>
-  )
-}
-
 function PasteForClaude({ open, onToggle }) {
   const { t, tError } = useT()
   const [busy, setBusy] = useState(false)

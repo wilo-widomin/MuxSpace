@@ -82,3 +82,13 @@ fallo aquí deja al usuario fuera o deja sesiones vivas de más.
 - El despliegue real usa PAM y `SESSION_TTL_HOURS=168`. Bajar la
   inactividad a 24 h significa que el dueño va a volver a hacer login más a
   menudo: dilo en el PR, es un cambio de comportamiento observable.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 15:50:12 UTC
+- Fin:    2026-07-28 16:01:40 UTC
+- Tiempo transcurrido: 00:11:28 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-review

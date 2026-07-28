@@ -28,7 +28,7 @@ function sanitizeSessionName(value) {
 // OJO: "sesion-N" NO se traduce. Es un identificador de tmux —el backend lo
 // valida contra `_SESSION_NAME_RE` (ASCII: letras, números, '-' y '_')— y
 // además queda persistido. Parece texto, pero es un dato.
-function suggestName(existing) {
+export function suggestName(existing) {
   const taken = new Set(existing)
   let n = 1
   while (taken.has(`sesion-${n}`)) n += 1

@@ -194,7 +194,7 @@ aunque se recargue la web: solo se cierra la "ventana" de visualización.
 | Job | Pasos |
 |---|---|
 | `backend` | instalar tmux → `pip install -r backend/requirements-dev.txt` → `ruff check backend/` → `pytest --cov=backend --cov-fail-under=60` |
-| `frontend` | `bun install --frozen-lockfile` → `bun run lint` → *(vitest, cuando exista)* → `bun run build` → `bun run check-i18n` |
+| `frontend` | `bun install --frozen-lockfile` → `bun run lint` → `bun run test` (vitest) → `bun run build` → `bun run check-i18n` |
 
 Todo eso se reproduce en local con los comandos de la sección siguiente: si el
 CI comprueba algo que no puedes ejecutar en tu máquina, deja de ser útil y pasa
@@ -238,6 +238,7 @@ backend/venv/bin/python -m ruff check backend/ --fix   # arreglar lo mecánico
 # Frontend (siempre bun, nunca npm ni npx)
 cd frontend
 bun run lint          # eslint
+bun run test          # vitest (una vez); `bun run test:watch` para desarrollar
 bun run build         # que compile
 bun run check-i18n    # que no falten claves en los 6 idiomas
 ```

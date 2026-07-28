@@ -2,13 +2,14 @@
 // (nueva sesión, nuevo/editar comando, nuevo/editar proyecto) y el
 // `DirBrowserModal` que extrae US-014.
 //
-// `CloseIcon` viaja con él y se re-exporta. No es su sitio natural —lo usan
-// seis puntos más de `Sidebar.jsx`— pero las alternativas eran peores:
+// `CloseIcon` y `FolderIcon` viven aquí y se re-exportan. No es su sitio
+// natural —los usan varios puntos de `Sidebar.jsx` y de `DirBrowserModal`—
+// pero las alternativas eran peores:
 // duplicarlo (prohibido por la historia), dejarlo en `Sidebar.jsx` e
 // importarlo desde aquí (import circular: Sidebar -> Modal -> Sidebar), o
-// crear ya `components/icons.jsx`, que la historia deja explícitamente fuera
-// de alcance. Cuando llegue esa colección de iconos, este export se va con
-// ella.
+// crear ya `components/icons.jsx`, que US-011 dejó explícitamente fuera de
+// alcance. Se juntan aquí a propósito, en UN solo sitio: el día que exista
+// esa colección, moverlos es cortar y pegar dos funciones seguidas.
 import { useEffect } from 'react'
 
 import { useT } from '../../i18n/index.jsx'
@@ -67,6 +68,25 @@ export function CloseIcon() {
     >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  )
+}
+
+
+export function FolderIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2Z" />
     </svg>
   )
 }

@@ -6,9 +6,8 @@ consulta de verdad.
 
 El único estado que mantiene es un flag —`_server_started`— que recuerda si
 ya se lanzó `tmux start-server` en este proceso, porque eso solo hace falta
-una vez y se venía haciendo en cada listado (US-019). Está pensado para
-sobrevivir a que el servidor de tmux muera por debajo: ver
-`_reset_tmux_server_flag` y la recuperación de `list_sessions`.
+una vez y se venía haciendo en cada listado (US-019). Que el servidor de tmux
+muera por debajo no lo invalida: ver el docstring de `list_sessions`.
 """
 from __future__ import annotations
 
@@ -81,8 +80,10 @@ _server_started = False
 def _ensure_tmux_server() -> bool:
     """Arranca el servidor de tmux si no consta que lo esté ya.
 
-    Devuelve **True si ha lanzado `start-server` en esta llamada**, para que
-    quien llame sepa si acaba de intentarlo (y no lo reintente en bucle).
+    Devuelve **True si ha lanzado `start-server` en esta llamada**. En
+    producción nadie mira ese valor; existe para que los tests puedan
+    distinguir "no hizo falta" de "lo intentó y falló", que son los dos casos
+    en los que el flag queda a False y desde fuera se ven igual.
 
     Si el arranque falla, el flag **no** se marca: un fallo transitorio no
     puede dejar el panel muerto hasta el próximo reinicio, así que la

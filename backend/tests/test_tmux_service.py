@@ -1388,8 +1388,18 @@ def tmux_contador(
     monkeypatch.setattr(tmux_service, "TMUX_BINARY", str(contador))
     monkeypatch.setattr(config, "TMUX_BINARY", str(contador))
 
+    # Se ata a un nombre distinto a propósito: dentro de un cuerpo de clase,
+    # `servidor = servidor` NO lee el `servidor` de la función de fuera (el
+    # nombre se vuelve local del cuerpo de clase y la búsqueda salta el scope
+    # envolvente) y revienta con NameError.
+    servidor_de_pruebas = servidor
+
     class Contador:
         wrapper = contador
+        # El servidor por debajo, para poder apagarlo con la espera de
+        # `apagar()`. Sus comandos van por el wrapper de siempre, así que
+        # matar el servidor no se cuela en la cuenta de invocaciones.
+        servidor = servidor_de_pruebas
 
         def invocaciones(self) -> list[str]:
             if not registro.is_file():
@@ -1474,9 +1484,14 @@ def test_si_el_servidor_muere_por_debajo_el_panel_se_recupera(
     assert len(tmux_service.list_sessions()) == 1
 
     # El usuario mata su servidor de tmux con el panel abierto.
-    subprocess.run(
-        [str(tmux_contador.wrapper), "kill-server"], capture_output=True, timeout=10
-    )
+    #
+    # Por `apagar()` y no por un `kill-server` suelto: `kill-server` vuelve
+    # cuando ha mandado la orden, no cuando el servidor ha muerto, y las
+    # llamadas de abajo caían en esa ventana. La primera versión de este test
+    # usaba el `kill-server` a pelo y falló 1 de cada 60 pasadas del archivo
+    # —el mismo intermitente que ya documenta `apagar()`, reintroducido por la
+    # puerta de atrás—.
+    tmux_contador.servidor.apagar()
     tmux_contador.limpiar()
 
     # Listar no puede lanzar: la lista vacía es la respuesta correcta.

@@ -11,3 +11,8 @@ pytest-cov==7.1.0
 # httpx no es una dependencia del panel: lo exige `fastapi.testclient.TestClient`,
 # que por dentro es un cliente httpx contra la app ASGI.
 httpx==0.28.1
+
+# Linter del backend. La configuración vive en el `pyproject.toml` de la raíz.
+# Se fija la versión porque una versión nueva puede traer reglas nuevas y
+# poner el CI en rojo sin que nadie haya tocado el código.
+ruff==0.16.0

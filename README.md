@@ -186,6 +186,48 @@ aunque se recargue la web: solo se cierra la "ventana" de visualización.
   caracteres que interpretaría el shell, para poder pegarlas de una pieza.
 - La anchura del sidebar es arrastrable.
 
+## Calidad: tests, linters y formato
+
+```bash
+# Instalar las dependencias de desarrollo (pytest, ruff…)
+backend/venv/bin/python -m pip install -r backend/requirements-dev.txt
+
+# Backend
+backend/venv/bin/python -m pytest -q            # tests
+backend/venv/bin/python -m ruff check backend/  # linter
+backend/venv/bin/python -m ruff check backend/ --fix   # arreglar lo mecánico
+
+# Frontend (siempre bun, nunca npm ni npx)
+cd frontend
+bun run lint          # eslint
+bun run build         # que compile
+bun run check-i18n    # que no falten claves en los 6 idiomas
+```
+
+**`ruff`** lleva las reglas `E,F,I,B` más **`S`** (`flake8-bandit`), que está ahí
+por lo que este panel hace: ejecuta comandos como el usuario que lo corre. Donde
+`S` se silencia es siempre con un `# noqa: SXXX` en la línea concreta y con el
+motivo escrito al lado — nunca desactivando la regla en la configuración. El
+caso más repetido es `S603` (`subprocess` sin `shell=True`), que aquí es
+justamente la forma **correcta** de invocar tmux.
+
+**`eslint`** lleva a propósito muy pocas reglas: las que valen son
+`react-hooks/rules-of-hooks` y `exhaustive-deps`, que detectan bugs de verdad.
+Un preajuste pesado traería cientos de reglas de estilo que este repo no sigue.
+
+**`prettier`** está configurado (`frontend/.prettierrc`) para acercarse al estilo
+que ya tiene el repo, pero **el código todavía no está formateado con él**:
+
+```bash
+cd frontend
+bun run format:check   # hoy NO está en verde: ~1.100 líneas difieren
+bun run format         # reformatea (cambio grande, hacerlo en su propio PR)
+```
+
+Formatear entero es un cambio mecánico de ~1.100 líneas, y 950 caen en
+`Sidebar.jsx`. Tiene más sentido después de trocearlo (fase 4) que antes, así
+que `format:check` **no** forma parte del gate de CI.
+
 ## Estructura del proyecto
 
 ```

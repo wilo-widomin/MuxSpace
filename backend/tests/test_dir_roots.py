@@ -48,7 +48,6 @@ import pytest
 import config
 import dir_suggestions
 
-
 # ----------------------------------------------------------------------
 # Constantes del contrato, DECLARADAS aquí y no importadas del módulo bajo
 # prueba. Es contabilidad por partida doble, como `RUTAS` en
@@ -148,7 +147,10 @@ def _resolver_con_el_orden_invertido(q: str) -> Path | None:
     los helpers privados del módulo, para que siga siendo la mutación que
     describe aunque el módulo cambie por dentro.
     """
-    raices = [Path(os.path.expanduser(r)).resolve() for r in config.DIR_SUGGESTION_ROOTS]
+    raices = [
+        Path(os.path.expanduser(r)).resolve()
+        for r in config.DIR_SUGGESTION_ROOTS
+    ]
     objetivo = Path(os.path.expanduser(q.strip()))
     if not any(objetivo == r or objetivo.is_relative_to(r) for r in raices):
         return None
@@ -213,7 +215,9 @@ def test_auto_todo_el_escenario_vive_bajo_el_tmp_del_test(
     """
     tmp = tmp_path.resolve()
     for nombre, ruta in escenario._asdict().items():
-        assert ruta.resolve().is_relative_to(tmp), f"{nombre} -> {ruta} está fuera de tmp"
+        assert ruta.resolve().is_relative_to(tmp), (
+            f"{nombre} -> {ruta} está fuera de tmp"
+        )
 
 
 # ======================================================================
@@ -370,7 +374,7 @@ def test_una_ruta_absoluta_de_fuera_se_rechaza(ruta: str, allowed_root: Path) ->
 def test_el_hermano_de_la_raiz_se_rechaza_aunque_comparta_prefijo_textual(
     escenario: Escenario, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """"Empieza por" no es "está dentro de".
+    """ "Empieza por" no es "está dentro de".
 
     Si la raíz es `.../roots/home`, entonces `.../roots/home-de-otro` empieza
     exactamente por ella como cadena de texto. Solo una comparación por
@@ -514,10 +518,10 @@ def test_resolve_within_roots_vacio_devuelve_la_primera_raiz(
     assert dir_suggestions.resolve_within_roots("") == segunda.resolve()
 
 
-@pytest.mark.parametrize("vacio", ["", "   ", None], ids=["cadena-vacia", "espacios", "None"])
-def test_lo_que_cuenta_como_ruta_vacia(
-    escenario: Escenario, vacio: str | None
-) -> None:
+@pytest.mark.parametrize(
+    "vacio", ["", "   ", None], ids=["cadena-vacia", "espacios", "None"]
+)
+def test_lo_que_cuenta_como_ruta_vacia(escenario: Escenario, vacio: str | None) -> None:
     """`""`, espacios y `None` son la misma cosa: "empieza por el principio".
 
     El `None` no es teórico: llega desde un query param opcional de FastAPI.
@@ -537,9 +541,10 @@ def test_con_varias_raices_las_dos_son_navegables_y_nada_mas(
     (segunda / "proyectos").mkdir(parents=True)
     _fijar_raices(monkeypatch, escenario.raiz, segunda)
 
-    assert dir_suggestions.resolve_within_roots(str(segunda / "proyectos")) == (
-        segunda / "proyectos"
-    ).resolve()
+    assert (
+        dir_suggestions.resolve_within_roots(str(segunda / "proyectos"))
+        == (segunda / "proyectos").resolve()
+    )
     assert dir_suggestions.resolve_within_roots(str(escenario.sub)) == (
         escenario.sub.resolve()
     )
@@ -866,9 +871,7 @@ def test_la_barra_final_decide_si_se_lista_la_carpeta_o_sus_hermanas(
     la contención de un directorio distinto — y con `fuera`, que existe y
     está escrito entero, las dos devuelven vacío.
     """
-    assert dir_suggestions.suggest(str(escenario.sub)) == [
-        str(escenario.sub.resolve())
-    ]
+    assert dir_suggestions.suggest(str(escenario.sub)) == [str(escenario.sub.resolve())]
     assert dir_suggestions.suggest(str(escenario.sub) + "/") == [
         str(escenario.hondo.resolve())
     ]

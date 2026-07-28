@@ -34,9 +34,6 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request, WebSocket, status
 
-from datafiles import write_private
-from errors import error_detail, http_error
-
 from config import (
     AUTH_ENABLED,
     AUTH_MODE,
@@ -45,6 +42,8 @@ from config import (
     PAM_SERVICE,
     SESSION_TTL_HOURS,
 )
+from datafiles import write_private
+from errors import error_detail, http_error
 
 # Nombre de la cookie de sesión que emite /api/login.
 SESSION_COOKIE = "muxspace_session"

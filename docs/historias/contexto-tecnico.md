@@ -116,17 +116,26 @@ levanta una copia aislada en otro puerto con su propio `data/`.
 
 ## Comandos de verificación
 
-Hoy el proyecto tiene **0 tests, 0 CI, 0 linters**. Los crean las propias
-fases 2 y 3, así que la lista crece con el backlog. Estado y quién lo trae:
+La lista crece con el backlog: cada fase trae sus propios comandos. Estado y
+quién lo trae:
 
 | Comando | Estado | Lo crea |
 |---|---|---|
 | `cd frontend && bun run build` | ✅ existe | — |
 | `cd frontend && bun run check-i18n` | ✅ existe (hoy solo avisa) | pasa a error en US-009 |
 | `backend/venv/bin/python -m pytest -q` | ✅ existe | US-001 |
-| `backend/venv/bin/python -m ruff check backend/` | ❌ | US-008 |
-| `cd frontend && bun run lint` | ❌ | US-008 |
+| `backend/venv/bin/python -m ruff check backend/` | ✅ existe | US-008 |
+| `cd frontend && bun run lint` | ✅ existe | US-008 |
+| `cd frontend && bun run format:check` | ⚠️ existe pero **no está verde** | US-008 |
 | `cd frontend && bun run test` (vitest) | ❌ | US-017 |
+
+`format:check` es el único que no entra en el gate, y a propósito: el código no
+está formateado con prettier y ponerlo lo estaría son ~1.100 líneas, **950 de
+ellas en `Sidebar.jsx`**. Tiene más sentido después de trocearlo (fase 4) que
+antes. La configuración (`frontend/.prettierrc`) ya está elegida para acercarse
+al estilo actual —se probaron cuatro anchuras y las dos políticas de coma final,
+y 88 + `trailingComma: all` es la que menos diff produce—, así que el día que se
+formatee el cambio será mecánico.
 
 Conforme una US cree uno, **añádelo a `verify` en
 `.claude/us-pipeline.config.json` en el mismo PR**. Ese es el mecanismo por el

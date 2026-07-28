@@ -181,7 +181,9 @@ class _OsConEscrituraRota:
         return getattr(self._real, nombre)
 
     def fdopen(self, fd: int, *args, **kwargs) -> _FicheroQueRevienta:
-        return _FicheroQueRevienta(self._real.fdopen(fd, *args, **kwargs), self._prefijo)
+        return _FicheroQueRevienta(
+            self._real.fdopen(fd, *args, **kwargs), self._prefijo
+        )
 
 
 @contextmanager
@@ -414,7 +416,9 @@ def test_biblioteca_el_ciclo_completo_de_un_comando(data_dir: Path) -> None:
     assert library_store.list_commands() == [creado]
     assert library_store.get_command(creado.id) == creado
 
-    actualizado = library_store.update_command(creado.id, "Desplegar a prod", "make prod")
+    actualizado = library_store.update_command(
+        creado.id, "Desplegar a prod", "make prod"
+    )
 
     assert actualizado is not None
     assert actualizado.id == creado.id, "actualizar no cambia el id"
@@ -439,9 +443,17 @@ def test_biblioteca_los_comandos_conservan_el_orden_de_insercion_y_no_repiten_id
     """El orden es el que ve el usuario en el panel; el id es la clave."""
     creados = [library_store.add_command(f"C{i}", f"echo {i}") for i in range(5)]
 
-    assert [c.label for c in library_store.list_commands()] == ["C0", "C1", "C2", "C3", "C4"]
+    assert [c.label for c in library_store.list_commands()] == [
+        "C0",
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+    ]
     ids = [c.id for c in creados]
-    assert len(set(ids)) == len(ids), "dos comandos con el mismo id se pisarían al borrar"
+    assert len(set(ids)) == len(ids), (
+        "dos comandos con el mismo id se pisarían al borrar"
+    )
 
 
 def test_biblioteca_borrar_un_comando_inexistente_devuelve_false_sin_tocar_nada(
@@ -461,7 +473,9 @@ def test_biblioteca_borrar_un_comando_inexistente_devuelve_false_sin_tocar_nada(
     assert library_store._STORE_PATH.read_bytes() == antes, "reescribió el fichero"
 
 
-def test_biblioteca_actualizar_un_comando_inexistente_devuelve_none(data_dir: Path) -> None:
+def test_biblioteca_actualizar_un_comando_inexistente_devuelve_none(
+    data_dir: Path,
+) -> None:
     """Mismo criterio que borrar: `None`, y sin crear el comando de la nada."""
     superviviente = library_store.add_command("Queda", "echo queda")
 
@@ -490,7 +504,9 @@ def test_biblioteca_un_comando_sin_texto_se_rechaza_y_no_escribe(
     assert not library_store._STORE_PATH.exists(), "se escribió pese al rechazo"
 
 
-def test_biblioteca_actualizar_con_un_comando_vacio_tampoco_pasa(data_dir: Path) -> None:
+def test_biblioteca_actualizar_con_un_comando_vacio_tampoco_pasa(
+    data_dir: Path,
+) -> None:
     """La validación es de las dos puertas, no solo de la de crear.
 
     Vaciar el texto de un comando existente es la vía por la que se colaría un
@@ -544,7 +560,9 @@ def test_biblioteca_una_etiqueta_generada_se_recorta_con_puntos_suspensivos(
     assert library_store.get_command(recortado.id).label == recortado.label
 
 
-def test_biblioteca_una_etiqueta_dada_por_el_usuario_no_se_recorta(data_dir: Path) -> None:
+def test_biblioteca_una_etiqueta_dada_por_el_usuario_no_se_recorta(
+    data_dir: Path,
+) -> None:
     """El control negativo del recorte: el límite es de la etiqueta AUTOMÁTICA.
 
     Sin esto, un `strip` de 60 aplicado a todas las etiquetas pasaría el test
@@ -642,7 +660,10 @@ def test_biblioteca_actualizar_un_proyecto_con_datos_invalidos_no_lo_estropea(
     creado = library_store.add_project("Panel", "/srv", ["bun dev"])
 
     for kwargs, codigo in (
-        (dict(title="", cwd="/srv", commands=["bun dev"]), "err.project_title_required"),
+        (
+            dict(title="", cwd="/srv", commands=["bun dev"]),
+            "err.project_title_required",
+        ),
         (dict(title="Panel", cwd="/srv", commands=[]), "err.project_needs_command"),
     ):
         with pytest.raises(library_store.LibraryError) as exc:
@@ -698,7 +719,9 @@ def test_biblioteca_comandos_y_proyectos_conviven_sin_pisarse(data_dir: Path) ->
     library_store.delete_command(comando.id)
 
     assert library_store.list_commands() == []
-    assert library_store.list_projects() == [proyecto], "borrar un comando se llevó el proyecto"
+    assert library_store.list_projects() == [proyecto], (
+        "borrar un comando se llevó el proyecto"
+    )
 
 
 def test_biblioteca_el_formato_en_disco_es_el_declarado(data_dir: Path) -> None:
@@ -740,7 +763,12 @@ def test_biblioteca_un_json_valido_escrito_a_mano_se_lee_entero(data_dir: Path) 
             {
                 "commands": [{"id": "c1", "label": "Estado", "command": "git status"}],
                 "projects": [
-                    {"id": "p1", "title": "Panel", "cwd": "/srv", "commands": ["bun dev"]}
+                    {
+                        "id": "p1",
+                        "title": "Panel",
+                        "cwd": "/srv",
+                        "commands": ["bun dev"],
+                    }
                 ],
             }
         ),
@@ -818,7 +846,10 @@ def test_biblioteca_las_entradas_malformadas_se_descartan_y_las_buenas_se_conser
                     "esto no es un dict",
                     None,
                     ["tampoco"],
-                    {"id": "sin-etiqueta", "command": "git status"},  # etiqueta a medias
+                    {
+                        "id": "sin-etiqueta",
+                        "command": "git status",
+                    },  # etiqueta a medias
                     {"id": "ok2", "label": "Buena2", "command": "echo ok2"},
                 ],
                 "projects": [
@@ -856,7 +887,9 @@ def test_biblioteca_un_proyecto_sin_comandos_en_disco_se_conserva_vacio(
     desaparecer del panel un proyecto que el usuario sí ve hoy.
     """
     library_store._STORE_PATH.write_text(
-        json.dumps({"projects": [{"id": "p1", "title": "Sin comandos", "commands": []}]}),
+        json.dumps(
+            {"projects": [{"id": "p1", "title": "Sin comandos", "commands": []}]}
+        ),
         encoding="utf-8",
     )
 
@@ -865,7 +898,9 @@ def test_biblioteca_un_proyecto_sin_comandos_en_disco_se_conserva_vacio(
     assert proyectos[0].commands == []
 
 
-def test_biblioteca_escribir_sobre_un_json_roto_lo_deja_consistente(data_dir: Path) -> None:
+def test_biblioteca_escribir_sobre_un_json_roto_lo_deja_consistente(
+    data_dir: Path,
+) -> None:
     """La otra mitad de "leer nunca lanza": el archivo se puede recuperar.
 
     Tolerar la basura no serviría de nada si el store se quedara atascado
@@ -929,10 +964,14 @@ def test_espacios_borrar_uno_inexistente_lanza_space_not_found(data_dir: Path) -
 
     assert exc.value.code == "err.space_not_found"
     assert exc.value.params == {"id": "sp_fantasma"}
-    assert space_store.list_spaces() == [superviviente], "se llevó por delante otro espacio"
+    assert space_store.list_spaces() == [superviviente], (
+        "se llevó por delante otro espacio"
+    )
 
 
-def test_espacios_renombrar_uno_inexistente_lanza_space_not_found(data_dir: Path) -> None:
+def test_espacios_renombrar_uno_inexistente_lanza_space_not_found(
+    data_dir: Path,
+) -> None:
     """La otra puerta que busca por id, con el mismo criterio."""
     with pytest.raises(space_store.SpaceError) as exc:
         space_store.update_space("sp_fantasma", "Nombre nuevo")
@@ -942,9 +981,13 @@ def test_espacios_renombrar_uno_inexistente_lanza_space_not_found(data_dir: Path
     assert space_store.list_spaces() == [], "creó el espacio en vez de fallar"
 
 
-@pytest.mark.parametrize("titulo", ["", "   ", "\t\n", None], ids=["vacio", "espacios", "blancos", "none"])
-def test_espacios_un_titulo_vacio_se_rechaza_y_no_escribe(data_dir: Path, titulo) -> None:
-    """Un espacio sin nombre es una pestaña en blanco que no se puede volver a nombrar."""
+@pytest.mark.parametrize(
+    "titulo", ["", "   ", "\t\n", None], ids=["vacio", "espacios", "blancos", "none"]
+)
+def test_espacios_un_titulo_vacio_se_rechaza_y_no_escribe(
+    data_dir: Path, titulo
+) -> None:
+    """Un espacio sin nombre es una pestaña en blanco, y encima innombrable."""
     with pytest.raises(space_store.SpaceError) as exc:
         space_store.create_space(titulo)
 
@@ -1006,8 +1049,10 @@ def test_espacios_asignar_una_sesion_y_quitarle_la_asignacion(data_dir: Path) ->
     [None, "", space_store.UNASSIGNED],
     ids=["none", "cadena-vacia", "unassigned"],
 )
-def test_espacios_asignar_a_sin_asignar_quita_la_entrada(data_dir: Path, sin_espacio) -> None:
-    """"Sin asignar" es virtual: no se guarda, se borra la entrada.
+def test_espacios_asignar_a_sin_asignar_quita_la_entrada(
+    data_dir: Path, sin_espacio
+) -> None:
+    """ "Sin asignar" es virtual: no se guarda, se borra la entrada.
 
     Guardarlo como un id más haría que el espacio virtual apareciera en el JSON
     y que borrarlo fuera posible, que es justo lo que el diseño evita.
@@ -1206,7 +1251,9 @@ def test_espacios_las_entradas_malformadas_se_descartan_y_las_buenas_se_conserva
     assert space_store.assignments() == {"s1": "sp_ok"}
 
 
-def test_espacios_escribir_sobre_un_json_roto_lo_deja_consistente(data_dir: Path) -> None:
+def test_espacios_escribir_sobre_un_json_roto_lo_deja_consistente(
+    data_dir: Path,
+) -> None:
     """La primera escritura recupera el archivo, igual que en la biblioteca."""
     space_store._STORE_PATH.write_bytes(b"[basura sin cerrar")
 
@@ -1290,10 +1337,15 @@ def test_subidas_el_historial_se_recorta_al_maximo_conservando_las_recientes(
         f"f{i}.txt" for i in range(total - 1, total - 1 - KEEP_SUBIDAS, -1)
     ]
     # Y el recorte llegó al disco: no es solo que `list_recent` corte al leer.
-    assert len(json.loads(upload_store._STORE_PATH.read_text(encoding="utf-8"))) == KEEP_SUBIDAS
+    assert (
+        len(json.loads(upload_store._STORE_PATH.read_text(encoding="utf-8")))
+        == KEEP_SUBIDAS
+    )
 
 
-def test_subidas_repetir_una_ruta_la_sustituye_y_la_sube_al_frente(data_dir: Path) -> None:
+def test_subidas_repetir_una_ruta_la_sustituye_y_la_sube_al_frente(
+    data_dir: Path,
+) -> None:
     """Una ruta, una entrada: el historial se indexa por `path`.
 
     Es lo que pasa cuando el usuario borra un archivo y lo vuelve a subir al
@@ -1305,12 +1357,19 @@ def test_subidas_repetir_una_ruta_la_sustituye_y_la_sube_al_frente(data_dir: Pat
 
     devuelto = upload_store.add("informe.txt", "/destino/informe.txt", "/otra/carpeta")
 
-    assert [i["path"] for i in devuelto] == ["/destino/informe.txt", "/destino/otro.txt"]
-    assert devuelto[0]["dir"] == "/otra/carpeta", "no se actualizó la entrada, se dejó la vieja"
+    assert [i["path"] for i in devuelto] == [
+        "/destino/informe.txt",
+        "/destino/otro.txt",
+    ]
+    assert devuelto[0]["dir"] == "/otra/carpeta", (
+        "no se actualizó la entrada, se dejó la vieja"
+    )
     assert len(upload_store.list_recent()) == 2
 
 
-def test_subidas_dos_rutas_distintas_con_el_mismo_nombre_conviven(data_dir: Path) -> None:
+def test_subidas_dos_rutas_distintas_con_el_mismo_nombre_conviven(
+    data_dir: Path,
+) -> None:
     """El control negativo del anterior: la clave es la RUTA, no el nombre.
 
     Subir `informe.txt` a dos carpetas distintas son dos archivos distintos y
@@ -1325,7 +1384,9 @@ def test_subidas_dos_rutas_distintas_con_el_mismo_nombre_conviven(data_dir: Path
     ]
 
 
-def test_subidas_quitar_una_entrada_la_borra_y_devuelve_el_resto(data_dir: Path) -> None:
+def test_subidas_quitar_una_entrada_la_borra_y_devuelve_el_resto(
+    data_dir: Path,
+) -> None:
     """`remove` es "olvídalo", y devuelve el historial ya sin ella."""
     _subir("uno.txt")
     _subir("dos.txt")
@@ -1336,7 +1397,9 @@ def test_subidas_quitar_una_entrada_la_borra_y_devuelve_el_resto(data_dir: Path)
     assert upload_store.list_recent() == devuelto
 
 
-def test_subidas_quitar_una_ruta_desconocida_deja_el_historial_igual(data_dir: Path) -> None:
+def test_subidas_quitar_una_ruta_desconocida_deja_el_historial_igual(
+    data_dir: Path,
+) -> None:
     """No lanza y no se lleva nada por delante: es idempotente.
 
     El botón de quitar puede pulsarse dos veces, o desde otra pestaña que tenía
@@ -1350,7 +1413,9 @@ def test_subidas_quitar_una_ruta_desconocida_deja_el_historial_igual(data_dir: P
     assert upload_store.list_recent() == devuelto
 
 
-def test_subidas_el_formato_en_disco_es_una_lista_de_name_path_dir(data_dir: Path) -> None:
+def test_subidas_el_formato_en_disco_es_una_lista_de_name_path_dir(
+    data_dir: Path,
+) -> None:
     """Contabilidad por partida doble sobre el JSON persistido."""
     _subir("informe.txt")
 
@@ -1360,7 +1425,9 @@ def test_subidas_el_formato_en_disco_es_una_lista_de_name_path_dir(data_dir: Pat
 
 
 @pytest.mark.parametrize(
-    "contenido", JSON_ILEGIBLE + JSON_QUE_NO_ES_UN_OBJETO, ids=_IDS_ILEGIBLE + _IDS_NO_OBJETO
+    "contenido",
+    JSON_ILEGIBLE + JSON_QUE_NO_ES_UN_OBJETO,
+    ids=_IDS_ILEGIBLE + _IDS_NO_OBJETO,
 )
 def test_subidas_un_json_roto_da_historial_vacio_sin_lanzar(
     data_dir: Path, contenido: bytes
@@ -1402,7 +1469,9 @@ def test_subidas_las_entradas_malformadas_se_descartan_y_las_buenas_se_conservan
     ]
 
 
-def test_subidas_escribir_sobre_un_json_roto_lo_deja_consistente(data_dir: Path) -> None:
+def test_subidas_escribir_sobre_un_json_roto_lo_deja_consistente(
+    data_dir: Path,
+) -> None:
     """La primera escritura recupera el archivo."""
     upload_store._STORE_PATH.write_bytes(b"{no es una lista")
 

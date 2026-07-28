@@ -355,7 +355,7 @@ export default function Sidebar({
     if (!window.confirm(t('sidebar.confirm_delete_command', { label }))) return
     try {
       await onDeleteCommand(id)
-    } catch (err) {
+    } catch {
       // Error no fatal: el listado se refresca solo.
     }
   }
@@ -457,7 +457,7 @@ export default function Sidebar({
     if (!window.confirm(t('sidebar.confirm_delete_project', { title }))) return
     try {
       await onDeleteProject(id)
-    } catch (err) {
+    } catch {
       // Error no fatal: el listado se refresca solo.
     }
   }

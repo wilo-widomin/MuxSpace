@@ -25,7 +25,9 @@
   "verify": {
     "build": "cd frontend && bun run build",
     "i18n": "cd frontend && bun run check-i18n",
-    "test": "backend/venv/bin/python -m pytest -q"
+    "test": "backend/venv/bin/python -m pytest -q",
+    "lint-backend": "backend/venv/bin/python -m ruff check backend/",
+    "lint-frontend": "cd frontend && bun run lint"
   },
   "dod_ref": "docs/historias/contexto-tecnico.md#definition-of-done"
 }

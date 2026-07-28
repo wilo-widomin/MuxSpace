@@ -45,7 +45,7 @@ _FORMAT = "#{session_name}\t#{session_windows}\t#{session_attached}\t#{session_c
 
 def _ensure_tmux_server() -> None:
     """Asegura que el servidor de tmux esté iniciado."""
-    subprocess.run(
+    subprocess.run(  # noqa: S603 — argv, nunca shell: ver la cabecera del módulo
         [TMUX_BINARY, "start-server"],
         capture_output=True,
         timeout=5,
@@ -62,7 +62,7 @@ def list_sessions() -> list[TmuxSession]:
     _ensure_tmux_server()
     
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603 — argv, nunca shell
             [TMUX_BINARY, "list-sessions", "-F", _FORMAT],
             capture_output=True,
             text=True,
@@ -125,7 +125,7 @@ def _quote_path(path: str) -> str:
 def _run_tmux(args: list[str]) -> subprocess.CompletedProcess[str]:
     """Ejecuta un comando de tmux y devuelve el resultado en crudo."""
     try:
-        return subprocess.run(
+        return subprocess.run(  # noqa: S603 — argv, nunca shell
             [TMUX_BINARY, *args],
             capture_output=True,
             text=True,

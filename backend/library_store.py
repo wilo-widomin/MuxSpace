@@ -150,7 +150,9 @@ def _validate_command(label: str, command: str) -> tuple[str, str]:
     return label, command
 
 
-def _validate_project(title: str, cwd: Optional[str], commands: list[str]) -> tuple[str, Optional[str], list[str]]:
+def _validate_project(
+    title: str, cwd: Optional[str], commands: list[str]
+) -> tuple[str, Optional[str], list[str]]:
     title = (title or "").strip()
     if not title:
         raise LibraryError("err.project_title_required")

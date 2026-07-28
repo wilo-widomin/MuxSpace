@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react'
 import { ApiError, api } from '../api.js'
 import { LANGUAGES, useT } from '../i18n/index.jsx'
+import { quotePath } from '../lib/paths.js'
 import { UNASSIGNED, spaceKeyOf } from '../spaces.js'
 import { LAYOUTS, LayoutIcon } from './SessionGrid.jsx'
 
@@ -1616,14 +1617,6 @@ function SectionCaret({ open }) {
       {open ? '▾' : '▸'}
     </span>
   )
-}
-
-// Las rutas se copian listas para pegar en una terminal: si llevan espacios
-// o cualquier carácter que el shell interpretaría, van entrecomilladas (y con
-// escape de lo que sigue siendo especial dentro de comillas dobles).
-function quotePath(path) {
-  if (!/[^\w@%+=:,./~-]/.test(path)) return path
-  return `"${path.replace(/(["$`\\])/g, '\\$1')}"`
 }
 
 function PasteForClaude({ open, onToggle }) {

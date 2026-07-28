@@ -280,12 +280,18 @@ bun run test:e2e                   # el recorrido completo en un navegador
 bun run test:e2e:ui                # el modo interactivo, para depurar
 ```
 
-Prueban lo que ni `vitest` ni el `TestClient` de FastAPI pueden: que el login,
-la cookie, el listado y la creación de sesiones encajan **en un navegador de
-verdad**, contra el *build* servido por el `StaticFiles` del backend —el mismo
-montaje que producción, con la CSP y las cabeceras de seguridad puestas—. De
-paso comprueban que el recorrido no dispara **ni una violación de CSP**, que es
-la comprobación que la fase 0 dejó pendiente de automatizar.
+Prueban lo que ni `vitest` ni el `TestClient` de FastAPI pueden, contra el
+*build* servido por el `StaticFiles` del backend —el mismo montaje que
+producción, con la CSP y las cabeceras de seguridad puestas—:
+
+| Recorrido | Qué comprueba |
+|---|---|
+| `login-y-sesiones.spec.js` | Login, cookie `HttpOnly`, listado y creación de sesiones **en tmux**, no solo en el DOM |
+| `terminal.spec.js` | La cadena entera WebSocket → puente PTY → tmux → xterm.js: el eco, el redimensionado, y que cerrar la vista **no** mata la sesión |
+| `subida.spec.js` | Subir un archivo (existe **en el disco**) y que la ruta copiada al portapapeles sea segura de pegar en un shell |
+
+De paso comprueban que ningún recorrido dispara **ni una violación de CSP**,
+que es la comprobación que la fase 0 dejó pendiente de automatizar.
 
 **Nada de esto toca tu instalación.** Cada ejecución levanta su propio
 MuxSpace, y el aislamiento son tres capas independientes:
@@ -306,7 +312,7 @@ algo falla, el log del backend de pruebas queda en `frontend/e2e/.tmp/` y las
 trazas de Playwright en `frontend/test-results/`.
 
 **No están en el CI**, y es deliberado: necesitan `tmux` y un navegador de
-120 MB. Se decide con datos cuando haya más recorridos; el actual tarda ~9 s.
+120 MB. Se decide con datos cuando haga falta; los 18 tests tardan **~24 s**.
 
 ## Estructura del proyecto
 

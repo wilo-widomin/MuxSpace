@@ -61,3 +61,13 @@ US-010, US-012, US-014.
 - Después de esta US, `Sidebar.jsx` debería haber adelgazado ~240 líneas.
   Comprueba el `wc -l` antes y después y ponlo en el PR: es la métrica que
   justifica toda la fase 4.
+
+## Registro de ejecución
+
+> Generado por `servidor-pipeline`. Tiempos de la última ejecución.
+
+- Inicio: 2026-07-28 11:09:52 UTC
+- Fin:    2026-07-28 11:12:51 UTC
+- Tiempo transcurrido: 00:02:59 (HH:mm:ss)
+- PR:     (sin PR)
+- Estado: in-progress

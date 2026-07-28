@@ -84,8 +84,18 @@ if AUTH_ENABLED and AUTH_MODE == "env" and AUTH_PASSWORD in {"admin", ""}:
         "protegido por otra capa, p. ej. mTLS.)"
     )
 
-# Horas de validez de la sesión iniciada en /api/login (cookie HttpOnly).
+# Techo ABSOLUTO de una sesión iniciada en /api/login (cookie HttpOnly): por
+# muy activa que esté, no vive más que esto. Se fija en el login y no se
+# renueva; es lo que impide que la ventana deslizante de abajo convierta una
+# cookie robada en un acceso permanente.
 SESSION_TTL_HOURS: int = int(os.getenv("MUXSPACE_SESSION_TTL_HOURS", "168"))
+
+# Ventana de INACTIVIDAD: la sesión caduca si pasa este tiempo sin ninguna
+# petición autenticada. Cada petición la renueva. 24 h es el default porque
+# el panel da una shell: una sesión olvidada en un portátil abierto es la
+# forma más probable de que la use quien no debe, y ahí el TTL de 7 días no
+# ayuda nada.
+SESSION_IDLE_HOURS: int = int(os.getenv("MUXSPACE_SESSION_IDLE_HOURS", "24"))
 
 # Marca la cookie de sesión como `Secure` (solo viaja por HTTPS). El
 # default es True porque el despliegue normal del panel es tras un proxy

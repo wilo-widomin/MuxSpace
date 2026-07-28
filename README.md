@@ -117,6 +117,7 @@ está activada. El WebSocket valida el mismo token vía `?token=` (base64 de
 | `POST` | `/api/send-command/{name}` | Envía un comando a la sesión y pulsa Enter (`body: {command}`) |
 | `WS`  | `/api/terminal/{name}` | Puente PTY (`tmux attach`) para la terminal xterm.js |
 | `GET` | `/api/dir-suggestions?q=` | Subdirectorios bajo las raíces configuradas (autocompletado) |
+| `POST` | `/api/logout-all` | Revoca **todas** las sesiones, incluida la de quien llama ([para qué](#post-apilogout-all--revocar-todas-las-sesiones)) |
 | `GET` | `/api/health` | Healthcheck |
 
 ### Biblioteca de comandos
@@ -313,6 +314,13 @@ muxspace/
   `pam` (credenciales de Linux). HTTP Basic se mantiene como alternativa
   para clientes CLI (`curl -u`). Para producción, sitúa el panel tras un
   *reverse proxy* (Caddy/Nginx) con TLS.
+- **Caducidad de sesión por inactividad**: 24 h sin usar el panel y hay que
+  volver a entrar (`MUXSPACE_SESSION_IDLE_HOURS`). Cada petición renueva la
+  ventana, así que trabajar no interrumpe. Por encima hay un **techo
+  absoluto** que no se renueva nunca (`MUXSPACE_SESSION_TTL_HOURS`, 7 días):
+  sin él, una cookie robada duraría para siempre con solo usarla una vez al
+  día. Ver abajo.
+- **Revocación global**: `POST /api/logout-all` (ver abajo).
 - **Anti fuerza bruta**: máximo 5 fallos de login por IP y minuto (aplica
   también a la vía HTTP Basic). Los contadores y el histórico de IPs
   atacantes persisten en `backend/data/login_failures.json`, así que un
@@ -337,6 +345,62 @@ muxspace/
   sesión, *best-effort*, `allow-passthrough on` y `set-clipboard on`
   (ignora errores en tmux antiguos).
 - **Registro de auditoría**: `backend/data/audit.log` (ver abajo).
+
+### Sesiones: cuánto duran y cómo revocarlas
+
+Una sesión vive mientras se cumplan **las dos** condiciones. Muere con la
+primera que falle:
+
+| | Variable | Default | ¿Se renueva? |
+|---|---|---|---|
+| Inactividad | `MUXSPACE_SESSION_IDLE_HOURS` | 24 h | **Sí**, en cada petición autenticada |
+| Techo absoluto | `MUXSPACE_SESSION_TTL_HOURS` | 168 h (7 días) | **No**, se fija al hacer login |
+
+En la práctica: si usas el panel a diario no vuelves a ver el login hasta que
+pasen 7 días desde que entraste; si lo dejas quieto un día, caduca.
+
+El techo absoluto es la parte que parece redundante y no lo es. Una ventana
+deslizante **sin** techo es peor que el TTL fijo que sustituye: a quien te
+robe la cookie le basta con tocar el panel una vez al día para tenerla viva
+indefinidamente. El techo pone un final que ninguna actividad puede mover.
+
+El WebSocket del terminal también renueva la ventana, así que tener una
+terminal abierta cuenta como usar el panel.
+
+> **Cambio de comportamiento respecto de versiones anteriores**: antes la
+> sesión duraba 168 h fijas desde el login. Si tu despliegue usa PAM con
+> `SESSION_TTL_HOURS=168`, ahora vas a hacer login más a menudo: cuando pases
+> más de 24 h sin abrir el panel. Sube `MUXSPACE_SESSION_IDLE_HOURS` si te
+> molesta, teniendo en cuenta que quien tenga la sesión abierta tiene una
+> shell.
+
+#### `POST /api/logout-all` — revocar todas las sesiones
+
+Invalida **todas** las sesiones abiertas, incluida la de quien lo llama.
+Devuelve `{"revoked": N}` con cuántas había.
+
+```bash
+# Con la cookie de sesión (exige estar autenticado)
+curl -X POST -b muxspace_session=<token> https://tu-panel/api/logout-all
+
+# O con HTTP Basic, que sigue valiendo para clientes CLI
+curl -X POST -u usuario:contraseña https://tu-panel/api/logout-all
+```
+
+**Cuándo usarlo**: cuando sospeches que una cookie de sesión anda por donde
+no debe — un portátil perdido, una sesión abierta en un equipo ajeno, un
+navegador compartido. Hasta ahora la única forma de revocarlas era reiniciar
+el backend, que además se lleva por delante las terminales abiertas.
+
+Se revoca también la sesión de quien llama, y es a propósito: una revocación
+con excepciones no revoca nada. Si el atacante es quien la llama, dejarle su
+sesión viva convertiría el endpoint en un arma en su favor.
+
+**No hay botón en el panel**, y es una decisión: es una medida de emergencia
+que se usa cuando sospechas de una cookie robada, y en ese momento lo que
+quieres es una orden que funcione desde cualquier terminal, no un clic en la
+interfaz que tienes en duda. Para cerrar tu propia sesión, el panel ya tiene
+"Cerrar sesión" en el pie de la barra lateral.
 
 ### Registro de auditoría
 

@@ -112,6 +112,13 @@ COOKIE = "muxspace_session"
 # aparatosos sin probar nada distinto).
 TTL_HORAS = 1
 
+# Las dos ventanas de US-020, en sus valores de PRODUCCIÓN. No salen del
+# conftest (que acorta el techo a 1 h) sino que las pone la fixture
+# `ventanas`: aquí lo que interesa es la relación entre ambas, y con un techo
+# menor que la ventana de inactividad no habría nada que probar.
+IDLE_HORAS = 24
+TECHO_HORAS = 168
+
 # La IP que `TestClient` presenta como cliente ASGI. Está escrita a mano en
 # `starlette/testclient.py` y no se puede configurar; se declara aquí para que
 # los tests puedan afirmar bajo qué clave quedó registrado un fallo.
@@ -454,8 +461,14 @@ def _reencarnar_auth(raiz: Path, fallos: Path | None) -> types.ModuleType:
     módulo nuevo cae dentro del tmp del test y no en los datos reales del
     usuario.
 
-    El módulo no se registra en `sys.modules`: nadie más debe verlo, y el
-    `auth` que usa `main` sigue siendo exactamente el mismo objeto.
+    El módulo **acaba** fuera de `sys.modules`: nadie más debe verlo, y el
+    `auth` que usa `main` sigue siendo exactamente el mismo objeto. Pero se
+    registra MIENTRAS se ejecuta, y eso no es una contradicción: `auth.py`
+    lleva `from __future__ import annotations`, así que sus anotaciones son
+    cadenas, y `@dataclass` necesita encontrar el módulo en `sys.modules`
+    para resolverlas (US-020, `Sesion`). Sin el registro temporal el módulo
+    ni siquiera llega a ejecutarse: `AttributeError: 'NoneType' object has no
+    attribute '__dict__'` desde las tripas de `dataclasses`.
     """
     (raiz / "data").mkdir(parents=True, exist_ok=True)
     shutil.copy(Path(auth.__file__), raiz / "auth.py")
@@ -473,7 +486,13 @@ def _reencarnar_auth(raiz: Path, fallos: Path | None) -> types.ModuleType:
     spec = importlib.util.spec_from_file_location("auth_reencarnado", raiz / "auth.py")
     assert spec is not None and spec.loader is not None
     modulo = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(modulo)
+    sys.modules[spec.name] = modulo
+    try:
+        spec.loader.exec_module(modulo)
+    finally:
+        # Fuera en cuanto termina, pase lo que pase: el objetivo sigue siendo
+        # que este módulo no exista para nadie más.
+        sys.modules.pop(spec.name, None)
     return modulo
 
 
@@ -597,6 +616,14 @@ def test_los_parametros_del_limite_son_los_declarados() -> None:
     assert auth._MAX_TRACKED_IPS == TOPE_IPS
     assert auth.SESSION_COOKIE == COOKIE
     assert auth.SESSION_TTL_HOURS == TTL_HORAS
+    # La ventana de inactividad de US-020 sí se puede mirar en `config`: el
+    # conftest no la fija, así que aquí está el default de producción tal
+    # cual. El techo NO se puede comprobar igual porque el conftest lo baja a
+    # 1 h; su valor de producción se declara en `TECHO_HORAS` y lo pone la
+    # fixture `ventanas`, y lo que importa —que el techo sea mayor que la
+    # ventana, o la renovación no significaría nada— se afirma aquí.
+    assert config.SESSION_IDLE_HOURS == IDLE_HORAS
+    assert TECHO_HORAS > IDLE_HORAS
 
 
 def test_el_sexto_intento_fallido_devuelve_429_y_no_401(client) -> None:
@@ -1040,7 +1067,7 @@ def test_el_login_correcto_emite_la_cookie_de_sesion_blindada(client) -> None:
 
     # Y detrás de la cookie hay una sesión de verdad, no un valor decorativo.
     token = _valor_de_cookie(cabecera)
-    assert auth._sessions[token][0] == USERNAME
+    assert auth._sessions[token].username == USERNAME
     assert len(token) >= 32, "el token de sesión es sospechosamente corto"
 
 
@@ -1436,3 +1463,226 @@ def test_en_modo_pam_el_login_http_rechaza_a_otro_usuario_y_lo_apunta(
     assert resp.json()["detail"]["code"] == "err.bad_credentials"
     assert pam_simulado == []
     assert _registro()["count"] == 1
+
+
+# ----------------------------------------------------------------------
+# TTL deslizante y revocación global (US-020, hallazgo S10)
+# ----------------------------------------------------------------------
+#
+# Antes: 168 h fijas desde el login, y la única forma de invalidar todas las
+# sesiones era reiniciar el backend (que además se lleva por delante las
+# terminales abiertas). Ahora la sesión muere a las 24 h SIN ACTIVIDAD, con
+# un techo absoluto que no se renueva.
+#
+# El tiempo se simula parcheando `auth._now`, que existe precisamente para
+# esto. Parchear `time.time` del módulo estándar movería también el reloj del
+# rate limit del login, que mide en la misma escala: un test de caducidad de
+# sesión acabaría desbaneando IPs de paso.
+
+
+@pytest.fixture
+def ventanas(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pone las dos ventanas en sus valores de producción (24 h y 168 h).
+
+    El conftest fija `MUXSPACE_SESSION_TTL_HOURS=1` para que los tests de
+    caducidad de arriba sean cortos, pero con un techo de 1 h la ventana de
+    inactividad de 24 h no llega a entrar nunca en juego: haría falta que el
+    techo fuera el mayor de los dos, que es como está en producción. Sin esta
+    fixture, los tests de deslizamiento pasarían por el motivo equivocado.
+    """
+    monkeypatch.setattr(auth, "SESSION_IDLE_HOURS", IDLE_HORAS)
+    monkeypatch.setattr(auth, "SESSION_TTL_HOURS", TECHO_HORAS)
+
+
+def _horas(n: float) -> float:
+    """Horas en segundos, que es la unidad del `reloj` de este archivo."""
+    return n * 3600
+
+
+def _sesion_abierta(client) -> str:
+    """Hace login y devuelve el token, dejando la cookie puesta en el cliente."""
+    assert _login(client).status_code == 200
+    return client.cookies[COOKIE]
+
+
+def test_usar_el_panel_mantiene_viva_la_sesion_indefinidamente(
+    client, reloj, ventanas
+) -> None:
+    """La ventana desliza: 23 h de por medio, tres veces, y sigue abierta.
+
+    Con el TTL fijo de antes esto daba igual; ahora es la mitad amable del
+    cambio, y sin ella la otra mitad sería solo una molestia.
+    """
+    _sesion_abierta(client)
+
+    for _ in range(3):
+        reloj.avanzar(_horas(23))
+        assert client.get("/api/me").status_code == 200, (
+            "la sesión ha caducado dentro de la ventana de inactividad"
+        )
+
+
+def test_veinticuatro_horas_sin_tocar_el_panel_caducan_la_sesion(
+    client, reloj, ventanas
+) -> None:
+    """El cambio de comportamiento observable: antes aguantaba 7 días."""
+    token = _sesion_abierta(client)
+
+    reloj.avanzar(_horas(24))
+
+    resp = client.get("/api/me")
+    assert resp.status_code == 401
+    assert resp.json()["detail"]["code"] == "err.unauthenticated"
+    assert token not in auth._sessions, (
+        "la sesión caducada sigue en memoria: se comprueba al usarla pero no "
+        "se retira, así que el diccionario crece con basura"
+    )
+
+
+def test_el_tope_absoluto_corta_aunque_se_use_el_panel_todo_el_rato(
+    client, reloj, ventanas
+) -> None:
+    """La parte que se olvida, y sin la cual esto sería un retroceso.
+
+    Un TTL deslizante SIN techo convierte una cookie robada en permanente: al
+    atacante le basta con tocar el panel una vez al día. Aquí se usa cada 12 h
+    —siempre dentro de la ventana de inactividad— y aun así la sesión muere al
+    llegar a las 168 h del login.
+    """
+    _sesion_abierta(client)
+
+    horas = 0
+    while horas < 168:
+        reloj.avanzar(_horas(12))
+        horas += 12
+        if client.get("/api/me").status_code == 401:
+            break
+    else:  # pragma: no cover — solo se llega si el techo no corta
+        pytest.fail(
+            "168 h de actividad continua y la sesión sigue viva: el TTL "
+            "deslizante no tiene techo absoluto"
+        )
+
+    assert horas == 168, f"el techo cortó a las {horas} h y no a las 168"
+    assert client.get("/api/me").status_code == 401
+
+
+def test_el_techo_absoluto_no_se_renueva_al_usar_el_panel(
+    client, reloj, ventanas
+) -> None:
+    """La misma promesa, mirada por dentro y no por el 401.
+
+    Complementa al test de arriba: aquel comprueba el efecto, este comprueba
+    la causa. Si alguien "arreglara" la renovación tocando también
+    `expira_absoluto`, el test de arriba tardaría en caerse (habría que
+    esperar más vueltas) y este se cae a la primera.
+    """
+    token = _sesion_abierta(client)
+    techo = auth._sessions[token].expira_absoluto
+
+    reloj.avanzar(_horas(10))
+    assert client.get("/api/me").status_code == 200
+
+    assert auth._sessions[token].expira_absoluto == techo, (
+        "el techo absoluto se movió al usar el panel: ya no es un techo"
+    )
+    assert auth._sessions[token].ultimo_uso == reloj.time(), (
+        "la ventana de inactividad NO se renovó al usar el panel"
+    )
+
+
+def test_la_ventana_sale_de_la_configuracion(
+    client, reloj, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`MUXSPACE_SESSION_IDLE_HOURS`, no un 24 escrito a mano en el código."""
+    monkeypatch.setattr(auth, "SESSION_IDLE_HOURS", 1)
+    _sesion_abierta(client)
+
+    reloj.avanzar(_horas(0.9))
+    assert client.get("/api/me").status_code == 200
+    reloj.avanzar(_horas(0.2))
+    assert client.get("/api/me").status_code == 401
+
+
+def test_el_websocket_tambien_renueva_la_ventana(client, reloj, ventanas) -> None:
+    """El terminal es la parte del panel que se usa sin generar peticiones.
+
+    Alguien con una terminal abierta y quieta está usando el panel. Como el
+    WebSocket valida por `ws_user`, que pasa por `session_user`, la renovación
+    le llega igual. Se comprueba porque lo contrario —dejar caducar la sesión
+    de quien tiene la terminal delante— sería el fallo más molesto de este
+    cambio.
+    """
+    token = _sesion_abierta(client)
+    reloj.avanzar(_horas(23))
+
+    assert auth.session_user(token) == USERNAME
+    assert auth._sessions[token].ultimo_uso == reloj.time()
+
+
+# ----------------------------------------------------------------------
+# POST /api/logout-all
+# ----------------------------------------------------------------------
+
+
+def test_logout_all_deja_fuera_a_todas_las_sesiones_incluida_la_propia(
+    client,
+) -> None:
+    """El criterio central: dos sesiones abiertas, una llama, las dos caen.
+
+    Los tokens se guardan y se reenvían A MANO: si el test se limitara a mirar
+    que el cliente ya no manda su cookie, aprobaría un `logout-all` que solo
+    borrase cookies y dejase los tokens vivos, o sea uno que no revoca nada de
+    lo que importa cuando sospechas que te la han copiado.
+    """
+    primera = _sesion_abierta(client)
+    client.cookies.clear()
+    segunda = _sesion_abierta(client)
+    assert primera != segunda
+    assert len(auth._sessions) == 2
+
+    resp = client.post("/api/logout-all")
+    assert resp.status_code == 200
+    assert resp.json()["revoked"] == 2
+
+    assert auth._sessions == {}
+    client.cookies.clear()
+    for token in (primera, segunda):
+        r = client.get("/api/me", headers={"Cookie": f"{COOKIE}={token}"})
+        assert r.status_code == 401, "un token siguió abriendo tras logout-all"
+        assert r.json()["detail"]["code"] == "err.unauthenticated"
+
+
+def test_logout_all_exige_autenticacion(client) -> None:
+    """Sin esto sería un botón de "echar al dueño" para cualquiera.
+
+    El contrato de rutas de US-002 ya lo cubre de forma genérica; se deja
+    aquí explícito porque este endpoint concreto no es uno más: es el único
+    que puede dejar al usuario fuera de su propio panel.
+    """
+    resp = client.post("/api/logout-all")
+    assert resp.status_code == 401
+    assert resp.json()["detail"]["code"] == "err.unauthenticated"
+
+
+def test_logout_all_sin_otras_sesiones_no_es_un_error(client) -> None:
+    """Caso normal en un panel de un solo usuario: solo estás tú."""
+    _sesion_abierta(client)
+
+    resp = client.post("/api/logout-all")
+
+    assert resp.status_code == 200
+    assert resp.json()["revoked"] == 1
+    assert auth._sessions == {}
+
+
+def test_logout_all_borra_tambien_la_cookie_del_navegador(client) -> None:
+    """El token ya no vale, pero el navegador no tiene por qué seguir enviándolo."""
+    _sesion_abierta(client)
+
+    resp = client.post("/api/logout-all")
+
+    assert COOKIE in resp.headers.get("set-cookie", ""), (
+        "no se mandó Set-Cookie para retirar la cookie de sesión"
+    )
+    assert client.cookies.get(COOKIE) in (None, "")

@@ -22,14 +22,43 @@ def _expand(p: str) -> str:
     return os.path.expanduser(os.path.expandvars(p))
 
 
+def _resolve(path: Path) -> Path | None:
+    """`path.resolve()`, o `None` si el sistema de ficheros no puede resolverlo.
+
+    `Path.resolve()` no traduce todos sus fallos a `OSError`: un bucle de
+    symlinks (ELOOP) sale como **`RuntimeError`**, que no es subclase suya
+    (Python <= 3.12). Capturar solo `OSError` dejaba que esa excepción subiera
+    hasta el endpoint — 500 en vez del rechazo limpio que promete el contrato,
+    y con una raíz configurada que fuera un bucle se caían a la vez el
+    navegador, las sugerencias y la subida (S14).
+
+    Existe como función y no como cinco `try/except` repartidos porque el
+    módulo llama a `resolve()` en cinco sitios y basta con que a uno se le
+    olvide un tipo de excepción para reabrir el agujero.
+    """
+    try:
+        return path.resolve()
+    except (OSError, RuntimeError):
+        return None
+
+
+def _resolve_or_same(path: Path) -> Path:
+    """Como `_resolve`, pero cae al `path` sin resolver si no se puede.
+
+    Es el comportamiento que ya tenían los sitios que solo comparan o
+    imprimen: un enlace irresoluble no debe hacerlos desaparecer. Los que
+    deciden si algo es accesible (`resolve_within_roots`) usan `_resolve` y
+    rechazan.
+    """
+    resolved = _resolve(path)
+    return path if resolved is None else resolved
+
+
 def _resolve_roots() -> list[Path]:
     resolved: list[Path] = []
     for r in config.DIR_SUGGESTION_ROOTS:
         path = Path(_expand(r)).expanduser()
-        try:
-            resolved.append(path.resolve())
-        except OSError:
-            resolved.append(path)
+        resolved.append(_resolve_or_same(path))
     # Deduplica manteniendo el orden.
     seen: set[Path] = set()
     unique: list[Path] = []
@@ -42,10 +71,7 @@ def _resolve_roots() -> list[Path]:
 
 def _is_within(path: Path, roots: list[Path]) -> bool:
     """¿`path` es igual a una raíz o está contenido en alguna de ellas?"""
-    try:
-        resolved = path.resolve()
-    except OSError:
-        resolved = path
+    resolved = _resolve_or_same(path)
     for root in roots:
         if resolved == root:
             return True
@@ -60,16 +86,16 @@ def _is_within(path: Path, roots: list[Path]) -> bool:
 def _abbreviate(path: Path, roots: list[Path]) -> str:
     """Devuelve la forma abreviada con `~` si está bajo el home del usuario."""
     home = Path.home()
-    try:
-        resolved = path.resolve()
-    except OSError:
-        resolved = path
+    resolved = _resolve_or_same(path)
     if resolved == home:
         return "~"
     try:
         rel = resolved.relative_to(home)
         return "~/" + str(rel).replace(os.sep, "/")
-    except (ValueError, OSError):
+    except ValueError:
+        # Solo `ValueError`: el `OSError` que se capturaba aquí era del
+        # `resolve()` que ahora vive en `_resolve_or_same`; `relative_to` no
+        # toca el disco y no puede lanzarlo.
         return str(resolved)
 
 
@@ -152,11 +178,10 @@ def resolve_within_roots(q: str) -> Path | None:
     if not raw:
         # Sin ruta: arrancamos en la primera raíz existente.
         return next((r for r in roots if r.is_dir()), None)
-    target = Path(_expand(raw))
-    try:
-        target = target.resolve()
-    except OSError:
+    resolved_target = _resolve(Path(_expand(raw)))
+    if resolved_target is None:
         return None
+    target = resolved_target
     if _is_within(target, roots) and target.is_dir():
         return target
     return None
@@ -204,10 +229,7 @@ def create_dir(parent_q: str, name: str) -> str | None:
         return None
     target = parent / name
     roots = _resolve_roots()
-    try:
-        resolved = target.resolve()
-    except OSError:
-        resolved = target
+    resolved = _resolve_or_same(target)
     # Tras resolver enlaces/".." el destino debe seguir dentro de las raíces.
     if not _is_within(resolved, roots):
         return None

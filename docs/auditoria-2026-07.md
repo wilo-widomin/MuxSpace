@@ -45,7 +45,7 @@ De ahí salen las dos consecuencias que ordenan toda la auditoría:
 | S12 | Media-baja | Documentación de la API publicada sin autenticación | CONFIRMADO |
 | S13 | Baja | `suggest`/`browse` listan rutas de fuera de las raíces | CONFIRMADO |
 | S14 | Baja | Un bucle de symlinks devuelve 500 en vez de rechazo | CONFIRMADO |
-| S15 | Baja | `UnicodeDecodeError` no capturado en los tres stores | CONFIRMADO |
+| S15 | Baja | `UnicodeDecodeError` no capturado en los tres stores | **CORREGIDO** |
 | S16 | Baja | `spaces.json` no-objeto → `AttributeError` → 500 | CONFIRMADO |
 | S17 | Baja | Una sesión con nombre que empieza por `$` no se puede matar | CONFIRMADO |
 
@@ -61,10 +61,11 @@ cuando alguien se pregunta "¿y si el JSON está cortado a medio carácter?".
 | S15, S16 | US-006, en los casos de JSON corrupto |
 | S17 | US-007, al probar el ciclo de vida contra tmux real |
 
-Solo S12 está corregido. S13-S17 están **cubiertos por tests
+S12 y S15 están corregidos. S13, S14 y S16 siguen **cubiertos por tests
 `xfail(strict=True)`**: existen en la suite, no la bloquean, y el día que
 alguien los arregle sin quitar el marcador se ponen en rojo. El arreglo no se
-puede colar sin enterarse.
+puede colar sin enterarse. S17 es el único que no tiene `xfail` sino un test
+de caracterización (ver su sección).
 
 ---
 
@@ -462,7 +463,7 @@ Cubierto por `test_dir_roots.py::test_un_bucle_de_symlinks_se_rechaza_sin_excepc
 
 ---
 
-## S15 · BAJA — `UnicodeDecodeError` no capturado en los tres stores · CONFIRMADO
+## S15 · BAJA — `UnicodeDecodeError` no capturado en los tres stores · CORREGIDO
 
 ```console
 b'{"commands": [{"id": "c1", "label": "Compilaci\xc3'
@@ -485,11 +486,14 @@ que venir de fuera (un disco lleno antes del arreglo, una edición a mano, una
 restauración a medias). Pero el contrato del módulo es "leer nunca lanza", y
 esto lo rompe.
 
-**Corrección** — capturar `ValueError` (cubre las dos) o leer con
-`errors="replace"`. Una línea por store.
+**Corregido** — los tres capturan ahora `(ValueError, OSError)`, que cubre las
+dos excepciones por herencia. Una línea por store.
 
-Cubierto por `test_stores.py::test_hueco_conocido_un_json_cortado_a_medio_caracter_hace_lanzar_la_lectura`,
-parametrizado sobre los tres, `xfail(strict=True)`.
+La regresión es
+`test_stores.py::test_regresion_s15_un_json_cortado_a_medio_caracter_no_hace_lanzar_la_lectura`,
+parametrizado sobre los tres (ya sin `xfail`). Verificado por mutación:
+devolver cualquiera de los tres `except` a `(json.JSONDecodeError, OSError)`
+pone en rojo su parámetro y solo el suyo.
 
 ---
 

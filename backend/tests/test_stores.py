@@ -59,29 +59,28 @@ el sabotaje solo lo ve `write_private`;
   a la vez es otra historia.
 - No se prueban los endpoints HTTP que envuelven a los stores.
 
-## Dos huecos conocidos, documentados y NO arreglados aquí
+## Los dos huecos que destapó esta historia
 
-La mitad "leer nunca lanza" tiene hoy dos grietas. Ninguna se arregla en este
-archivo —esta historia no toca producción— y las dos se fijan con
-`xfail(strict=True)`, con su reproducción exacta, en el último bloque: el día
-que se arreglen, esos tests pasarán, `strict` los pondrá en rojo y quien lo
-arregle vendrá a borrar el marcador.
+La mitad "leer nunca lanza" tenía dos grietas, descubiertas al escribir estos
+tests y fijadas en su día con `xfail(strict=True)` para que el arreglo no
+pudiera colarse sin que nadie actualizara el test.
 
-1. **UTF-8 cortado a media escritura, en los tres stores.** Los tres leen con
-   `read_text(encoding="utf-8")` y capturan `(json.JSONDecodeError, OSError)`.
-   `UnicodeDecodeError` no es ninguna de las dos —es hermana de
-   `JSONDecodeError` bajo `ValueError`—, así que un JSON cortado en medio de un
-   carácter multibyte hace que la lectura lance y el panel devuelva 500 en cada
-   carga. Y es el caso probable, no el exótico: se serializa con
-   `ensure_ascii=False` y el propio `_default_label` mete una "…". Es
-   exactamente el desperfecto contra el que existe el tmp + replace, visto
-   desde el otro lado.
+1. **UTF-8 cortado a media escritura, en los tres stores** (S15). Los tres
+   leían con `read_text(encoding="utf-8")` y capturaban
+   `(json.JSONDecodeError, OSError)`. `UnicodeDecodeError` no es ninguna de las
+   dos —es hermana de `JSONDecodeError` bajo `ValueError`—, así que un JSON
+   cortado en medio de un carácter multibyte hacía que la lectura lanzara y el
+   panel devolviera 500 en cada carga. Y era el caso probable, no el exótico:
+   se serializa con `ensure_ascii=False` y el propio `_default_label` mete una
+   "…". Es exactamente el desperfecto contra el que existe el tmp + replace,
+   visto desde el otro lado. **Corregido**: los tres capturan `ValueError`, y
+   el `xfail` de abajo es hoy un test de regresión normal.
 
-2. **`spaces.json` que es JSON válido pero no un objeto.**
+2. **`spaces.json` que es JSON válido pero no un objeto** (S16, sigue abierto).
    `space_store._read()` llama a `raw.get("spaces")` sin comprobar antes que
    `raw` sea un `dict`: una lista, un número o `null` hacen que `list_spaces()`
    lance `AttributeError`. `library_store` y `upload_store` sí comprueban el
-   tipo.
+   tipo. Sigue con su `xfail(strict=True)`.
 """
 from __future__ import annotations
 
@@ -1619,12 +1618,12 @@ def test_write_private_crea_el_directorio_que_falte_ya_cerrado(tmp_path: Path) -
 
 
 # ======================================================================
-# Huecos conocidos de la regla "leer nunca lanza".
+# Los bordes de la regla "leer nunca lanza".
 #
-# NO se arreglan aquí: US-006 no toca producción. Se fijan con
-# `xfail(strict=True)` para que existan en la suite —con su reproducción
-# exacta y su explicación— y para que el día que se arreglen el test pase,
-# `strict` lo ponga en rojo y quien lo arregle venga a borrar el marcador.
+# El primero (S15) ya está corregido y su test es una regresión normal. El
+# segundo (S16) sigue con `xfail(strict=True)`: existe en la suite con su
+# reproducción exacta, no la bloquea, y el día que se arregle el test pasará,
+# `strict` lo pondrá en rojo y quien lo arregle vendrá a borrar el marcador.
 # ======================================================================
 
 
@@ -1640,12 +1639,12 @@ JSON_TRUNCADO_A_MEDIO_CARACTER = (
 
 
 def test_auto_el_json_truncado_a_medio_caracter_no_es_utf8_valido() -> None:
-    """El escenario del hueco de abajo es el que dice ser.
+    """El escenario del test de abajo es el que dice ser.
 
     Si algún día ese literal dejara de cortar un carácter multibyte por la
-    mitad, el test del hueco pasaría a probar otra cosa (un JSON mal formado
-    pero decodificable, que los stores sí toleran) y el `xfail` se volvería un
-    fallo inexplicable.
+    mitad, la regresión de S15 pasaría a probar otra cosa (un JSON mal formado
+    pero decodificable, que los stores toleran desde siempre) y seguiría verde
+    aunque alguien revirtiera el arreglo.
     """
     assert JSON_TRUNCADO_A_MEDIO_CARACTER.endswith(b"\xc3")
     with pytest.raises(UnicodeDecodeError):
@@ -1655,28 +1654,20 @@ def test_auto_el_json_truncado_a_medio_caracter_no_es_utf8_valido() -> None:
 
 
 @pytest.mark.parametrize("store", STORES, ids=_IDS_STORES)
-@pytest.mark.xfail(
-    raises=UnicodeDecodeError,
-    strict=True,
-    reason=(
-        "HUECO CONOCIDO, no arreglado aquí. Los tres stores leen con "
-        "`_STORE_PATH.read_text(encoding='utf-8')` y capturan "
-        "`(json.JSONDecodeError, OSError)`. `UnicodeDecodeError` no es ninguna "
-        "de las dos (es hermana de JSONDecodeError bajo ValueError), así que un "
-        "JSON cortado en medio de un carácter multibyte —el resultado típico de "
-        "la escritura interrumpida contra la que existe el tmp + replace— hace "
-        "que la LECTURA lance y el panel devuelva 500 en cada carga. Y es el "
-        "caso probable, no el exótico: se serializa con ensure_ascii=False y el "
-        "propio `_default_label` mete una '…'. El arreglo es de una línea "
-        "(capturar `ValueError`, que cubre las dos, o leer con "
-        "errors='replace'), pero es código de PRODUCCIÓN y US-006 no lo toca. "
-        "Cuando se arregle, este test pasará y strict=True lo pondrá en rojo."
-    ),
-)
-def test_hueco_conocido_un_json_cortado_a_medio_caracter_hace_lanzar_la_lectura(
+def test_regresion_s15_un_json_cortado_a_medio_caracter_no_hace_lanzar_la_lectura(
     store: Store, data_dir: Path
 ) -> None:
-    """La otra grieta de "leer nunca lanza", y afecta a los tres stores."""
+    """S15: los tres stores capturaban `json.JSONDecodeError`, no `ValueError`.
+
+    Un JSON cortado en medio de un carácter multibyte —lo que deja una
+    escritura interrumpida— hace que `read_text(encoding="utf-8")` lance
+    `UnicodeDecodeError`, que es hermano de `JSONDecodeError` bajo `ValueError`
+    y no subclase suya. Antes del arreglo esto dejaba el panel devolviendo 500
+    en cada carga; el contrato del módulo es que leer nunca lanza.
+
+    Revertir cualquiera de los tres `except (ValueError, OSError)` a
+    `(json.JSONDecodeError, OSError)` vuelve a poner en rojo su parámetro.
+    """
     store.ruta().write_bytes(JSON_TRUNCADO_A_MEDIO_CARACTER)
 
     assert store.leer() == store.vacio

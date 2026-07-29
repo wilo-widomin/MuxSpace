@@ -13,7 +13,6 @@ Ver `docs/muxspace.md` para la especificación completa.
 from __future__ import annotations
 
 import errno
-import logging
 import os
 import re
 import sys
@@ -28,6 +27,7 @@ from pydantic import BaseModel
 
 import audit
 import config
+import logs
 import space_store
 import upload_store
 from auth import (
@@ -81,6 +81,8 @@ from tmux_service import (
 # ':' y '.' (sintaxis de targets de tmux) y espacios para que el nombre
 # sea seguro y predecible.
 _SESSION_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+_log = logs.obtener(__name__)
 
 
 def _slug_session_name(name: str) -> str:
@@ -358,6 +360,11 @@ def _workers_configurados(argv: list[str] | None = None,
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Lo primero de todo: sin esto, cualquier mensaje que se emita más abajo
+    # saldría al nivel que hubiera quedado por defecto.
+    logs.configurar()
+    _log.info("MuxSpace arrancando (auth=%s, modo=%s)",
+              config.AUTH_ENABLED, config.AUTH_MODE)
     # Todo lo de data/ es del usuario y solo suyo, pero se venía escribiendo
     # con el umask por defecto (0644): legible por cualquier usuario local
     # en una máquina donde el panel ya da una shell. Las escrituras nuevas
@@ -365,12 +372,15 @@ async def lifespan(app: FastAPI):
     harden_tree(_DATA_DIR)
     workers = _workers_configurados()
     if workers > 1:
-        # `uvicorn.error` es el logger por el que ya salen los mensajes de
-        # arranque: el aviso aparece en la misma consola y con el mismo
-        # formato, en vez de en un canal que nadie mira. Se emite una vez por
-        # worker, y eso es deliberado: N copias del aviso son exactamente la
-        # señal de que hay N procesos peleándose por los mismos ficheros.
-        logging.getLogger("uvicorn.error").warning(
+        # Se emite una vez por worker, y eso es deliberado: N copias del
+        # aviso son exactamente la señal de que hay N procesos peleándose por
+        # los mismos ficheros.
+        #
+        # Iba por `uvicorn.error` para salir en la consola de arranque. Desde
+        # Q6 va por el registrador del panel, que propaga a los mismos
+        # manejadores: se sigue viendo igual y ahora obedece a
+        # `MUXSPACE_LOG_LEVEL` como todo lo demás.
+        _log.warning(
             "MuxSpace está arrancando con %d workers y SOLO admite 1. Los "
             "stores (biblioteca, espacios, subidas, sesiones) se protegen con "
             "threading.Lock, que no cruza procesos: con más de un worker dos "

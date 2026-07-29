@@ -28,6 +28,9 @@ import time
 from fastapi import WebSocket, WebSocketDisconnect
 
 import config
+import logs
+
+_log = logs.obtener(__name__)
 
 
 def _set_winsize(fd: int, rows: int, cols: int) -> None:
@@ -55,10 +58,13 @@ def _prepare_session(name: str) -> None:
                 timeout=5,
                 check=False,
             )
-        except Exception:  # noqa: S110 — un tmux viejo puede no conocer la
-            # opción, y eso NO debe impedir abrir la terminal. Es el caso que
-            # el docstring de arriba describe.
-            pass
+        except Exception:
+            # Un tmux viejo puede no conocer la opción, y eso NO debe impedir
+            # abrir la terminal: es el caso que describe el docstring. A
+            # DEBUG y no a WARNING porque en esos tmux pasaría en CADA sesión,
+            # y un aviso que sale siempre deja de leerse.
+            _log.debug("no se pudo fijar %s en la sesión %s", opt, name,
+                       exc_info=True)
 
 
 def _spawn_attach(name: str) -> tuple[int, int]:
@@ -197,18 +203,20 @@ async def bridge(websocket: WebSocket, name: str) -> None:
                 if ctl.get("type") == "resize":
                     try:
                         _set_winsize(master, int(ctl["rows"]), int(ctl["cols"]))
-                    except Exception:  # noqa: S110 — un resize con valores
-                        # basura del cliente se descarta; tirar la terminal
-                        # entera por un mensaje mal formado sería peor.
-                        pass
+                    except Exception:
+                        # Un resize con valores basura del cliente se descarta:
+                        # tirar la terminal entera por un mensaje mal formado
+                        # sería peor. Se registra porque, si empieza a pasar,
+                        # es un bug del frontend y aquí es donde se ve.
+                        _log.debug("resize descartado: %r", text, exc_info=True)
     except WebSocketDisconnect:
         pass
-    except Exception:  # noqa: S110 — el puente muere con la conexión: cualquier
-        # error aquí significa que el WebSocket o el PTY ya no están, y el
-        # `finally` de abajo es quien tiene que cerrar los descriptores pase lo
-        # que pase. Registrar el motivo es trabajo del logging estructurado de
-        # la fase 5 (Q6), no de este PR.
-        pass
+    except Exception:
+        # El puente muere con la conexión: cualquier error aquí significa que
+        # el WebSocket o el PTY ya no están, y el `finally` de abajo es quien
+        # cierra los descriptores pase lo que pase. Lo que sí se hace ahora es
+        # decir POR QUÉ murió: era el "queda pendiente de Q6" de US-021.
+        _log.info("el puente de %s terminó por un error", name, exc_info=True)
     finally:
         loop.remove_reader(master)
         if recepcion is not None:

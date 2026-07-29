@@ -30,7 +30,10 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
+import logs
 from datafiles import FILE_MODE, ensure_dir
+
+_log = logs.obtener(__name__)
 
 _LOG_PATH = Path(__file__).resolve().parent / "data" / "audit.log"
 
@@ -112,6 +115,17 @@ def record(
                 os.write(fd, linea.encode("utf-8"))
             finally:
                 os.close(fd)
-    except Exception:  # noqa: S110 — ver la regla 1 del docstring del módulo:
-        # el log de auditoría no puede tumbar la acción que está auditando.
-        pass
+    except Exception:
+        # Ver la regla 1 del docstring del módulo: el log de auditoría no puede
+        # tumbar la acción que está auditando. Pero callarlo del todo dejaba el
+        # peor de los mundos —un panel que cree estar auditando y no audita—,
+        # así que desde Q6 se avisa por el log de la aplicación.
+        try:
+            _log.warning(
+                "no se pudo registrar la acción %r en %s", action, _LOG_PATH,
+                exc_info=True,
+            )
+        except Exception:  # noqa: S110 — si hasta el logging falla (disco
+            # lleno, stderr cerrado), no queda nada más que hacer: lo que NO
+            # puede es propagar y tumbar la petición.
+            pass

@@ -19,7 +19,10 @@ import { T, entrar, expect, nombreSesion, sesionEnLista, test } from './fixtures
 /** Retira todas las sesiones del servidor de tmux del E2E. */
 function limpiarSesiones(tmux) {
   const listado = tmux(['list-sessions', '-F', '#S'], { permitirFallo: true }) || ''
-  for (const sesion of listado.split('\n').map((x) => x.trim()).filter(Boolean)) {
+  for (const sesion of listado
+    .split('\n')
+    .map((x) => x.trim())
+    .filter(Boolean)) {
     tmux(['kill-session', '-t', `=${sesion}`], { permitirFallo: true })
   }
 }
@@ -89,7 +92,9 @@ async function abrirTerminal(page, entorno, tmux, sufijo) {
  * terminal de otra sesión.
  */
 function wsDeLaSesion(websockets, nombre) {
-  return websockets.find((ws) => decodeURIComponent(ws.url()).endsWith(`/api/terminal/${nombre}`))
+  return websockets.find((ws) =>
+    decodeURIComponent(ws.url()).endsWith(`/api/terminal/${nombre}`),
+  )
 }
 
 /** Escribe en la terminal de `nombre` y pulsa Enter. */
@@ -210,10 +215,9 @@ test('matar la sesión desde el panel cierra la terminal', async ({
     .toBe(true)
 
   await expect
-    .poll(
-      () => tmux(['has-session', '-t', `=${nombre}`], { permitirFallo: true }),
-      { message: `la sesión ${nombre} sigue en tmux tras el kill` },
-    )
+    .poll(() => tmux(['has-session', '-t', `=${nombre}`], { permitirFallo: true }), {
+      message: `la sesión ${nombre} sigue en tmux tras el kill`,
+    })
     .toBeNull()
 
   // Y desaparece del listado, que es lo que ve el usuario.

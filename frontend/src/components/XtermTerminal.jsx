@@ -35,8 +35,7 @@ export default function XtermTerminal({ name, onFocus, focusToken = 0 }) {
 
     const term = new Terminal({
       cursorBlink: true,
-      fontFamily:
-        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       fontSize: 13,
       scrollback: 10000,
       allowProposedApi: true,
@@ -140,8 +139,7 @@ export default function XtermTerminal({ name, onFocus, focusToken = 0 }) {
     // handshake; la URL no lleva ninguna credencial.
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
     const url =
-      `${proto}://${window.location.host}/api/terminal/` +
-      encodeURIComponent(name)
+      `${proto}://${window.location.host}/api/terminal/` + encodeURIComponent(name)
     const ws = new WebSocket(url)
     ws.binaryType = 'arraybuffer'
 

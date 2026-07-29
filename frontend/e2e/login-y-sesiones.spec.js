@@ -36,9 +36,7 @@ test('sin sesión, el panel muestra la pantalla de login', async ({ page }) => {
   await expect(page.getByRole('button', { name: T['login.submit'] })).toBeVisible()
   // Y no se cuela nada del panel: si el sidebar se pintara antes de saber si
   // hay sesión, se vería un instante la lista de terminales del usuario.
-  await expect(
-    page.getByRole('button', { name: T['sidebar.logout'] }),
-  ).toHaveCount(0)
+  await expect(page.getByRole('button', { name: T['sidebar.logout'] })).toHaveCount(0)
 })
 
 test('con credenciales incorrectas sale el mensaje traducido', async ({
@@ -71,9 +69,7 @@ test('con credenciales correctas se entra y la cookie es HttpOnly', async ({
   // da shell. Se comprueba por partida doble: el atributo, y que el
   // JavaScript de la página efectivamente no la ve.
   expect(sesion.httpOnly, 'la cookie de sesión NO es HttpOnly').toBe(true)
-  expect(await page.evaluate(() => document.cookie)).not.toContain(
-    'muxspace_session',
-  )
+  expect(await page.evaluate(() => document.cookie)).not.toContain('muxspace_session')
 })
 
 test('el sidebar lista las sesiones de tmux que ya existían', async ({
@@ -154,9 +150,7 @@ test('el recorrido entero no deja errores en la consola del navegador', async ({
   await expect(sesionEnLista(page, nombre)).toBeVisible()
 
   const errores = consola.erroresInesperados()
-  expect(errores, `errores en consola: ${JSON.stringify(errores, null, 2)}`).toEqual(
-    [],
-  )
+  expect(errores, `errores en consola: ${JSON.stringify(errores, null, 2)}`).toEqual([])
   expect(consola.errores, 'excepciones sin capturar en la página').toEqual([])
 })
 

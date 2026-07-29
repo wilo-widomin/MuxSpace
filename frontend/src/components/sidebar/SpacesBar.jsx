@@ -175,9 +175,7 @@ export function SpacesBar({
         <button
           onClick={() => open('rename')}
           disabled={!editable}
-          title={
-            editable ? t('spaces.rename') : t('spaces.rename_disabled')
-          }
+          title={editable ? t('spaces.rename') : t('spaces.rename_disabled')}
           className="shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
         >
           <PencilIcon />
@@ -185,9 +183,7 @@ export function SpacesBar({
         <button
           onClick={remove}
           disabled={!editable || busy}
-          title={
-            editable ? t('spaces.delete') : t('spaces.delete_disabled')
-          }
+          title={editable ? t('spaces.delete') : t('spaces.delete_disabled')}
           className="shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-red-500/20 hover:text-red-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-panel-muted"
         >
           <TrashIcon />

@@ -124,8 +124,7 @@ export default function SessionGrid({
     // Píxeles que vale 1fr ahora mismo: el espacio libre tras descontar los
     // canales fijos, repartido entre el total de pesos.
     const rect = grid.getBoundingClientRect()
-    const available =
-      (horizontal ? rect.width : rect.height) - GUTTER * (count - 1)
+    const available = (horizontal ? rect.width : rect.height) - GUTTER * (count - 1)
     if (available <= 0) return
     const pxPerFr = available / totalFr
 
@@ -244,75 +243,77 @@ export default function SessionGrid({
               }
         }
       >
-      {openSessions.map((session, i) => {
-        const col = i % cols
-        const row = Math.floor(i / cols)
-        return (
-          <div
-            key={session.name}
-            className="flex min-h-0 min-w-0"
-            style={
-              isFocus
-                ? session.name === focusedName
-                  ? { gridColumn: 1, gridRow: 1 }
-                  : { display: 'none' }
-                : { gridColumn: trackLine(col), gridRow: trackLine(row) }
-            }
-          >
-            <TerminalTile
-              session={session}
-              isActive={activeName === session.name}
-              onFocus={() => onSetActive(session.name)}
-              onClose={onClose}
-              onKill={onKill}
-              commands={commands}
-              dragging={dragName !== null}
-              isDragSource={dragName === session.name}
-              isOver={overName === session.name && dragName !== session.name}
-              onDragStart={() => setDragName(session.name)}
-              onDragEnter={() => setOverName(session.name)}
-              onDragEnd={() => {
-                setDragName(null)
-                setOverName(null)
-              }}
-              onDrop={() => finishDrag(session.name)}
-              isFocused={session.name === focusedName}
-              onToggleFocus={() =>
-                onSetFocused(session.name === focusedName ? null : session.name)
+        {openSessions.map((session, i) => {
+          const col = i % cols
+          const row = Math.floor(i / cols)
+          return (
+            <div
+              key={session.name}
+              className="flex min-h-0 min-w-0"
+              style={
+                isFocus
+                  ? session.name === focusedName
+                    ? { gridColumn: 1, gridRow: 1 }
+                    : { display: 'none' }
+                  : { gridColumn: trackLine(col), gridRow: trackLine(row) }
               }
-              focusToken={focusName === session.name ? focusToken : 0}
-            />
-          </div>
-        )
-      })}
+            >
+              <TerminalTile
+                session={session}
+                isActive={activeName === session.name}
+                onFocus={() => onSetActive(session.name)}
+                onClose={onClose}
+                onKill={onKill}
+                commands={commands}
+                dragging={dragName !== null}
+                isDragSource={dragName === session.name}
+                isOver={overName === session.name && dragName !== session.name}
+                onDragStart={() => setDragName(session.name)}
+                onDragEnter={() => setOverName(session.name)}
+                onDragEnd={() => {
+                  setDragName(null)
+                  setOverName(null)
+                }}
+                onDrop={() => finishDrag(session.name)}
+                isFocused={session.name === focusedName}
+                onToggleFocus={() =>
+                  onSetFocused(session.name === focusedName ? null : session.name)
+                }
+                focusToken={focusName === session.name ? focusToken : 0}
+              />
+            </div>
+          )
+        })}
 
-      {/* Separadores verticales: uno por hueco entre columnas. */}
-      {!isFocus && Array.from({ length: cols - 1 }, (_, i) => (
-        <div
-          key={`col-${i}`}
-          onPointerDown={startDrag('col', i)}
-          onDoubleClick={resetAxis('col')}
-          title={t('grid.resize_hint')}
-          className="group z-20 flex cursor-col-resize items-center justify-center"
-          style={{ gridColumn: gutterLine(i), gridRow: '1 / -1' }}
-        >
-          <div className="h-full w-[3px] rounded-full bg-transparent transition group-hover:bg-panel-accent/60" />
-        </div>
-      ))}
+        {/* Separadores verticales: uno por hueco entre columnas. */}
+        {!isFocus &&
+          Array.from({ length: cols - 1 }, (_, i) => (
+            <div
+              key={`col-${i}`}
+              onPointerDown={startDrag('col', i)}
+              onDoubleClick={resetAxis('col')}
+              title={t('grid.resize_hint')}
+              className="group z-20 flex cursor-col-resize items-center justify-center"
+              style={{ gridColumn: gutterLine(i), gridRow: '1 / -1' }}
+            >
+              <div className="h-full w-[3px] rounded-full bg-transparent transition group-hover:bg-panel-accent/60" />
+            </div>
+          ))}
 
-      {/* Separadores horizontales: uno por hueco entre filas. */}
-      {!isFocus && Array.from({ length: rows - 1 }, (_, i) => (
-        <div
-          key={`row-${i}`}
-          onPointerDown={startDrag('row', i)}
-          onDoubleClick={resetAxis('row')}
-          title={t('grid.resize_hint')}
-          className="group z-10 flex cursor-row-resize items-center justify-center"
-          style={{ gridRow: gutterLine(i), gridColumn: '1 / -1' }}
-        >
-          <div className="h-[3px] w-full rounded-full bg-transparent transition group-hover:bg-panel-accent/60" />
-        </div>
-      ))}
+        {/* Separadores horizontales: uno por hueco entre filas. */}
+        {!isFocus &&
+          Array.from({ length: rows - 1 }, (_, i) => (
+            <div
+              key={`row-${i}`}
+              onPointerDown={startDrag('row', i)}
+              onDoubleClick={resetAxis('row')}
+              title={t('grid.resize_hint')}
+              className="group z-10 flex cursor-row-resize items-center justify-center"
+              style={{ gridRow: gutterLine(i), gridColumn: '1 / -1' }}
+            >
+              <div className="h-[3px] w-full rounded-full bg-transparent transition group-hover:bg-panel-accent/60" />
+            </div>
+          ))}
       </div>
     </div>
   )
@@ -344,10 +345,21 @@ function RestoreIcon() {
 export function LayoutIcon({ mode }) {
   const rects =
     mode === 'cols'
-      ? [[3, 3, 7, 18], [14, 3, 7, 18]]
+      ? [
+          [3, 3, 7, 18],
+          [14, 3, 7, 18],
+        ]
       : mode === 'rows'
-        ? [[3, 3, 18, 7], [3, 14, 18, 7]]
-        : [[3, 3, 7, 7], [14, 3, 7, 7], [3, 14, 7, 7], [14, 14, 7, 7]]
+        ? [
+            [3, 3, 18, 7],
+            [3, 14, 18, 7],
+          ]
+        : [
+            [3, 3, 7, 7],
+            [14, 3, 7, 7],
+            [3, 14, 7, 7],
+            [14, 14, 7, 7],
+          ]
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
       {rects.map(([x, y, w, h]) => (

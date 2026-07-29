@@ -85,9 +85,7 @@ export default function Sidebar({
   const uid = useId()
   // El espacio activo acota TODO el panel, no solo el grid: la lista de
   // sesiones muestra las de ese espacio.
-  const spaceSessions = sessions.filter(
-    (s) => spaceKeyOf(s) === activeSpace,
-  )
+  const spaceSessions = sessions.filter((s) => spaceKeyOf(s) === activeSpace)
 
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
@@ -175,10 +173,7 @@ export default function Sidebar({
   // Persiste los altos cada vez que cambian por arrastre.
   useEffect(() => {
     try {
-      localStorage.setItem(
-        HEIGHTS_KEY,
-        JSON.stringify({ p: projectsH, c: commandsH }),
-      )
+      localStorage.setItem(HEIGHTS_KEY, JSON.stringify({ p: projectsH, c: commandsH }))
     } catch {
       // almacenamiento no disponible (modo privado, etc.): no es fatal.
     }
@@ -204,8 +199,7 @@ export default function Sidebar({
       // almacenamiento no disponible: no es fatal.
     }
   }, [openSection])
-  const toggleSection = (name) =>
-    setOpenSection((cur) => (cur === name ? null : name))
+  const toggleSection = (name) => setOpenSection((cur) => (cur === name ? null : name))
   const cmdOpen = openSection === 'commands'
   const projOpen = openSection === 'projects'
 
@@ -286,9 +280,7 @@ export default function Sidebar({
         }
         await onSaveProject(title, cwdVal, [cmdLine])
       }
-      const cmd = cmdLine
-        ? { command: cmdLine, cwd: cwd.trim() || null }
-        : null
+      const cmd = cmdLine ? { command: cmdLine, cwd: cwd.trim() || null } : null
       await onCreate(name, cmd)
       setCreating(false)
     } catch (err) {
@@ -578,311 +570,311 @@ export default function Sidebar({
 
       <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        {loading && (
-          <p className="px-2 py-4 text-sm text-panel-muted">{t('app.loading')}</p>
-        )}
+          {loading && (
+            <p className="px-2 py-4 text-sm text-panel-muted">{t('app.loading')}</p>
+          )}
 
-        {error && (
-          <p className="mx-1 my-2 rounded bg-red-500/10 px-3 py-2 text-sm text-red-400">
-            {error}
-          </p>
-        )}
+          {error && (
+            <p className="mx-1 my-2 rounded bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              {error}
+            </p>
+          )}
 
-        {!loading && !error && spaceSessions.length === 0 && (
-          <p className="px-2 py-4 text-sm text-panel-muted">
-            {sessions.length === 0
-              ? t('sidebar.no_sessions')
-              : t('sidebar.space_empty')}
-          </p>
-        )}
+          {!loading && !error && spaceSessions.length === 0 && (
+            <p className="px-2 py-4 text-sm text-panel-muted">
+              {sessions.length === 0
+                ? t('sidebar.no_sessions')
+                : t('sidebar.space_empty')}
+            </p>
+          )}
 
-        <ul className="space-y-1">
-          {spaceSessions.map((s) => {
-            const isOpen = openNames.includes(s.name)
-            const isRenaming = renamingName === s.name
-            return (
-              <li key={s.name}>
-                {isRenaming ? (
-                  <form
-                    onSubmit={(e) => submitRename(e, s.name)}
-                    className="flex items-center gap-1 rounded bg-panel-bg px-2 py-1"
-                  >
-                    <input
-                      autoFocus
-                      value={renameValue}
-                      onChange={(e) =>
-                        setRenameValue(sanitizeSessionName(e.target.value))
-                      }
-                      onFocus={(e) => e.target.select()}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') cancelRename()
-                      }}
-                      className="min-w-0 flex-1 rounded border border-panel-border bg-panel-bg px-2 py-1 text-sm outline-none focus:border-panel-accent"
-                    />
-                    <button
-                      type="submit"
-                      title={t('sidebar.save_name')}
-                      className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
+          <ul className="space-y-1">
+            {spaceSessions.map((s) => {
+              const isOpen = openNames.includes(s.name)
+              const isRenaming = renamingName === s.name
+              return (
+                <li key={s.name}>
+                  {isRenaming ? (
+                    <form
+                      onSubmit={(e) => submitRename(e, s.name)}
+                      className="flex items-center gap-1 rounded bg-panel-bg px-2 py-1"
                     >
-                      <CheckIcon />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelRename}
-                      title={t('sidebar.cancel')}
-                      className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-surface hover:text-gray-100"
-                    >
-                      <CloseIcon />
-                    </button>
-                  </form>
-                ) : (
-                  <div
-                    className={`group flex w-full items-center rounded text-sm transition ${
-                      isOpen ? 'bg-panel-bg' : 'hover:bg-panel-bg'
-                    }`}
-                  >
-                    <button
-                      onClick={() => onSelect(s.name)}
-                      className="flex min-w-0 flex-1 items-center justify-between px-3 py-2 text-left"
-                      title={isOpen ? t('sidebar.bring_to_front') : t('sidebar.open')}
-                    >
-                      <span className="flex items-center gap-2 truncate">
-                        <span
-                          className={`h-2 w-2 shrink-0 rounded-full ${
-                            s.attached ? 'bg-green-400' : 'bg-panel-muted'
-                          }`}
-                          title={
-                            s.attached
-                              ? t('sidebar.attached')
-                              : t('sidebar.detached')
-                          }
-                        />
-                        <span
-                          className={`truncate font-medium ${
-                            isOpen ? 'text-panel-muted' : ''
-                          }`}
-                        >
-                          {s.name}
-                        </span>
-                      </span>
-                      <span className="ml-2 shrink-0 text-xs text-panel-muted">
-                        {isOpen
-                          ? t('sidebar.state_open')
-                          : t('sidebar.windows', { count: s.windows })}
-                      </span>
-                    </button>
-                    <MoveToSpace
-                      session={s}
-                      spaces={spaces}
-                      onAssign={onAssignSpace}
-                    />
-                    <button
-                      onClick={() => startRename(s)}
-                      title={t('sidebar.rename_session')}
-                      className="shrink-0 rounded p-1.5 text-panel-muted opacity-0 transition hover:bg-panel-surface hover:text-gray-100 group-hover:opacity-100"
-                    >
-                      <PencilIcon />
-                    </button>
-                    <button
-                      onClick={() => killSession(s)}
-                      title={t('sidebar.kill_session')}
-                      className="mr-1 shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-red-500/20 hover:text-red-400"
-                    >
-                      <DoorIcon />
-                    </button>
-                    {isOpen && (
+                      <input
+                        autoFocus
+                        value={renameValue}
+                        onChange={(e) =>
+                          setRenameValue(sanitizeSessionName(e.target.value))
+                        }
+                        onFocus={(e) => e.target.select()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') cancelRename()
+                        }}
+                        className="min-w-0 flex-1 rounded border border-panel-border bg-panel-bg px-2 py-1 text-sm outline-none focus:border-panel-accent"
+                      />
                       <button
-                        onClick={() => onHideTile(s.name)}
-                        title={t('sidebar.hide_tile')}
-                        className="mr-1 shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-panel-surface hover:text-gray-100"
+                        type="submit"
+                        title={t('sidebar.save_name')}
+                        className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
+                      >
+                        <CheckIcon />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelRename}
+                        title={t('sidebar.cancel')}
+                        className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-surface hover:text-gray-100"
                       >
                         <CloseIcon />
                       </button>
-                    )}
-                  </div>
-                )}
-                {isRenaming && renameError && (
-                  <p className="mt-1 rounded bg-red-500/10 px-2 py-1 text-xs text-red-400">
-                    {renameError}
-                  </p>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      </div>
+                    </form>
+                  ) : (
+                    <div
+                      className={`group flex w-full items-center rounded text-sm transition ${
+                        isOpen ? 'bg-panel-bg' : 'hover:bg-panel-bg'
+                      }`}
+                    >
+                      <button
+                        onClick={() => onSelect(s.name)}
+                        className="flex min-w-0 flex-1 items-center justify-between px-3 py-2 text-left"
+                        title={isOpen ? t('sidebar.bring_to_front') : t('sidebar.open')}
+                      >
+                        <span className="flex items-center gap-2 truncate">
+                          <span
+                            className={`h-2 w-2 shrink-0 rounded-full ${
+                              s.attached ? 'bg-green-400' : 'bg-panel-muted'
+                            }`}
+                            title={
+                              s.attached ? t('sidebar.attached') : t('sidebar.detached')
+                            }
+                          />
+                          <span
+                            className={`truncate font-medium ${
+                              isOpen ? 'text-panel-muted' : ''
+                            }`}
+                          >
+                            {s.name}
+                          </span>
+                        </span>
+                        <span className="ml-2 shrink-0 text-xs text-panel-muted">
+                          {isOpen
+                            ? t('sidebar.state_open')
+                            : t('sidebar.windows', { count: s.windows })}
+                        </span>
+                      </button>
+                      <MoveToSpace
+                        session={s}
+                        spaces={spaces}
+                        onAssign={onAssignSpace}
+                      />
+                      <button
+                        onClick={() => startRename(s)}
+                        title={t('sidebar.rename_session')}
+                        className="shrink-0 rounded p-1.5 text-panel-muted opacity-0 transition hover:bg-panel-surface hover:text-gray-100 group-hover:opacity-100"
+                      >
+                        <PencilIcon />
+                      </button>
+                      <button
+                        onClick={() => killSession(s)}
+                        title={t('sidebar.kill_session')}
+                        className="mr-1 shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-red-500/20 hover:text-red-400"
+                      >
+                        <DoorIcon />
+                      </button>
+                      {isOpen && (
+                        <button
+                          onClick={() => onHideTile(s.name)}
+                          title={t('sidebar.hide_tile')}
+                          className="mr-1 shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-panel-surface hover:text-gray-100"
+                        >
+                          <CloseIcon />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {isRenaming && renameError && (
+                    <p className="mt-1 rounded bg-red-500/10 px-2 py-1 text-xs text-red-400">
+                      {renameError}
+                    </p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
 
-      {/* Secciones fijas al fondo: Proyectos arriba, Comandos debajo. Cada
+        {/* Secciones fijas al fondo: Proyectos arriba, Comandos debajo. Cada
           una se pliega por separado con su propio botón. */}
-      {(projOpen || cmdOpen) && (
-        <Resizer onDrag={projOpen ? resizeProjects : resizeCommandsTop} />
-      )}
+        {(projOpen || cmdOpen) && (
+          <Resizer onDrag={projOpen ? resizeProjects : resizeCommandsTop} />
+        )}
 
-      <div className="shrink-0 border-t border-panel-border flex flex-col-reverse">
-        {/* ---------------- Comandos (una línea) ---------------- */}
-        <div
-          style={cmdOpen ? { height: commandsH } : undefined}
-          className={`min-h-0 border-t border-panel-border p-2 ${
-            cmdOpen ? 'overflow-y-auto' : ''
-          }`}
-        >
-          {/* El "+" va pegado al título; el desplegable, alineado a la
+        <div className="shrink-0 border-t border-panel-border flex flex-col-reverse">
+          {/* ---------------- Comandos (una línea) ---------------- */}
+          <div
+            style={cmdOpen ? { height: commandsH } : undefined}
+            className={`min-h-0 border-t border-panel-border p-2 ${
+              cmdOpen ? 'overflow-y-auto' : ''
+            }`}
+          >
+            {/* El "+" va pegado al título; el desplegable, alineado a la
               derecha como en las demás persianas del lateral. */}
-          <div className="flex items-center gap-1 px-2 py-1">
-            <button
-              onClick={() => toggleSection('commands')}
-              className="flex min-w-0 items-center text-xs uppercase tracking-wide text-panel-muted transition hover:text-gray-100"
-            >
-              <span className="truncate">{t('sidebar.commands')}</span>
-            </button>
-            <button
-              onClick={openCmdForm}
-              title={t('sidebar.new_command')}
-              className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
-            >
-              <PlusIcon />
-            </button>
-            <button
-              onClick={() => toggleSection('commands')}
-              title={t('sidebar.commands')}
-              className="ml-auto shrink-0 rounded text-panel-muted transition hover:text-gray-100"
-            >
-              <SectionCaret open={cmdOpen} />
-            </button>
-          </div>
-          {cmdOpen && (
-          <>
-          <p className="px-2 pb-1 text-[11px] text-panel-muted/70">
-            {t('sidebar.commands_hint')}
-          </p>
-          <ul className="space-y-0.5">
-            {commands.map((c) => (
-              <li
-                key={c.id}
-                className="group flex items-center gap-1 rounded px-2 py-1 text-xs text-panel-muted hover:bg-panel-bg"
+            <div className="flex items-center gap-1 px-2 py-1">
+              <button
+                onClick={() => toggleSection('commands')}
+                className="flex min-w-0 items-center text-xs uppercase tracking-wide text-panel-muted transition hover:text-gray-100"
               >
-                <button
-                  onClick={(e) => {
-                    e.currentTarget.blur()
-                    onRunCommand(c)
-                  }}
-                  title={runTargetTitle()}
-                  className="shrink-0 rounded p-0.5 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
-                >
-                  <PlayIcon />
-                </button>
-                <span className="min-w-0 flex-1 truncate" title={c.command}>
-                  {c.label}
-                </span>
-                <button
-                  onClick={() => startEdit(c)}
-                  title={t('sidebar.edit_command')}
-                  className="shrink-0 rounded p-0.5 text-panel-muted opacity-0 transition hover:bg-panel-surface hover:text-gray-100 group-hover:opacity-100"
-                >
-                  <PencilIcon />
-                </button>
-                <button
-                  onClick={() => removeCommand(c.id, c.label)}
-                  title={t('sidebar.delete_command')}
-                  className="shrink-0 rounded p-0.5 opacity-0 transition hover:bg-panel-surface hover:text-red-400 group-hover:opacity-100"
-                >
-                  <TrashIcon />
-                </button>
-              </li>
-            ))}
-          </ul>
-          </>
-          )}
-        </div>
-
-        {/* ---------------- Proyectos (dir + secuencia) ---------------- */}
-        <div
-          style={projOpen ? { height: projectsH } : undefined}
-          className={`min-h-0 p-2 ${projOpen ? 'overflow-y-auto' : ''}`}
-        >
-          <div className="flex items-center gap-1 px-2 py-1">
-            <button
-              onClick={() => toggleSection('projects')}
-              className="flex min-w-0 items-center text-xs uppercase tracking-wide text-panel-muted transition hover:text-gray-100"
-            >
-              <span className="truncate">{t('sidebar.projects')}</span>
-            </button>
-            <button
-              onClick={openProjForm}
-              title={t('sidebar.new_project')}
-              className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
-            >
-              <PlusIcon />
-            </button>
-            <button
-              onClick={() => toggleSection('projects')}
-              title={t('sidebar.projects')}
-              className="ml-auto shrink-0 rounded text-panel-muted transition hover:text-gray-100"
-            >
-              <SectionCaret open={projOpen} />
-            </button>
-          </div>
-          {projOpen && (
-          <>
-          <p className="px-2 pb-1 text-[11px] text-panel-muted/70">
-            {t('sidebar.projects_hint')}
-          </p>
-
-          <ul className="space-y-0.5">
-            {projects.map((p) => (
-              <li
-                key={p.id}
-                className="group rounded px-2 py-1 text-xs text-panel-muted hover:bg-panel-bg"
+                <span className="truncate">{t('sidebar.commands')}</span>
+              </button>
+              <button
+                onClick={openCmdForm}
+                title={t('sidebar.new_command')}
+                className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
               >
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.currentTarget.blur()
-                      onRunProject(p.id)
-                    }}
-                    title={t('sidebar.run_project')}
-                    className="shrink-0 rounded p-0.5 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
-                  >
-                    <PlayIcon />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.currentTarget.blur()
-                      onRunProjectInNewTab(p.id)
-                    }}
-                    title={t('sidebar.run_project_new_tab')}
-                    className="shrink-0 rounded p-0.5 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
-                  >
-                    <ExternalLinkIcon />
-                  </button>
-                  <span
-                    className="min-w-0 flex-1 truncate font-medium text-gray-100"
-                    title={[p.title, p.cwd, ...p.commands].filter(Boolean).join(' · ')}
-                  >
-                    {p.title}
-                  </span>
-                  <button
-                    onClick={() => startProjEdit(p)}
-                    title={t('sidebar.edit_project')}
-                    className="shrink-0 rounded p-0.5 text-panel-muted opacity-0 transition hover:bg-panel-surface hover:text-gray-100 group-hover:opacity-100"
-                  >
-                    <PencilIcon />
-                  </button>
-                  <button
-                    onClick={() => removeProject(p.id, p.title)}
-                    title={t('sidebar.delete_project')}
-                    className="shrink-0 rounded p-0.5 opacity-0 transition hover:bg-panel-surface hover:text-red-400 group-hover:opacity-100"
-                  >
-                    <TrashIcon />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-          </>
-          )}
+                <PlusIcon />
+              </button>
+              <button
+                onClick={() => toggleSection('commands')}
+                title={t('sidebar.commands')}
+                className="ml-auto shrink-0 rounded text-panel-muted transition hover:text-gray-100"
+              >
+                <SectionCaret open={cmdOpen} />
+              </button>
+            </div>
+            {cmdOpen && (
+              <>
+                <p className="px-2 pb-1 text-[11px] text-panel-muted/70">
+                  {t('sidebar.commands_hint')}
+                </p>
+                <ul className="space-y-0.5">
+                  {commands.map((c) => (
+                    <li
+                      key={c.id}
+                      className="group flex items-center gap-1 rounded px-2 py-1 text-xs text-panel-muted hover:bg-panel-bg"
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.currentTarget.blur()
+                          onRunCommand(c)
+                        }}
+                        title={runTargetTitle()}
+                        className="shrink-0 rounded p-0.5 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
+                      >
+                        <PlayIcon />
+                      </button>
+                      <span className="min-w-0 flex-1 truncate" title={c.command}>
+                        {c.label}
+                      </span>
+                      <button
+                        onClick={() => startEdit(c)}
+                        title={t('sidebar.edit_command')}
+                        className="shrink-0 rounded p-0.5 text-panel-muted opacity-0 transition hover:bg-panel-surface hover:text-gray-100 group-hover:opacity-100"
+                      >
+                        <PencilIcon />
+                      </button>
+                      <button
+                        onClick={() => removeCommand(c.id, c.label)}
+                        title={t('sidebar.delete_command')}
+                        className="shrink-0 rounded p-0.5 opacity-0 transition hover:bg-panel-surface hover:text-red-400 group-hover:opacity-100"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+
+          {/* ---------------- Proyectos (dir + secuencia) ---------------- */}
+          <div
+            style={projOpen ? { height: projectsH } : undefined}
+            className={`min-h-0 p-2 ${projOpen ? 'overflow-y-auto' : ''}`}
+          >
+            <div className="flex items-center gap-1 px-2 py-1">
+              <button
+                onClick={() => toggleSection('projects')}
+                className="flex min-w-0 items-center text-xs uppercase tracking-wide text-panel-muted transition hover:text-gray-100"
+              >
+                <span className="truncate">{t('sidebar.projects')}</span>
+              </button>
+              <button
+                onClick={openProjForm}
+                title={t('sidebar.new_project')}
+                className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+              >
+                <PlusIcon />
+              </button>
+              <button
+                onClick={() => toggleSection('projects')}
+                title={t('sidebar.projects')}
+                className="ml-auto shrink-0 rounded text-panel-muted transition hover:text-gray-100"
+              >
+                <SectionCaret open={projOpen} />
+              </button>
+            </div>
+            {projOpen && (
+              <>
+                <p className="px-2 pb-1 text-[11px] text-panel-muted/70">
+                  {t('sidebar.projects_hint')}
+                </p>
+
+                <ul className="space-y-0.5">
+                  {projects.map((p) => (
+                    <li
+                      key={p.id}
+                      className="group rounded px-2 py-1 text-xs text-panel-muted hover:bg-panel-bg"
+                    >
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.currentTarget.blur()
+                            onRunProject(p.id)
+                          }}
+                          title={t('sidebar.run_project')}
+                          className="shrink-0 rounded p-0.5 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
+                        >
+                          <PlayIcon />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.currentTarget.blur()
+                            onRunProjectInNewTab(p.id)
+                          }}
+                          title={t('sidebar.run_project_new_tab')}
+                          className="shrink-0 rounded p-0.5 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
+                        >
+                          <ExternalLinkIcon />
+                        </button>
+                        <span
+                          className="min-w-0 flex-1 truncate font-medium text-gray-100"
+                          title={[p.title, p.cwd, ...p.commands]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        >
+                          {p.title}
+                        </span>
+                        <button
+                          onClick={() => startProjEdit(p)}
+                          title={t('sidebar.edit_project')}
+                          className="shrink-0 rounded p-0.5 text-panel-muted opacity-0 transition hover:bg-panel-surface hover:text-gray-100 group-hover:opacity-100"
+                        >
+                          <PencilIcon />
+                        </button>
+                        <button
+                          onClick={() => removeProject(p.id, p.title)}
+                          title={t('sidebar.delete_project')}
+                          className="shrink-0 rounded p-0.5 opacity-0 transition hover:bg-panel-surface hover:text-red-400 group-hover:opacity-100"
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
         </div>
-      </div>
       </div>
 
       <PasteForClaude
@@ -909,7 +901,10 @@ export default function Sidebar({
       {creating && (
         <Modal title={t('form.new_session_title')} onClose={closeForm}>
           <form onSubmit={submitCreate}>
-            <label htmlFor={`${uid}-nombre-sesion`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label
+              htmlFor={`${uid}-nombre-sesion`}
+              className="mb-1 block text-xs uppercase tracking-wide text-panel-muted"
+            >
               {t('form.session_name_label')}
             </label>
             <input
@@ -1004,7 +999,10 @@ export default function Sidebar({
       {editingId && (
         <Modal title={t('form.edit_command_title')} onClose={cancelEdit}>
           <form onSubmit={(e) => submitEdit(e, editingId)}>
-            <label htmlFor={`${uid}-editar-etiqueta`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label
+              htmlFor={`${uid}-editar-etiqueta`}
+              className="mb-1 block text-xs uppercase tracking-wide text-panel-muted"
+            >
               {t('form.name_optional_label')}
             </label>
             <input
@@ -1015,7 +1013,10 @@ export default function Sidebar({
               placeholder={t('form.name_optional_placeholder')}
               className="mb-3 w-full rounded border border-panel-border bg-panel-bg px-2 py-1.5 text-sm outline-none focus:border-panel-accent"
             />
-            <label htmlFor={`${uid}-editar-comando`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label
+              htmlFor={`${uid}-editar-comando`}
+              className="mb-1 block text-xs uppercase tracking-wide text-panel-muted"
+            >
               {t('form.command_label')}
             </label>
             <input
@@ -1042,9 +1043,16 @@ export default function Sidebar({
       )}
 
       {projCreating && (
-        <Modal title={t('form.new_project_title')} onClose={closeProjForm} panelClassName="max-w-lg">
+        <Modal
+          title={t('form.new_project_title')}
+          onClose={closeProjForm}
+          panelClassName="max-w-lg"
+        >
           <form onSubmit={submitProjCreate}>
-            <label htmlFor={`${uid}-proyecto-titulo`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label
+              htmlFor={`${uid}-proyecto-titulo`}
+              className="mb-1 block text-xs uppercase tracking-wide text-panel-muted"
+            >
               {t('form.title_label')}
             </label>
             <input
@@ -1058,7 +1066,10 @@ export default function Sidebar({
             <p className="mb-3 text-xs text-panel-muted">
               {t('form.project_title_hint')}
             </p>
-            <label htmlFor={`${uid}-proyecto-dir`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label
+              htmlFor={`${uid}-proyecto-dir`}
+              className="mb-1 block text-xs uppercase tracking-wide text-panel-muted"
+            >
               {t('form.directory_label')}
             </label>
             <DirectoryInput
@@ -1116,9 +1127,16 @@ export default function Sidebar({
       )}
 
       {projEditingId && (
-        <Modal title={t('form.edit_project_title')} onClose={cancelProjEdit} panelClassName="max-w-lg">
+        <Modal
+          title={t('form.edit_project_title')}
+          onClose={cancelProjEdit}
+          panelClassName="max-w-lg"
+        >
           <form onSubmit={(e) => submitProjEdit(e, projEditingId)}>
-            <label htmlFor={`${uid}-editar-proyecto-titulo`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label
+              htmlFor={`${uid}-editar-proyecto-titulo`}
+              className="mb-1 block text-xs uppercase tracking-wide text-panel-muted"
+            >
               {t('form.title_label')}
             </label>
             <input
@@ -1132,7 +1150,10 @@ export default function Sidebar({
             <p className="mb-3 text-xs text-panel-muted">
               {t('form.project_title_hint')}
             </p>
-            <label htmlFor={`${uid}-editar-proyecto-dir`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label
+              htmlFor={`${uid}-editar-proyecto-dir`}
+              className="mb-1 block text-xs uppercase tracking-wide text-panel-muted"
+            >
               {t('form.directory_label')}
             </label>
             <DirectoryInput
@@ -1299,9 +1320,7 @@ function QuickCommandForm({ onSave, onClose }) {
       setCommand('')
       onClose()
     } catch (err) {
-      setError(
-        err instanceof ApiError ? tError(err) : t('form.save_command_failed'),
-      )
+      setError(err instanceof ApiError ? tError(err) : t('form.save_command_failed'))
     } finally {
       setSubmitting(false)
     }
@@ -1416,7 +1435,6 @@ export function Resizer({ onDrag, orientation = 'horizontal' }) {
     </div>
   )
 }
-
 
 // Iconos de chevron (estilo lucide): colapsar / expandir el panel.
 function ChevronLeftIcon() {

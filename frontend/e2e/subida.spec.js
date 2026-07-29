@@ -119,15 +119,13 @@ test('la ruta de un nombre normal se copia tal cual, sin comillas', async ({
 
   const copiado = await leerPortapapeles(page)
   expect(copiado).toBe(destino)
-  expect(copiado, 'una ruta sin caracteres raros no debe llevar comillas').not.toContain(
-    '"',
-  )
+  expect(
+    copiado,
+    'una ruta sin caracteres raros no debe llevar comillas',
+  ).not.toContain('"')
 })
 
-test('un nombre con espacios se copia entrecomillado', async ({
-  page,
-  entorno,
-}) => {
+test('un nombre con espacios se copia entrecomillado', async ({ page, entorno }) => {
   // El caso que de verdad importa: sin comillas, `cat /tmp/mis notas.txt` son
   // dos argumentos y el comando hace otra cosa.
   await abrirSeccionSubida(page, entorno)

@@ -15,9 +15,7 @@ describe('quotePath', () => {
   })
 
   it('entrecomilla una ruta con espacios', () => {
-    expect(quotePath('/tmp/mi carpeta/foto.png')).toBe(
-      '"/tmp/mi carpeta/foto.png"',
-    )
+    expect(quotePath('/tmp/mi carpeta/foto.png')).toBe('"/tmp/mi carpeta/foto.png"')
   })
 
   it.each([
@@ -25,9 +23,12 @@ describe('quotePath', () => {
     ['dólar', '/x/con$HOME', '"/x/con\\$HOME"'],
     ['backtick', '/x/con`id`', '"/x/con\\`id\\`"'],
     ['barra invertida', '/x/con\\barra', '"/x/con\\\\barra"'],
-  ])('escapa el %s, que sigue siendo especial dentro de comillas', (_, entrada, esperado) => {
-    expect(quotePath(entrada)).toBe(esperado)
-  })
+  ])(
+    'escapa el %s, que sigue siendo especial dentro de comillas',
+    (_, entrada, esperado) => {
+      expect(quotePath(entrada)).toBe(esperado)
+    },
+  )
 
   it('NO entrecomilla la virgulilla, para que el shell la expanda', () => {
     // Es el caso que parece un descuido y no lo es: `cd "~/x"` busca un

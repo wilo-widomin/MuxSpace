@@ -134,153 +134,150 @@ export function PasteForClaude({ open, onToggle }) {
 
   return (
     <>
-    <div className="shrink-0 border-t border-panel-border px-4 py-3">
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center justify-between text-xs uppercase tracking-wide text-panel-muted transition hover:text-gray-100"
-      >
-        <span>{t('paste.title')}</span>
-        <SectionCaret open={open} />
-      </button>
-      {open && (
-        <div className="mt-2">
-          <textarea
-            ref={areaRef}
-            onPaste={handlePaste}
-            rows={2}
-            spellCheck={false}
-            placeholder={busy ? t('paste.uploading') : t('paste.placeholder')}
-            className="w-full resize-none rounded border border-dashed border-panel-border bg-panel-bg px-2 py-1.5 text-xs text-gray-100 outline-none focus:border-panel-accent"
-          />
-          <label className="mt-1 inline-block cursor-pointer text-xs text-panel-muted transition hover:text-gray-100">
-            {t('paste.choose_file')}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFile}
-              className="hidden"
+      <div className="shrink-0 border-t border-panel-border px-4 py-3">
+        <button
+          onClick={onToggle}
+          className="flex w-full items-center justify-between text-xs uppercase tracking-wide text-panel-muted transition hover:text-gray-100"
+        >
+          <span>{t('paste.title')}</span>
+          <SectionCaret open={open} />
+        </button>
+        {open && (
+          <div className="mt-2">
+            <textarea
+              ref={areaRef}
+              onPaste={handlePaste}
+              rows={2}
+              spellCheck={false}
+              placeholder={busy ? t('paste.uploading') : t('paste.placeholder')}
+              className="w-full resize-none rounded border border-dashed border-panel-border bg-panel-bg px-2 py-1.5 text-xs text-gray-100 outline-none focus:border-panel-accent"
             />
-          </label>
-          {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+            <label className="mt-1 inline-block cursor-pointer text-xs text-panel-muted transition hover:text-gray-100">
+              {t('paste.choose_file')}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFile}
+                className="hidden"
+              />
+            </label>
+            {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
 
-          {pastes.length > 0 && (
-            <>
-              <p className="mt-2 text-xs text-panel-muted">
-                {t('paste.recent')}
-              </p>
-              <div className="mt-1 flex items-center gap-1">
-                <button
-                  onClick={() => scrollStrip(-1)}
-                  title={t('paste.prev')}
-                  aria-label={t('paste.scroll_left')}
-                  className="shrink-0 rounded px-1 py-2 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
-                >
-                  ‹
-                </button>
-                <div
-                  ref={stripRef}
-                  className="flex flex-nowrap gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                >
-                  {pastes.map((p) => {
-                    const sel = p.path === selectedPath
-                    return (
-                      <div key={p.filename} className="group relative shrink-0">
-                        <button
-                          onClick={() => copyToClipboard(p.path)}
-                          title={p.filename}
-                          className={`block overflow-hidden rounded border transition ${
-                            sel
-                              ? 'border-panel-accent ring-1 ring-panel-accent'
-                              : 'border-panel-border hover:border-panel-accent'
-                          }`}
-                        >
-                          <img
-                            src={api.pasteThumbUrl(p.filename)}
-                            alt={p.filename}
-                            className="h-14 w-14 object-cover"
-                          />
-                        </button>
-                        <button
-                          onClick={() => setZoom(p)}
-                          title={t('paste.zoom')}
-                          aria-label={t('paste.zoom_aria', { name: p.filename })}
-                          className="absolute -left-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full border border-panel-border bg-panel-surface text-gray-200 shadow transition hover:bg-panel-accent hover:text-white group-hover:flex"
-                        >
-                          <EyeIcon />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p)}
-                          title={t('paste.delete')}
-                          aria-label={t('paste.delete_aria', {
-                            name: p.filename,
-                          })}
-                          className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full border border-panel-border bg-panel-surface text-sm leading-none text-gray-200 shadow transition hover:bg-red-600 hover:text-white group-hover:flex"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    )
-                  })}
+            {pastes.length > 0 && (
+              <>
+                <p className="mt-2 text-xs text-panel-muted">{t('paste.recent')}</p>
+                <div className="mt-1 flex items-center gap-1">
+                  <button
+                    onClick={() => scrollStrip(-1)}
+                    title={t('paste.prev')}
+                    aria-label={t('paste.scroll_left')}
+                    className="shrink-0 rounded px-1 py-2 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+                  >
+                    ‹
+                  </button>
+                  <div
+                    ref={stripRef}
+                    className="flex flex-nowrap gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  >
+                    {pastes.map((p) => {
+                      const sel = p.path === selectedPath
+                      return (
+                        <div key={p.filename} className="group relative shrink-0">
+                          <button
+                            onClick={() => copyToClipboard(p.path)}
+                            title={p.filename}
+                            className={`block overflow-hidden rounded border transition ${
+                              sel
+                                ? 'border-panel-accent ring-1 ring-panel-accent'
+                                : 'border-panel-border hover:border-panel-accent'
+                            }`}
+                          >
+                            <img
+                              src={api.pasteThumbUrl(p.filename)}
+                              alt={p.filename}
+                              className="h-14 w-14 object-cover"
+                            />
+                          </button>
+                          <button
+                            onClick={() => setZoom(p)}
+                            title={t('paste.zoom')}
+                            aria-label={t('paste.zoom_aria', { name: p.filename })}
+                            className="absolute -left-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full border border-panel-border bg-panel-surface text-gray-200 shadow transition hover:bg-panel-accent hover:text-white group-hover:flex"
+                          >
+                            <EyeIcon />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p)}
+                            title={t('paste.delete')}
+                            aria-label={t('paste.delete_aria', {
+                              name: p.filename,
+                            })}
+                            className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full border border-panel-border bg-panel-surface text-sm leading-none text-gray-200 shadow transition hover:bg-red-600 hover:text-white group-hover:flex"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <button
+                    onClick={() => scrollStrip(1)}
+                    title={t('paste.next')}
+                    aria-label={t('paste.scroll_right')}
+                    className="shrink-0 rounded px-1 py-2 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+                  >
+                    ›
+                  </button>
                 </div>
-                <button
-                  onClick={() => scrollStrip(1)}
-                  title={t('paste.next')}
-                  aria-label={t('paste.scroll_right')}
-                  className="shrink-0 rounded px-1 py-2 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
-                >
-                  ›
-                </button>
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          {selectedPath && (
-            <div className="mt-2 rounded border border-panel-border bg-panel-bg p-2">
-              <p className="text-xs text-panel-muted">
-                {copied ? t('paste.copied') : t('paste.copy_hint')}
-              </p>
-              <code
-                onClick={() => copyToClipboard(selectedPath)}
-                title={t('paste.copy_path')}
-                className="mt-1 block cursor-pointer break-all rounded bg-black/30 px-1.5 py-1 text-[11px] leading-snug text-green-300 transition hover:bg-black/50"
-              >
-                {quotePath(selectedPath)}
-              </code>
-            </div>
-          )}
+            {selectedPath && (
+              <div className="mt-2 rounded border border-panel-border bg-panel-bg p-2">
+                <p className="text-xs text-panel-muted">
+                  {copied ? t('paste.copied') : t('paste.copy_hint')}
+                </p>
+                <code
+                  onClick={() => copyToClipboard(selectedPath)}
+                  title={t('paste.copy_path')}
+                  className="mt-1 block cursor-pointer break-all rounded bg-black/30 px-1.5 py-1 text-[11px] leading-snug text-green-300 transition hover:bg-black/50"
+                >
+                  {quotePath(selectedPath)}
+                </code>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {zoom && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setZoom(null)}
+        >
+          <div
+            className="relative flex max-h-[90vh] max-w-[90vw] flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={api.pasteThumbUrl(zoom.filename)}
+              alt={zoom.filename}
+              className="max-h-[85vh] max-w-[90vw] rounded border border-panel-border object-contain"
+            />
+            <button
+              onClick={() => setZoom(null)}
+              title={t('modal.close')}
+              aria-label={t('modal.close')}
+              className="absolute -right-3 -top-3 flex h-7 w-7 items-center justify-center rounded-full border border-panel-border bg-panel-surface text-gray-100 shadow-lg transition hover:bg-red-600 hover:text-white"
+            >
+              ×
+            </button>
+          </div>
         </div>
       )}
-    </div>
-
-    {zoom && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-        onClick={() => setZoom(null)}
-      >
-        <div
-          className="relative flex max-h-[90vh] max-w-[90vw] flex-col"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <img
-            src={api.pasteThumbUrl(zoom.filename)}
-            alt={zoom.filename}
-            className="max-h-[85vh] max-w-[90vw] rounded border border-panel-border object-contain"
-          />
-          <button
-            onClick={() => setZoom(null)}
-            title={t('modal.close')}
-            aria-label={t('modal.close')}
-            className="absolute -right-3 -top-3 flex h-7 w-7 items-center justify-center rounded-full border border-panel-border bg-panel-surface text-gray-100 shadow-lg transition hover:bg-red-600 hover:text-white"
-          >
-            ×
-          </button>
-        </div>
-      </div>
-    )}
     </>
   )
 }
-
 
 // Icono de ojo (estilo lucide "eye"): ampliar la captura.
 function EyeIcon() {

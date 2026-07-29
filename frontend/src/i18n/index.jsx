@@ -53,7 +53,9 @@ export function resolveLang() {
       : [navigator.language, ...(navigator.languages || [])]
   for (const tag of candidates) {
     // "es-419", "pt-BR" → "es", "pt": distinguimos por idioma, no por región.
-    const code = String(tag || '').toLowerCase().split('-')[0]
+    const code = String(tag || '')
+      .toLowerCase()
+      .split('-')[0]
     if (CATALOGS[code]) return code
   }
   return BASE_LANG

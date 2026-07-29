@@ -40,9 +40,10 @@ export default function TerminalTile({
   // Filtrar comandos al escribir
   useEffect(() => {
     if (search.length > 0) {
-      const matches = commands.filter((c) =>
-        c.label.toLowerCase().includes(search.toLowerCase()) ||
-        c.command.toLowerCase().includes(search.toLowerCase())
+      const matches = commands.filter(
+        (c) =>
+          c.label.toLowerCase().includes(search.toLowerCase()) ||
+          c.command.toLowerCase().includes(search.toLowerCase()),
       )
       setFilteredCommands(matches)
       setShowDropdown(true)
@@ -153,9 +154,7 @@ export default function TerminalTile({
           placeholder={t('tile.search_placeholder')}
           className="w-full bg-transparent text-sm text-gray-100 placeholder:text-panel-muted outline-none"
         />
-        {inputError && (
-          <p className="mt-1 text-xs text-red-400">{inputError}</p>
-        )}
+        {inputError && <p className="mt-1 text-xs text-red-400">{inputError}</p>}
         {showDropdown && filteredCommands.length > 0 && (
           <div className="absolute top-full left-0 z-20 mt-1 w-full rounded border border-panel-border bg-panel-surface shadow-lg">
             <ul className="max-h-48 overflow-y-auto">

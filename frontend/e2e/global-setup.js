@@ -82,8 +82,35 @@ export default async function globalSetup() {
   fs.mkdirSync(DIR_TMP, { recursive: true })
 
   // --- El frontend, compilado. No se sirve por el dev server. ---
-  if (!fs.existsSync(path.join(FRONTEND, 'dist', 'index.html'))) {
-    execFileSync('bun', ['run', 'build'], { cwd: FRONTEND, stdio: 'inherit' })
+  //
+  // SIEMPRE, no solo si falta `dist/`. La versión anterior se saltaba la
+  // compilación cuando ya existía un build, y eso deja la suite probando
+  // código que no es el del árbol de trabajo: se cambia un componente, se
+  // lanzan los E2E, salen verdes, y lo que se ha ejecutado es el build de la
+  // vez anterior. Se detectó al verificar por mutación las etiquetas
+  // accesibles — dos mutaciones que rompían la UI sobrevivieron porque no
+  // llegaron a compilarse.
+  //
+  // Cuesta ~3 s de los ~24 que tarda la suite. Un verde que no se corresponde
+  // con el código cuesta mucho más.
+  //
+  // La salida se CAPTURA en vez de heredarse (`stdio: 'inherit'`): heredando,
+  // la compilación se quedaba colgada indefinidamente cuando la salida de
+  // Playwright va a una tubería en vez de a una terminal, que es como se
+  // ejecuta desde cualquier script. Con `pipe` no depende de eso, y si el
+  // build falla su salida sale en el mensaje de error en vez de perderse.
+  process.stdout.write('[e2e] compilando el frontend…\n')
+  try {
+    execFileSync('bun', ['run', 'build'], {
+      cwd: FRONTEND,
+      stdio: 'pipe',
+      timeout: 180_000,
+    })
+  } catch (err) {
+    throw new Error(
+      `no se pudo compilar el frontend:\n${err.stdout || ''}\n${err.stderr || ''}`,
+      { cause: err },
+    )
   }
 
   // --- Copia del backend en un temporal, con su data/ dentro ---

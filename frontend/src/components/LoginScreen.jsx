@@ -1,10 +1,13 @@
-import React, { useState } from 'react'
+import React, { useId, useState } from 'react'
 import { useT } from '../i18n/index.jsx'
 
 // Pantalla de inicio de sesión (HTTP Basic). Las credenciales se
 // validan haciendo una petición real a /api/sessions.
 export default function LoginScreen({ onSubmit, error }) {
   const { t } = useT()
+  // Prefijo de los `id` que atan cada etiqueta con su campo. Ver el comentario
+  // equivalente en `Sidebar.jsx`.
+  const uid = useId()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -30,10 +33,14 @@ export default function LoginScreen({ onSubmit, error }) {
           {t('login.subtitle')}
         </p>
 
-        <label className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+        <label
+          htmlFor={`${uid}-usuario`}
+          className="mb-1 block text-xs uppercase tracking-wide text-panel-muted"
+        >
           {t('login.username')}
         </label>
         <input
+          id={`${uid}-usuario`}
           className="mb-4 w-full rounded border border-panel-border bg-panel-bg px-3 py-2 text-sm outline-none focus:border-panel-accent"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
@@ -41,10 +48,14 @@ export default function LoginScreen({ onSubmit, error }) {
           autoComplete="username"
         />
 
-        <label className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+        <label
+          htmlFor={`${uid}-password`}
+          className="mb-1 block text-xs uppercase tracking-wide text-panel-muted"
+        >
           {t('login.password')}
         </label>
         <input
+          id={`${uid}-password`}
           type="password"
           className="mb-4 w-full rounded border border-panel-border bg-panel-bg px-3 py-2 text-sm outline-none focus:border-panel-accent"
           value={password}

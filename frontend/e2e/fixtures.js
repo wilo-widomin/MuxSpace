@@ -34,15 +34,21 @@ export const T = JSON.parse(
 )
 
 /**
- * Localizadores del formulario de login.
+ * Localizadores del formulario de login, **por su etiqueta**.
  *
- * Por atributo y no con `getByLabel`: los `<label>` del panel son etiquetas
- * visuales, sin `for`/`id` que los aten a su `<input>`, así que la consulta
- * accesible no los encuentra. `autocomplete` es igual de estable y no obliga
- * a tocar la UI desde un test.
+ * Hasta que se ataron los `<label>` a sus campos, esto no era posible: eran
+ * etiquetas solo visuales, sin `for`/`id`, y `getByLabel` no encontraba nada.
+ * Los tests usaban `input[autocomplete="username"]`, que funcionaba pero
+ * describía el HTML en vez de lo que ve el usuario.
+ *
+ * Que ahora funcione NO es un detalle de estilo: `getByLabel` consulta el
+ * árbol de accesibilidad, el mismo que usa un lector de pantalla. Si alguien
+ * desatara una etiqueta, estos localizadores dejarían de encontrar su campo y
+ * los tests se pondrían rojos — que es exactamente la regresión que se quiere
+ * detectar.
  */
-export const campoUsuario = (page) => page.locator('input[autocomplete="username"]')
-export const campoPassword = (page) => page.locator('input[type="password"]')
+export const campoUsuario = (page) => page.getByLabel(T['login.username'])
+export const campoPassword = (page) => page.getByLabel(T['login.password'])
 
 /**
  * Una sesión, en la LISTA del sidebar.

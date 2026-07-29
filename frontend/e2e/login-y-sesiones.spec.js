@@ -25,13 +25,11 @@ import {
 } from './fixtures.js'
 
 /**
- * El campo "nombre de la nueva sesión" del modal.
+ * El campo "nombre de la nueva sesión" del modal, por su etiqueta.
  *
- * Solo lo usa este spec, así que se queda aquí y no en las fixtures: es el
- * primer `input` de texto del formulario del modal.
+ * Solo lo usa este spec, así que se queda aquí y no en las fixtures.
  */
-const campoNombreSesion = (page) =>
-  page.locator('form input[type="text"], form input:not([type])').first()
+const campoNombreSesion = (page) => page.getByLabel(T['form.session_name_label'])
 
 test('sin sesión, el panel muestra la pantalla de login', async ({ page }) => {
   await expect(page.getByText(T['login.subtitle'])).toBeVisible()

@@ -75,6 +75,65 @@ async function esperarA(url, timeoutMs, proceso) {
   )
 }
 
+/** ¿Sigue vivo ese proceso? */
+function vivo(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Retira los temporales que dejaron ejecuciones anteriores interrumpidas.
+ *
+ * El teardown limpia lo suyo, pero solo si llega a ejecutarse. Un Ctrl-C, el
+ * `timeout` de un script o un proceso muerto a mitad se lo saltan y dejan **un
+ * servidor de tmux vivo indefinidamente** más su directorio. No es teórico:
+ * cuatro se acumularon en esta máquina depurando un cuelgue del arranque.
+ *
+ * Solo se tocan directorios que empiezan por `muxspace-e2e-` dentro del
+ * temporal del sistema, y el `kill-server` va por el wrapper que hay dentro de
+ * cada uno — o sea, contra su propio socket. El servidor de tmux del usuario
+ * vive en otro sitio y no hay forma de alcanzarlo desde aquí.
+ *
+ * Y si el backend de ese directorio **sigue vivo**, se deja en paz: significa
+ * que hay otra ejecución en marcha (dos terminales a la vez) y llevársela por
+ * delante sería peor que el residuo que se pretende limpiar.
+ */
+function limpiarRestos() {
+  let retirados = 0
+  for (const nombre of fs.readdirSync(os.tmpdir())) {
+    if (!nombre.startsWith('muxspace-e2e-')) continue
+    const dir = path.join(os.tmpdir(), nombre)
+    try {
+      const rutaPid = path.join(dir, 'backend.pid')
+      if (fs.existsSync(rutaPid)) {
+        const pid = Number(fs.readFileSync(rutaPid, 'utf8').trim())
+        if (pid && vivo(pid)) continue // otra ejecución en marcha: ni tocarlo
+      }
+      const wrapper = path.join(dir, 'tmux')
+      if (fs.existsSync(wrapper)) {
+        try {
+          execFileSync(wrapper, ['kill-server'], { stdio: 'ignore' })
+        } catch {
+          // No había servidor, o ya estaba muerto.
+        }
+      }
+      fs.rmSync(dir, { recursive: true, force: true })
+      retirados++
+    } catch {
+      // Un directorio de otro usuario, o borrado entre medias: se ignora.
+    }
+  }
+  if (retirados) {
+    process.stdout.write(
+      `[e2e] retirados ${retirados} restos de ejecuciones interrumpidas\n`,
+    )
+  }
+}
+
 export default async function globalSetup() {
   // Se empieza limpio: un `.tmp` de una ejecución anterior que reventara a
   // medias tendría un `entorno.json` apuntando a un backend que ya no existe.
@@ -112,6 +171,9 @@ export default async function globalSetup() {
       { cause: err },
     )
   }
+
+  // Antes de crear el nuestro: retirar lo que dejaron ejecuciones muertas.
+  limpiarRestos()
 
   // --- Copia del backend en un temporal, con su data/ dentro ---
   const raizTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'muxspace-e2e-'))
@@ -201,6 +263,10 @@ export default async function globalSetup() {
     },
   )
   proceso.unref()
+
+  // El pid, dentro del propio temporal: es lo que permite a una ejecución
+  // futura distinguir "resto de algo que murió" de "otra ejecución en marcha".
+  fs.writeFileSync(path.join(raizTmp, 'backend.pid'), String(proceso.pid))
 
   await esperarA(`${baseURL}/api/health`, 30000, proceso)
 

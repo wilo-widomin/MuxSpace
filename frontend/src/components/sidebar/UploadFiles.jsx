@@ -41,6 +41,12 @@ export function UploadFiles({ open, onToggle }) {
         .then((r) => setDestDir(r.path))
         .catch(() => {})
     }
+    // La regla pide `destDir`, y se silencia a propósito: el efecto es "al
+    // abrir la sección", no "cuando cambie el destino". Con `destDir` en las
+    // dependencias se relanzaría cada vez que el usuario elige carpeta,
+    // recargando el historial sin motivo; y como el propio efecto llama a
+    // `setDestDir`, la primera vez se ejecutaría dos veces seguidas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   async function doUpload(file) {

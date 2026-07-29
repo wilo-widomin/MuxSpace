@@ -198,6 +198,16 @@ export default function App() {
       .map((s) => ({ name: s.name }))
   }, [sessions, activeSpace, hidden, order])
 
+  // ---- Sesión caducada ----
+  // Memoizada y con `t` en las dependencias: la usan los tres cargadores de
+  // abajo, y si fuera una función nueva en cada render los invalidaría a
+  // todos continuamente. Va aquí arriba, antes que ellos, por lo mismo que
+  // explica el comentario del bloque siguiente.
+  const handleAuthFailure = useCallback(() => {
+    setAuthed(false)
+    setLoginError(t('app.session_expired'))
+  }, [t])
+
   // ---- Carga de los espacios ----
   // Declarado junto al resto de cargadores y ANTES del efecto que los
   // dispara: un `const` referenciado en el array de dependencias de un
@@ -210,7 +220,7 @@ export default function App() {
       if (err instanceof ApiError && err.status === 401) handleAuthFailure()
       // Sin espacios seguimos funcionando: todo cae en "Sin asignar".
     }
-  }, [])
+  }, [handleAuthFailure])
 
   // ---- Carga de la biblioteca (comandos + proyectos) ----
   // Se cargan de forma independiente: si uno falla (p. ej. el backend
@@ -233,7 +243,7 @@ export default function App() {
         }
       }),
     )
-  }, [])
+  }, [handleAuthFailure])
 
   // Evita apilar sondeos: si la petición anterior de /api/sessions sigue
   // en vuelo (red lenta, diálogo de certificado mTLS, backend caído), el
@@ -246,42 +256,40 @@ export default function App() {
   // Los sondeos de fondo se descartan si hay otra petición pendiente o la
   // pestaña está oculta; las cargas manuales (acciones del usuario) siempre
   // se ejecutan.
-  const loadSessions = useCallback(async (background = false) => {
-    if (background && (sessionsInFlightRef.current || document.hidden)) return
-    sessionsInFlightRef.current = true
-    if (!background) setLoading(true)
-    setError(null)
-    try {
-      // El sondeo solo refresca el catálogo. Qué se ve en el grid se deriva
-      // de aquí más el espacio activo y las ocultas (ambos, del cliente):
-      // ninguna respuesta del servidor puede reabrir una ventana.
-      const data = await api.listSessions()
-      setSessions(data)
-      // Una sesión que ya no existe deja de estar oculta: si más adelante
-      // se crea otra con el mismo nombre, debe aparecer.
-      setHidden((prev) => {
-        const alive = new Set(data.map((s) => s.name))
-        const next = new Set([...prev].filter((name) => alive.has(name)))
-        if (next.size === prev.size) return prev
-        writeJSON(localStorage, HIDDEN_KEY, [...next])
-        return next
-      })
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        handleAuthFailure()
-      } else {
-        setError(tError(err))
+  const loadSessions = useCallback(
+    async (background = false) => {
+      if (background && (sessionsInFlightRef.current || document.hidden)) return
+      sessionsInFlightRef.current = true
+      if (!background) setLoading(true)
+      setError(null)
+      try {
+        // El sondeo solo refresca el catálogo. Qué se ve en el grid se deriva
+        // de aquí más el espacio activo y las ocultas (ambos, del cliente):
+        // ninguna respuesta del servidor puede reabrir una ventana.
+        const data = await api.listSessions()
+        setSessions(data)
+        // Una sesión que ya no existe deja de estar oculta: si más adelante
+        // se crea otra con el mismo nombre, debe aparecer.
+        setHidden((prev) => {
+          const alive = new Set(data.map((s) => s.name))
+          const next = new Set([...prev].filter((name) => alive.has(name)))
+          if (next.size === prev.size) return prev
+          writeJSON(localStorage, HIDDEN_KEY, [...next])
+          return next
+        })
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          handleAuthFailure()
+        } else {
+          setError(tError(err))
+        }
+      } finally {
+        sessionsInFlightRef.current = false
+        if (!background) setLoading(false)
       }
-    } finally {
-      sessionsInFlightRef.current = false
-      if (!background) setLoading(false)
-    }
-  }, [])
-
-  const handleAuthFailure = () => {
-    setAuthed(false)
-    setLoginError(t('app.session_expired'))
-  }
+    },
+    [handleAuthFailure, tError],
+  )
 
   // Si la tile con foco desaparece del grid (cierre/kill), liberamos el foco.
   useEffect(() => {
@@ -309,6 +317,11 @@ export default function App() {
     loadSpaces()
     const interval = setInterval(() => loadSessions(true), 8000)
     return () => clearInterval(interval)
+    // Los tres cargadores dependen ahora de `t`/`tError`, así que cambiar de
+    // idioma los invalida y este efecto se rehace: una recarga extra y un
+    // intervalo nuevo. Es un precio aceptable —cambiar de idioma es un acto
+    // deliberado y poco frecuente— y a cambio los mensajes de error salen en
+    // el idioma que el usuario está viendo.
   }, [authed, loadSessions, loadCommands, loadSpaces])
 
   // ---- Login ----

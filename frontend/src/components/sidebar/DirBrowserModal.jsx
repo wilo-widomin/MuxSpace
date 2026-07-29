@@ -34,7 +34,15 @@ export function DirBrowserModal({ initialPath, onClose, onPick }) {
 
   useEffect(() => {
     load(initialPath || '')
-    // Solo al montar: la navegación posterior la disparan los clics.
+    // Solo al montar: la navegación posterior la disparan los clics, y el
+    // modal se desmonta al cerrarse, así que "montar" y "abrir" son lo mismo.
+    //
+    // La regla pide `load` e `initialPath` en las dependencias y aquí se
+    // silencia a propósito: `load` es una función nueva en cada render, así
+    // que meterla dispararía una petición por render — un bucle de red, no
+    // una corrección. Memoizarla con `useCallback` para poder listarla sería
+    // ceremonia para acabar en el mismo sitio: cargar una vez.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function submitNewFolder(e) {

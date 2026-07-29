@@ -1498,14 +1498,22 @@ function QuickCommandForm({ onSave, onClose }) {
 
   return (
     <form onSubmit={submit}>
+      {/* `aria-label` y no un `<label>` visible: este formulario es
+          deliberadamente compacto —dos campos y un botón dentro de un modal
+          pequeño— y meterle dos etiquetas encima cambiaría el diseño. Lo que
+          NO puede quedarse es un campo sin nombre: un `placeholder` no sirve
+          de nombre accesible, porque desaparece en cuanto se escribe y los
+          lectores de pantalla no lo tratan igual. */}
       <input
         autoFocus
+        aria-label={t('form.name_optional_label')}
         value={label}
         onChange={(e) => setLabel(e.target.value)}
         placeholder={t('form.name_optional_placeholder')}
         className="mb-2 w-full rounded border border-panel-border bg-panel-bg px-2 py-1.5 text-sm outline-none focus:border-panel-accent"
       />
       <input
+        aria-label={t('form.command_label')}
         value={command}
         onChange={(e) => setCommand(e.target.value)}
         placeholder={t('form.quick_command_placeholder', {

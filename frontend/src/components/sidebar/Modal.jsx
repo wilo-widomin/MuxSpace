@@ -52,7 +52,6 @@ export function Modal({ title, onClose, children, panelClassName = 'max-w-md' })
   )
 }
 
-
 export function CloseIcon() {
   return (
     <svg
@@ -71,7 +70,6 @@ export function CloseIcon() {
     </svg>
   )
 }
-
 
 export function FolderIcon() {
   return (

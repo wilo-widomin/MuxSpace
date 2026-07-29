@@ -17,10 +17,7 @@ vi.mock('../api.js', async () => {
   const real = await vi.importActual('../api.js')
   return {
     ...real,
-    api: new Proxy(
-      {},
-      { get: () => () => Promise.resolve([]) },
-    ),
+    api: new Proxy({}, { get: () => () => Promise.resolve([]) }),
   }
 })
 

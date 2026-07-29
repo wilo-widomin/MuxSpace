@@ -86,6 +86,13 @@ jobs:
         working-directory: frontend
         run: bun run lint
 
+      # Entra en el gate ahora que el repo está formateado entero. Antes no
+      # podía: el `format:check` salía en rojo por ~600 líneas heredadas, y un
+      # paso que falla siempre acaba ignorándose o desactivándose.
+      - name: prettier
+        working-directory: frontend
+        run: bun run format:check
+
       # El paso de vitest no existe todavía y NO se disfraza de comprobación
       # que pasa siempre: se detecta si el script `test` existe y, si no, el
       # paso se salta de forma visible en el log. Lo activa US-017 sin tocar

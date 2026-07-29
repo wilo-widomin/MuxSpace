@@ -171,9 +171,7 @@ export function UploadFiles({ open, onToggle }) {
 
             {uploads.length > 0 && (
               <>
-                <p className="mt-2 text-xs text-panel-muted">
-                  {t('upload.recent')}
-                </p>
+                <p className="mt-2 text-xs text-panel-muted">{t('upload.recent')}</p>
                 <ul className="mt-1 space-y-1">
                   {uploads.map((u) => {
                     const sel = u.path === selectedPath

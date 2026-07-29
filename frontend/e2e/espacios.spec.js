@@ -122,9 +122,7 @@ test('elegir un espacio filtra la lista de sesiones', async ({
   // creados, el sidebar se queda sin alto y la fila puede medir cero sin que
   // nada esté mal — y `toBeVisible` fallaría por eso, que es un ruido de
   // maquetación en un test de filtrado.
-  await expect(page.locator('aside').getByText(suelta, { exact: true })).toHaveCount(
-    1,
-  )
+  await expect(page.locator('aside').getByText(suelta, { exact: true })).toHaveCount(1)
 
   const titulo = `vacio-${Date.now().toString(36)}`
   await crearEspacio(page, titulo)
@@ -133,9 +131,7 @@ test('elegir un espacio filtra la lista de sesiones', async ({
   // El espacio nuevo está vacío: la sesión de antes no debe verse, y sí el
   // aviso de que aquí no hay ninguna.
   await expect(page.getByText(T['sidebar.space_empty'])).toBeVisible()
-  await expect(
-    page.locator('aside').getByText(suelta, { exact: true }),
-  ).toHaveCount(0)
+  await expect(page.locator('aside').getByText(suelta, { exact: true })).toHaveCount(0)
 })
 
 test('renombrar un espacio cambia su nombre en el backend', async ({
@@ -157,11 +153,7 @@ test('renombrar un espacio cambia su nombre en el backend', async ({
   expect(guardados.map((e) => e.title)).not.toContain(original)
 })
 
-test('borrar un espacio no termina sus sesiones', async ({
-  page,
-  entorno,
-  tmux,
-}) => {
+test('borrar un espacio no termina sus sesiones', async ({ page, entorno, tmux }) => {
   // Es la promesa literal del diálogo de confirmación: «sus sesiones NO se
   // terminan: vuelven a Sin asignar». Se comprueba en tmux, no en el DOM.
   await entrar(page, entorno)
@@ -177,13 +169,13 @@ test('borrar un espacio no termina sus sesiones', async ({
 
   // Y el servidor de tmux sigue con sus sesiones intactas.
   const vivas = tmux(['list-sessions', '-F', '#S'], { permitirFallo: true })
-  expect(vivas, 'borrar un espacio se ha llevado por delante las sesiones').not.toBeNull()
+  expect(
+    vivas,
+    'borrar un espacio se ha llevado por delante las sesiones',
+  ).not.toBeNull()
 })
 
-test('«Sin asignar» no se puede renombrar ni borrar', async ({
-  page,
-  entorno,
-}) => {
+test('«Sin asignar» no se puede renombrar ni borrar', async ({ page, entorno }) => {
   // No es un espacio de verdad: es la vista de las sesiones que no están en
   // ninguno (las creadas fuera del panel, por ejemplo). Dejar que se
   // renombrara o borrara sería ofrecer una acción que no puede funcionar.

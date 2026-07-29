@@ -29,9 +29,7 @@ export default function LoginScreen({ onSubmit, error }) {
         className="w-80 rounded-lg border border-panel-border bg-panel-surface p-6 shadow-xl"
       >
         <h1 className="mb-1 text-xl font-semibold">{t('app.brand')}</h1>
-        <p className="mb-5 text-sm text-panel-muted">
-          {t('login.subtitle')}
-        </p>
+        <p className="mb-5 text-sm text-panel-muted">{t('login.subtitle')}</p>
 
         <label
           htmlFor={`${uid}-usuario`}

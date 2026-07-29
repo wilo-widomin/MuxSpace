@@ -165,10 +165,7 @@ export const test = base.extend({
         erroresInesperados: () =>
           mensajes
             .filter((m) => m.tipo === 'error')
-            .filter(
-              (m) =>
-                !(m.url.endsWith('/api/me') && m.texto.includes('401')),
-            ),
+            .filter((m) => !(m.url.endsWith('/api/me') && m.texto.includes('401'))),
       }
       await use(registro)
 

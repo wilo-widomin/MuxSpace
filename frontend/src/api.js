@@ -181,8 +181,8 @@ export const api = {
     }),
   // ---- Autocompletado de directorios ----
   dirSuggestions: (q) =>
-    request(`/api/dir-suggestions?q=${encodeURIComponent(q || '')}`).then(
-      (r) => (r && Array.isArray(r.items) ? r.items : []),
+    request(`/api/dir-suggestions?q=${encodeURIComponent(q || '')}`).then((r) =>
+      r && Array.isArray(r.items) ? r.items : [],
     ),
 
   // ---- Subir archivos a una carpeta elegida ----

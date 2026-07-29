@@ -196,7 +196,7 @@ aunque se recargue la web: solo se cierra la "ventana" de visualización.
 | Job | Pasos |
 |---|---|
 | `backend` | instalar tmux → `pip install -r backend/requirements-dev.txt` → `ruff check backend/` → `pytest --cov=backend --cov-fail-under=60` |
-| `frontend` | `bun install --frozen-lockfile` → `bun run lint` → `bun run test` (vitest) → `bun run build` → `bun run check-i18n` |
+| `frontend` | `bun install --frozen-lockfile` → `bun run lint` → `bun run format:check` → `bun run test` (vitest) → `bun run build` → `bun run check-i18n` |
 | `e2e` | `tmux` + `chromium` → `bun run test:e2e` (27 tests, ~36 s) |
 
 Todo eso se reproduce en local con los comandos de la sección siguiente: si el
@@ -257,18 +257,18 @@ justamente la forma **correcta** de invocar tmux.
 `react-hooks/rules-of-hooks` y `exhaustive-deps`, que detectan bugs de verdad.
 Un preajuste pesado traería cientos de reglas de estilo que este repo no sigue.
 
-**`prettier`** está configurado (`frontend/.prettierrc`) para acercarse al estilo
-que ya tiene el repo, pero **el código todavía no está formateado con él**:
+**`prettier`** (`frontend/.prettierrc`) está aplicado a todo el frontend,
+`e2e/` incluido, y **`format:check` forma parte del gate de CI**:
 
 ```bash
 cd frontend
-bun run format:check   # hoy NO está en verde: ~1.100 líneas difieren
-bun run format         # reformatea (cambio grande, hacerlo en su propio PR)
+bun run format:check   # lo que comprueba el CI
+bun run format         # reformatea lo que haga falta
 ```
 
-Formatear entero es un cambio mecánico de ~1.100 líneas, y 950 caen en
-`Sidebar.jsx`. Tiene más sentido después de trocearlo (fase 4) que antes, así
-que `format:check` **no** forma parte del gate de CI.
+Se aplicó cuando tocaba: mientras `Sidebar.jsx` tenía 1.800 líneas, formatear
+era un diff de ~1.100 del que 950 caían en ese archivo. Troceado en la fase 4
+y con `SpacesBar` fuera, el cambio se quedó en **618 líneas** repartidas.
 
 ### Tests de extremo a extremo (Playwright)
 

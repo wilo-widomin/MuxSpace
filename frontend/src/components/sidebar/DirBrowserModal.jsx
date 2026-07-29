@@ -55,7 +55,11 @@ export function DirBrowserModal({ initialPath, onClose, onPick }) {
   }
 
   return (
-    <Modal title={t('upload.browser_title')} onClose={onClose} panelClassName="max-w-lg">
+    <Modal
+      title={t('upload.browser_title')}
+      onClose={onClose}
+      panelClassName="max-w-lg"
+    >
       <div className="flex items-center gap-2">
         <button
           onClick={() => parent !== null && load(parent)}

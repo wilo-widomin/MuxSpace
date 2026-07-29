@@ -142,8 +142,7 @@ export default function App() {
   // Así se puede escribir en la terminal recién abierta sin hacer clic, y no
   // se roba el foco al cambiar de pestaña.
   const [focusReq, setFocusReq] = useState({ name: null, token: 0 })
-  const focusTerminal = (name) =>
-    setFocusReq((r) => ({ name, token: r.token + 1 }))
+  const focusTerminal = (name) => setFocusReq((r) => ({ name, token: r.token + 1 }))
 
   // Colapsar/expandir el sidebar para ganar espacio en el grid. Persiste
   // la preferencia en localStorage para que sobreviva a recargas.
@@ -161,8 +160,7 @@ export default function App() {
   // Ancho del sidebar arrastrable (divisor vertical en su borde derecho).
   // Persiste el valor en localStorage para que sobreviva a recargas.
   const clampSidebarWidth = (w) => {
-    const maxByWin =
-      (typeof window !== 'undefined' ? window.innerWidth : 1280) - 420
+    const maxByWin = (typeof window !== 'undefined' ? window.innerWidth : 1280) - 420
     return Math.max(220, Math.min(w, Math.min(760, Math.max(220, maxByWin))))
   }
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -324,9 +322,7 @@ export default function App() {
     } catch (err) {
       // Un fallo de red no llega como ApiError: su `message` lo redacta el
       // navegador en SU idioma, así que ahí ponemos texto propio.
-      setLoginError(
-        err instanceof ApiError ? tError(err) : t('app.server_unreachable'),
-      )
+      setLoginError(err instanceof ApiError ? tError(err) : t('app.server_unreachable'))
     }
   }
 

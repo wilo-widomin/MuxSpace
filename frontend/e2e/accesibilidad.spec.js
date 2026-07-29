@@ -62,9 +62,7 @@ for (const form of FORMULARIOS) {
   })
 }
 
-test('el campo de contraseña del login también está etiquetado', async ({
-  page,
-}) => {
+test('el campo de contraseña del login también está etiquetado', async ({ page }) => {
   // Va aparte porque el login es la única pantalla que se ve sin sesión, y
   // porque es la que más gente usa con el teclado.
   for (const etiqueta of [T['login.username'], T['login.password']]) {

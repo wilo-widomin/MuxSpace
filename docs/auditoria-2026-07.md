@@ -9,6 +9,13 @@ reversibles; todo lo que crearon quedó borrado (ver S3).
 
 Plan de corrección: [`plans/seguridad-y-qa.md`](plans/seguridad-y-qa.md).
 
+> **Estado a 2026-07-29: los 17 hallazgos están cerrados.** Los tres últimos
+> —S8 (registro de auditoría), S10 (caducidad y revocación de sesiones) y S11
+> (`preexec_fn`)— se corrigieron en la fase 5, en los PR #32, #35 y #36. El
+> informe se conserva tal cual porque documenta **por qué** cada cosa era un
+> problema en un panel que da shell, y eso sigue siendo cierto aunque el
+> código ya no lo tenga; lo único que se actualiza es la columna «Estado».
+
 ---
 
 ## El marco: esto no es un CRUD, es una shell remota
@@ -42,10 +49,10 @@ código) y no cambia nunca; **Estado** es si está arreglado.
 | S5 | Media-baja | Peticiones sin `Origin` pasan el guard CSRF | Por lectura | ✅ vía S2 |
 | S6 | Baja | Cookie de sesión sin `Secure` por defecto | Por lectura | ✅ fase 1 |
 | S7 | Baja | `CORS_ORIGINS` se parsea distinto en dos controles | Por lectura | ✅ fase 1 |
-| S8 | Baja | Sin registro de auditoría de comandos ejecutados | Por lectura | ⬜ fase 5 |
+| S8 | Baja | Sin registro de auditoría de comandos ejecutados | Por lectura | ✅ PR #32 |
 | S9 | Baja | Ficheros de datos con permisos 0644 | Por lectura | ✅ fase 1 |
-| S10 | Baja | Sesiones: sin caducidad por inactividad ni revocación global | Por lectura | ⬜ fase 5 |
-| S11 | Informativo | `preexec_fn` en un proceso con hilos | Por lectura | ⬜ fase 5 |
+| S10 | Baja | Sesiones: sin caducidad por inactividad ni revocación global | Por lectura | ✅ PR #35 |
+| S11 | Informativo | `preexec_fn` en un proceso con hilos | Por lectura | ✅ PR #36 |
 | S12 | Media-baja | Documentación de la API publicada sin autenticación | CONFIRMADO | ✅ |
 | S13 | Baja | `suggest`/`browse` listan rutas de fuera de las raíces | CONFIRMADO | ✅ PR #17 |
 | S14 | Baja | Un bucle de symlinks devuelve 500 en vez de rechazo | CONFIRMADO | ✅ PR #16 |

@@ -75,6 +75,12 @@ export default function Sidebar({
   onLogout,
 }) {
   const { t, tError } = useT()
+  // Prefijo de los `id` que atan cada `<label>` con su campo. Sale de
+  // `useId()` y no de cadenas escritas a mano —"nombre-sesion" a secas—
+  // porque React garantiza que es único POR INSTANCIA: los identificadores no
+  // chocarían aunque algún día el panel montara dos sidebars, y no hay que ir
+  // comprobando a mano que ninguno se repite entre los cinco formularios.
+  const uid = useId()
   // El espacio activo acota TODO el panel, no solo el grid: la lista de
   // sesiones muestra las de ese espacio.
   const spaceSessions = sessions.filter(
@@ -901,10 +907,11 @@ export default function Sidebar({
       {creating && (
         <Modal title={t('form.new_session_title')} onClose={closeForm}>
           <form onSubmit={submitCreate}>
-            <label className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label htmlFor={`${uid}-nombre-sesion`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
               {t('form.session_name_label')}
             </label>
             <input
+              id={`${uid}-nombre-sesion`}
               autoFocus
               value={newName}
               onChange={(e) => setNewName(sanitizeSessionName(e.target.value))}
@@ -915,7 +922,10 @@ export default function Sidebar({
               {t('form.session_name_hint')}
             </p>
 
-            <label className="mb-1 mt-3 block text-xs uppercase tracking-wide text-panel-muted">
+            <label
+              htmlFor={`${uid}-comando-arranque`}
+              className="mb-1 mt-3 block text-xs uppercase tracking-wide text-panel-muted"
+            >
               {t('form.start_command_label')}
             </label>
             {commands.length > 0 && (
@@ -933,6 +943,7 @@ export default function Sidebar({
               </select>
             )}
             <input
+              id={`${uid}-comando-arranque`}
               value={command}
               onChange={(e) => onTypeCommand(e.target.value)}
               placeholder={t('form.command_placeholder', {
@@ -991,20 +1002,22 @@ export default function Sidebar({
       {editingId && (
         <Modal title={t('form.edit_command_title')} onClose={cancelEdit}>
           <form onSubmit={(e) => submitEdit(e, editingId)}>
-            <label className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label htmlFor={`${uid}-editar-etiqueta`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
               {t('form.name_optional_label')}
             </label>
             <input
+              id={`${uid}-editar-etiqueta`}
               autoFocus
               value={editLabel}
               onChange={(e) => setEditLabel(e.target.value)}
               placeholder={t('form.name_optional_placeholder')}
               className="mb-3 w-full rounded border border-panel-border bg-panel-bg px-2 py-1.5 text-sm outline-none focus:border-panel-accent"
             />
-            <label className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label htmlFor={`${uid}-editar-comando`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
               {t('form.command_label')}
             </label>
             <input
+              id={`${uid}-editar-comando`}
               value={editCommand}
               onChange={(e) => setEditCommand(e.target.value)}
               placeholder={t('form.command_only_placeholder')}
@@ -1029,10 +1042,11 @@ export default function Sidebar({
       {projCreating && (
         <Modal title={t('form.new_project_title')} onClose={closeProjForm} panelClassName="max-w-lg">
           <form onSubmit={submitProjCreate}>
-            <label className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label htmlFor={`${uid}-proyecto-titulo`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
               {t('form.title_label')}
             </label>
             <input
+              id={`${uid}-proyecto-titulo`}
               autoFocus
               value={projTitle}
               onChange={(e) => setProjTitle(sanitizeSessionName(e.target.value))}
@@ -1042,10 +1056,11 @@ export default function Sidebar({
             <p className="mb-3 text-xs text-panel-muted">
               {t('form.project_title_hint')}
             </p>
-            <label className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label htmlFor={`${uid}-proyecto-dir`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
               {t('form.directory_label')}
             </label>
             <DirectoryInput
+              id={`${uid}-proyecto-dir`}
               value={projCwd}
               onChange={setProjCwd}
               placeholder={t('form.directory_placeholder', {
@@ -1101,10 +1116,11 @@ export default function Sidebar({
       {projEditingId && (
         <Modal title={t('form.edit_project_title')} onClose={cancelProjEdit} panelClassName="max-w-lg">
           <form onSubmit={(e) => submitProjEdit(e, projEditingId)}>
-            <label className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label htmlFor={`${uid}-editar-proyecto-titulo`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
               {t('form.title_label')}
             </label>
             <input
+              id={`${uid}-editar-proyecto-titulo`}
               autoFocus
               value={projEditTitle}
               onChange={(e) => setProjEditTitle(sanitizeSessionName(e.target.value))}
@@ -1114,10 +1130,11 @@ export default function Sidebar({
             <p className="mb-3 text-xs text-panel-muted">
               {t('form.project_title_hint')}
             </p>
-            <label className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
+            <label htmlFor={`${uid}-editar-proyecto-dir`} className="mb-1 block text-xs uppercase tracking-wide text-panel-muted">
               {t('form.directory_label')}
             </label>
             <DirectoryInput
+              id={`${uid}-editar-proyecto-dir`}
               value={projEditCwd}
               onChange={setProjEditCwd}
               placeholder={t('form.directory_optional_placeholder')}
@@ -1400,7 +1417,7 @@ function MoveToSpace({ session, spaces, onAssign }) {
   )
 }
 
-function DirectoryInput({ value, onChange, placeholder, className }) {
+function DirectoryInput({ id, value, onChange, placeholder, className }) {
   const listId = useId()
   const [items, setItems] = useState([])
   const timer = useRef(null)
@@ -1429,6 +1446,7 @@ function DirectoryInput({ value, onChange, placeholder, className }) {
   return (
     <>
       <input
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={(e) => {

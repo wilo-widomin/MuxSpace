@@ -7,6 +7,8 @@ import { PasteForClaude } from './sidebar/PasteForClaude.jsx'
 import { UploadFiles } from './sidebar/UploadFiles.jsx'
 import { SectionCaret } from './sidebar/SectionCaret.jsx'
 import { UNASSIGNED, spaceKeyOf } from '../spaces.js'
+import { CheckIcon, PencilIcon, PlusIcon, TrashIcon } from './sidebar/icons.jsx'
+import { SpacesBar } from './sidebar/SpacesBar.jsx'
 import { LAYOUTS, LayoutIcon } from './SessionGrid.jsx'
 
 // Rutas y comandos de ejemplo de los placeholders. NO se traducen: son
@@ -1188,197 +1190,6 @@ export default function Sidebar({
   )
 }
 
-// <input> de directorio con autocompletado: mientras el usuario escribe
-// (o al ganar el foco) pide al backend las subcarpetas que coinciden con el
-// prefijo bajo las raíces configuradas (ver `MUXSPACE_DIR_SUGGESTION_ROOTS`
-// y el endpoint /api/dir-suggestions). Las muestra en un <datalist> nativo.
-// Barra de espacios: elige cuál mira ESTA pestaña y permite crear,
-// renombrar y borrar. Dos entradas del selector no son espacios reales:
-// «Todas» (vista sin filtrar) y «Sin asignar» (las sesiones que no están
-// en ningún espacio, p. ej. las creadas fuera del panel); por eso ninguna
-// se puede renombrar ni borrar.
-function SpacesBar({
-  spaces,
-  sessions,
-  activeSpace,
-  onSetActiveSpace,
-  onCreateSpace,
-  onRenameSpace,
-  onDeleteSpace,
-}) {
-  const { t, tError } = useT()
-  // `mode` es null (solo el selector), 'create' o 'rename': el formulario
-  // sustituye a la barra en vez de abrir un modal, que para un solo campo
-  // resultaría desproporcionado.
-  const [mode, setMode] = useState(null)
-  const [value, setValue] = useState('')
-  const [error, setError] = useState(null)
-  const [busy, setBusy] = useState(false)
-
-  const current = spaces.find((s) => s.id === activeSpace)
-  const editable = Boolean(current)
-
-  const counts = new Map()
-  for (const s of sessions) {
-    const key = spaceKeyOf(s)
-    counts.set(key, (counts.get(key) || 0) + 1)
-  }
-  const countOf = (key) => counts.get(key) || 0
-
-  const open = (nextMode) => {
-    setMode(nextMode)
-    setValue(nextMode === 'rename' && current ? current.title : '')
-    setError(null)
-  }
-
-  const close = () => {
-    setMode(null)
-    setValue('')
-    setError(null)
-  }
-
-  const submit = async (e) => {
-    e.preventDefault()
-    const title = value.trim()
-    if (!title) return
-    setBusy(true)
-    setError(null)
-    try {
-      if (mode === 'create') {
-        const created = await onCreateSpace(title)
-        // Saltamos al espacio recién creado: crearlo y quedarte donde
-        // estabas obligaría a buscarlo en el selector.
-        if (created?.id) onSetActiveSpace(created.id)
-      } else if (current) {
-        await onRenameSpace(current.id, title)
-      }
-      close()
-    } catch (err) {
-      setError(tError(err))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const remove = async () => {
-    if (!current) return
-    const n = countOf(current.id)
-    // Dos claves completas (con sus saltos de línea) en vez de trozos
-    // concatenados: el plural y la concordancia son cosa de cada idioma.
-    const ok = window.confirm(
-      n > 0
-        ? t('spaces.confirm_delete', { title: current.title, count: n })
-        : t('spaces.confirm_delete_empty', { title: current.title }),
-    )
-    if (!ok) return
-    setBusy(true)
-    try {
-      await onDeleteSpace(current.id)
-    } catch (err) {
-      setError(tError(err))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (mode) {
-    return (
-      <div className="border-b border-panel-border px-3 py-2">
-        <p className="mb-1 text-xs text-panel-muted">{t('spaces.title')}</p>
-        <form onSubmit={submit} className="flex items-center gap-1">
-          <input
-            autoFocus
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') close()
-            }}
-            placeholder={
-              mode === 'create'
-                ? t('spaces.create_placeholder')
-                : t('spaces.rename_placeholder')
-            }
-            className="min-w-0 flex-1 rounded border border-panel-border bg-panel-bg px-2 py-1 text-sm outline-none focus:border-panel-accent"
-          />
-          <button
-            type="submit"
-            disabled={busy || !value.trim()}
-            title={t('spaces.save')}
-            className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-surface hover:text-green-400 disabled:opacity-40"
-          >
-            <CheckIcon />
-          </button>
-          <button
-            type="button"
-            onClick={close}
-            title={t('spaces.cancel')}
-            className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-surface hover:text-gray-100"
-          >
-            <CloseIcon />
-          </button>
-        </form>
-        {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
-      </div>
-    )
-  }
-
-  return (
-    <div className="border-b border-panel-border px-3 py-2">
-      <p className="mb-1 text-xs text-panel-muted">{t('spaces.title')}</p>
-      <div className="flex items-center gap-1">
-        <select
-          value={activeSpace}
-          onChange={(e) => onSetActiveSpace(e.target.value)}
-          title={t('spaces.select_title')}
-          className="min-w-0 flex-1 rounded border border-panel-border bg-panel-bg px-2 py-1 text-sm text-gray-100 outline-none focus:border-panel-accent"
-        >
-          <option value={UNASSIGNED}>
-            {t('spaces.option', {
-              title: t('spaces.unassigned'),
-              count: countOf(UNASSIGNED),
-            })}
-          </option>
-          {spaces.map((s) => (
-            <option key={s.id} value={s.id}>
-              {/* El título lo puso el usuario: no se traduce, solo se
-                  compone con el contador. */}
-              {t('spaces.option', { title: s.title, count: countOf(s.id) })}
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={() => open('create')}
-          title={t('spaces.new')}
-          className="shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
-        >
-          <PlusIcon />
-        </button>
-        <button
-          onClick={() => open('rename')}
-          disabled={!editable}
-          title={
-            editable ? t('spaces.rename') : t('spaces.rename_disabled')
-          }
-          className="shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
-        >
-          <PencilIcon />
-        </button>
-        <button
-          onClick={remove}
-          disabled={!editable || busy}
-          title={
-            editable ? t('spaces.delete') : t('spaces.delete_disabled')
-          }
-          className="shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-red-500/20 hover:text-red-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-panel-muted"
-        >
-          <TrashIcon />
-        </button>
-      </div>
-      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
-    </div>
-  )
-}
-
 // Mueve una sesión a otro espacio. Un <select> nativo en vez de un menú
 // propio: es lo que mejor funciona con el dedo, y este panel se usa también
 // desde el móvil. En la vista «Todas» se muestra siempre (hace de etiqueta
@@ -1663,66 +1474,7 @@ function RefreshIcon() {
   )
 }
 
-function PlusIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  )
-}
-
-
 // Icono de carpeta (estilo lucide "folder"): navegador de carpetas.
-
-// Icono de lápiz (estilo lucide "pencil"): renombrar.
-function PencilIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-      <path d="m15 5 4 4" />
-    </svg>
-  )
-}
-
-// Icono de check (estilo lucide "check"): confirmar renombrado.
-function CheckIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  )
-}
 
 // Icono de play (estilo lucide "play"): lanzar comando/proyecto.
 function PlayIcon() {
@@ -1761,29 +1513,6 @@ function ExternalLinkIcon() {
       <path d="M15 3h6v6" />
       <path d="M10 14 21 3" />
       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-    </svg>
-  )
-}
-
-// Icono de papelera (estilo lucide "trash-2").
-function TrashIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
     </svg>
   )
 }

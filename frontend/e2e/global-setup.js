@@ -109,6 +109,7 @@ export default async function globalSetup() {
   } catch (err) {
     throw new Error(
       `no se pudo compilar el frontend:\n${err.stdout || ''}\n${err.stderr || ''}`,
+      { cause: err },
     )
   }
 

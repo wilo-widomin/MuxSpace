@@ -17,16 +17,23 @@ mezclarlas nunca:
 | Se pierde al reiniciar | No | Sí, y da igual |
 | Se puede desactivar | No | Sí, subiendo el nivel |
 
-## Por qué se propaga en vez de tener su propio manejador
+## Por qué se propaga, y por qué el manejador es condicional
 
-Los registradores de aquí van con `propagate=True` y **sin manejador propio**.
-En producción, el proceso lo levanta uvicorn, que ya ha configurado los
-manejadores de la raíz: si este módulo añadiera el suyo, cada línea saldría
-**dos veces**. Propagando, los mensajes salen por donde ya salen los de
-uvicorn, con su mismo destino, y `MUXSPACE_LOG_LEVEL` decide cuáles.
+Los registradores de aquí van con `propagate=True` y **sin manejador propio**:
+uno por módulo multiplicaría los sitios donde configurar el formato.
 
-`configurar()` solo instala un manejador cuando la raíz no tiene ninguno, que
-es el caso de ejecutar el backend a mano o desde un test.
+El manejador se instala en la raíz, y **solo si no había ninguno**. Medido
+contra uvicorn 0.x arrancando este mismo backend: uvicorn configura sus
+propios registradores (`uvicorn`, `uvicorn.error`, `uvicorn.access`) con
+`propagate=False` y **deja la raíz sin tocar**, así que en producción es este
+módulo el que la instala y los mensajes del panel salen por ahí — comprobado
+que sin duplicar (una línea por mensaje, no dos).
+
+La condición existe igualmente porque el día que algo sí configure la raíz
+—gunicorn, un `logging.config.dictConfig` en un despliegue, un plugin de
+pytest— añadir otro manejador haría que **cada línea saliera dos veces**. Es
+el fallo clásico de meter logging en una app que corre dentro de un servidor,
+y el único síntoma es ruido, que nadie relaciona con el commit que lo trajo.
 """
 from __future__ import annotations
 
@@ -63,8 +70,9 @@ def nivel_configurado(entorno: dict[str, str] | None = None) -> int:
 def configurar(entorno: dict[str, str] | None = None) -> None:
     """Deja el logging del panel listo. Idempotente."""
     logging.getLogger(_RAIZ).setLevel(nivel_configurado(entorno))
-    # Solo si nadie ha configurado la raíz. Bajo uvicorn ya lo está, y añadir
-    # otro manejador duplicaría cada línea. Ver el docstring del módulo.
+    # Solo si nadie ha configurado la raíz: ver el docstring del módulo. Con
+    # uvicorn la raíz viene limpia, así que este es el camino normal en
+    # producción; la condición protege del día que algo la configure.
     if not logging.getLogger().handlers:
         manejador = logging.StreamHandler()
         manejador.setFormatter(logging.Formatter(_FORMATO))

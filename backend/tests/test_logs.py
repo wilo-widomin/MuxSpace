@@ -77,11 +77,13 @@ def test_los_registradores_del_panel_cuelgan_del_mismo_prefijo() -> None:
 def test_no_se_anade_manejador_si_la_raiz_ya_tiene_uno(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """El caso de producción: uvicorn ya configuró la raíz.
+    """Que no se dupliquen las líneas si algo ya configuró la raíz.
 
-    Si `configurar()` añadiera el suyo igualmente, cada línea del panel saldría
-    DOS veces en la consola. Es el error más común al meter logging en una app
-    que corre dentro de un servidor, y no da ningún síntoma más que ruido.
+    NO es el caso de uvicorn —medido: configura sus propios registradores y
+    deja la raíz limpia— sino el de gunicorn, un `dictConfig` en un despliegue
+    o un plugin de pytest. Si `configurar()` añadiera el suyo igualmente, cada
+    línea del panel saldría DOS veces, y el único síntoma sería ruido que
+    nadie relaciona con el commit que lo trajo.
     """
     raiz = logging.getLogger()
     monkeypatch.setattr(raiz, "handlers", [logging.NullHandler()])
@@ -97,7 +99,11 @@ def test_no_se_anade_manejador_si_la_raiz_ya_tiene_uno(
 def test_si_nadie_configuro_la_raiz_se_instala_un_manejador(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """El caso de arrancar el backend a mano: sin esto no se vería nada."""
+    """El camino normal, incluido bajo uvicorn: sin esto no se vería nada.
+
+    Medido arrancando este backend con uvicorn: la raíz llega sin manejadores,
+    así que es esta rama la que corre en producción.
+    """
     raiz = logging.getLogger()
     monkeypatch.setattr(raiz, "handlers", [])
 

@@ -1,17 +1,22 @@
 # Plan de implementación — seguridad y calidad
 
-Estado: **ejecutado** (2026-07-27 → 2026-07-29), salvo un punto.
+Estado: **ejecutado y completo** (2026-07-27 → 2026-07-29).
 
-Las seis fases están mergeadas: 26 historias de usuario, PR #3 a #39. Los 17
-hallazgos de seguridad quedan cerrados y las fases 2-6 dejaron 536 tests de
-backend, 28 de frontend y 27 de extremo a extremo.
+Las seis fases están mergeadas: 26 historias de usuario, PR #3 a #39, más el
+trabajo de cierre de los PR #40 a #49. Los 17 hallazgos de seguridad y los
+cuatro puntos de calidad (Q1, Q2, Q3, Q4 y Q6) quedan cerrados, con 554 tests
+de backend, 28 de frontend y 32 de extremo a extremo.
 
-**Lo único que no se hizo: Q6 (observabilidad).** Aparece en el alcance de la
-fase 5, pero ninguna historia lo recogió — US-018 lo dejó explícitamente
-fuera («esto es el log de auditoría, no el de la app») y no se escribió otra
-que lo cubriera. El backend sigue sin logging estructurado. Queda anotado
-aquí, y no borrado, para que el hueco no desaparezca del plan por el simple
-hecho de que nadie lo mirara.
+**Cerrado también Q6 (observabilidad).** Fue el último en caer, y por poco se
+queda fuera: aparecía en el alcance de la fase 5 pero ninguna historia lo
+recogió —US-018 lo dejó explícitamente fuera («esto es el log de auditoría,
+no el de la app») y no se escribió otra que lo cubriera—. Se anotó aquí como
+hueco pendiente en vez de dar el plan por completado, y se implementó a
+continuación en el PR #43: `backend/logs.py`, con `MUXSPACE_LOG_LEVEL`.
+
+Se cuenta así, y no se borra la historia, porque el modo de fallo es lo
+interesante: un punto del plan que ninguna historia recoge no lo reclama
+nadie, y marcar el plan como «hecho» lo habría enterrado para siempre.
 
 Resuelve los hallazgos de [`../auditoria-2026-07.md`](../auditoria-2026-07.md).
 Cada fase es autónoma y mergeable por separado; el orden está elegido para

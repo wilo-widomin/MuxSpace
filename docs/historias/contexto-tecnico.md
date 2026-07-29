@@ -179,7 +179,8 @@ eventos la suspende. Consecuencia medida: `upload_file` figura cubierto **hasta
 la línea del `await _read_capped(...)` y ni una más**, mientras que las
 funciones síncronas que llama justo después (`_unique_target`,
 `upload_store.add`) salen al 100 %. Por eso `main.py` no pasa del ~53 % aunque
-sus endpoints estén ejercitados a fondo.
+sus endpoints estén ejercitados a fondo (con todas las fases cerradas llegó al
+68 %, que sigue siendo el módulo más castigado por este efecto).
 
 Probado y descartado: `concurrency = thread` en la config de coverage no lo
 cambia.
@@ -189,10 +190,12 @@ Dos consecuencias prácticas:
 - Los objetivos «≥85 % en los endpoints de subida» de las US de la fase 2 **no
   son medibles** tal y como están escritos. La garantía real de esas US son las
   mutaciones documentadas en sus PR, no el porcentaje.
-- **US-009 tiene que tener esto en cuenta al fijar `--cov-fail-under`.** El
-  total global hoy es del 63 % con la fase 2 a medias, así que el 60 % del plan
-  se cumple; pero subirlo mucho más chocaría con este techo artificial, no con
-  la calidad de los tests.
+- **Afecta a dónde puede estar `--cov-fail-under`.** Cuando se escribió esto,
+  con la fase 2 a medias, el total global era del 63 % y el gate se fijó en 60.
+  Con todas las fases cerradas el total es del **84,7 %** y el gate está en
+  **80** (PR #47): el techo artificial sigue ahí —`main.py` en 68 % y
+  `pty_bridge.py` en 72 % aun con tests de sobra—, y por eso el listón no sube
+  hasta el 85, donde ya salta.
 
 ### En un worktree del pipeline
 

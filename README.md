@@ -96,6 +96,7 @@ cp backend/.env.example backend/.env
 | `MUXSPACE_TMUX_BINARY` | `tmux` | Ruta al binario de tmux (si no está en el PATH) |
 | `MUXSPACE_CORS_ORIGINS` | `localhost:5173` | Orígenes CORS permitidos (casi irrelevante en producción: mismo origen) |
 | `MUXSPACE_DIR_SUGGESTION_ROOTS` | `["~"]` | Raíces para el autocompletado de directorios (`~` = home del usuario que corre el backend) |
+| `MUXSPACE_LOG_LEVEL` | `INFO` | Detalle del log del panel (`DEBUG`/`INFO`/`WARNING`/`ERROR`). No es el registro de auditoría: ver [abajo](#registro-de-auditoría) |
 
 ## API
 

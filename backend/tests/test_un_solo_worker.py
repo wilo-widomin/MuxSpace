@@ -21,7 +21,13 @@ import logging
 
 import pytest
 
+import logs
 import main
+
+# El registrador por el que sale el aviso. Se declara aquí y se compara con el
+# de `main` en un test: si alguien lo moviera de sitio, estos tests seguirían
+# en verde por el `caplog` (que captura en la raíz) sin comprobar nada.
+LOGGER_PANEL = "muxspace.main"
 
 # Prefijo real de un worker de uvicorn arrancado con `python -m uvicorn`.
 _UVICORN = [
@@ -127,7 +133,7 @@ def test_con_un_worker_no_se_avisa_de_nada(
     app_arrancada, caplog: pytest.LogCaptureFixture
 ) -> None:
     """Un aviso que sale siempre no es un aviso, es ruido de arranque."""
-    with caplog.at_level(logging.WARNING, logger="uvicorn.error"):
+    with caplog.at_level(logging.WARNING, logger=LOGGER_PANEL):
         app_arrancada(["--workers", "1"])
 
     assert "workers" not in caplog.text.lower()
@@ -141,7 +147,7 @@ def test_con_varios_workers_se_avisa_y_se_dice_que_se_corrompe(
     Y el aviso tiene que decir QUÉ se rompe. "Puede haber problemas" se
     ignora; "se corrompe la biblioteca de comandos" se lee.
     """
-    with caplog.at_level(logging.WARNING, logger="uvicorn.error"):
+    with caplog.at_level(logging.WARNING, logger=LOGGER_PANEL):
         app_arrancada(["--workers", "4"])
 
     (aviso,) = [r for r in caplog.records if r.levelno >= logging.WARNING]
@@ -160,7 +166,27 @@ def test_web_concurrency_en_el_entorno_tambien_dispara_el_aviso(
     sin querer; `WEB_CONCURRENCY` sí se hereda de un `.bashrc` o de un
     contenedor y arranca cuatro workers sin que se haya tocado `start.sh`.
     """
-    with caplog.at_level(logging.WARNING, logger="uvicorn.error"):
+    with caplog.at_level(logging.WARNING, logger=LOGGER_PANEL):
         app_arrancada([], {"WEB_CONCURRENCY": "4"})
 
     assert any(r.levelno >= logging.WARNING for r in caplog.records)
+
+
+def test_el_aviso_sale_por_el_registrador_del_panel(
+    app_arrancada, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Y no por `uvicorn.error`, como hasta Q6.
+
+    `caplog` captura en la raíz, así que los tests de arriba pasarían aunque
+    el aviso saliera por cualquier otro registrador. Este ata el nombre: es
+    lo que hace que `MUXSPACE_LOG_LEVEL` pueda con él como con el resto.
+    """
+    assert logs.obtener("main").name == LOGGER_PANEL
+
+    with caplog.at_level(logging.WARNING, logger=LOGGER_PANEL):
+        app_arrancada(["--workers", "3"])
+
+    nombres = {r.name for r in caplog.records if r.levelno >= logging.WARNING}
+    assert nombres == {LOGGER_PANEL}, (
+        f"el aviso salió por {nombres} en vez de por el registrador del panel"
+    )

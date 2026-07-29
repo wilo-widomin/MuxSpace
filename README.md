@@ -197,9 +197,7 @@ aunque se recargue la web: solo se cierra la "ventana" de visualización.
 |---|---|
 | `backend` | instalar tmux → `pip install -r backend/requirements-dev.txt` → `ruff check backend/` → `pytest --cov=backend --cov-fail-under=60` |
 | `frontend` | `bun install --frozen-lockfile` → `bun run lint` → `bun run test` (vitest) → `bun run build` → `bun run check-i18n` |
-
-Los E2E de Playwright (`bun run test:e2e`) **no** están en esta lista: ver
-[abajo](#tests-de-extremo-a-extremo-playwright).
+| `e2e` | `tmux` + `chromium` → `bun run test:e2e` (27 tests, ~36 s) |
 
 Todo eso se reproduce en local con los comandos de la sección siguiente: si el
 CI comprueba algo que no puedes ejecutar en tu máquina, deja de ser útil y pasa
@@ -312,8 +310,15 @@ Las sesiones que crea llevan el prefijo `muxspace-e2e-` y el teardown mata
 algo falla, el log del backend de pruebas queda en `frontend/e2e/.tmp/` y las
 trazas de Playwright en `frontend/test-results/`.
 
-**No están en el CI**, y es deliberado: necesitan `tmux` y un navegador de
-120 MB. Se decide con datos cuando haga falta; los 18 tests tardan **~24 s**.
+**Sí están en el CI**, en su propio job. Se dejaron fuera en US-024 hasta
+tener el dato de cuánto tardaban; el dato son **~36 s** los 27 tests, más la
+descarga del navegador, que se cachea entre ejecuciones. Con eso salía a
+cuenta: un test de extremo a extremo que solo corre cuando alguien se acuerda
+es un test que se pudre.
+
+Cuando uno falla en el CI, sus trazas de Playwright y el log del backend de
+pruebas quedan como artefacto (`playwright-trazas`), para no tener que
+reproducirlo en local a ciegas.
 
 ## Estructura del proyecto
 

@@ -197,7 +197,7 @@ aunque se recargue la web: solo se cierra la "ventana" de visualización.
 |---|---|
 | `backend` | instalar tmux → `pip install -r backend/requirements-dev.txt` → `ruff check backend/` → `pytest --cov=backend --cov-fail-under=60` |
 | `frontend` | `bun install --frozen-lockfile` → `bun run lint` → `bun run format:check` → `bun run test` (vitest) → `bun run build` → `bun run check-i18n` |
-| `e2e` | `tmux` + `chromium` → `bun run test:e2e` (27 tests, ~36 s) |
+| `e2e` | `tmux` + `chromium` → `bun run test:e2e` (32 tests, ~50 s) |
 
 Todo eso se reproduce en local con los comandos de la sección siguiente: si el
 CI comprueba algo que no puedes ejecutar en tu máquina, deja de ser útil y pasa
@@ -289,6 +289,10 @@ producción, con la CSP y las cabeceras de seguridad puestas—:
 | `login-y-sesiones.spec.js` | Login, cookie `HttpOnly`, listado y creación de sesiones **en tmux**, no solo en el DOM |
 | `terminal.spec.js` | La cadena entera WebSocket → puente PTY → tmux → xterm.js: el eco, el redimensionado, y que cerrar la vista **no** mata la sesión |
 | `subida.spec.js` | Subir un archivo (existe **en el disco**) y que la ruta copiada al portapapeles sea segura de pegar en un shell |
+| `espacios.spec.js` | Crear, renombrar, filtrar y borrar espacios, comprobando el backend y que borrar uno **no** termina sus sesiones |
+| `biblioteca.spec.js` | Crear un comando y lanzarlo, crear un proyecto y ejecutarlo; incluye el caso de S17 (etiqueta con `$`) |
+| `accesibilidad.spec.js` | Que cada etiqueta de formulario llegue a un campo editable |
+| `idioma.spec.js` | Que los mensajes de error salgan en el idioma que el usuario tiene puesto |
 
 De paso comprueban que ningún recorrido dispara **ni una violación de CSP**,
 que es la comprobación que la fase 0 dejó pendiente de automatizar.
@@ -312,7 +316,7 @@ algo falla, el log del backend de pruebas queda en `frontend/e2e/.tmp/` y las
 trazas de Playwright en `frontend/test-results/`.
 
 **Sí están en el CI**, en su propio job. Se dejaron fuera en US-024 hasta
-tener el dato de cuánto tardaban; el dato son **~36 s** los 27 tests, más la
+tener el dato de cuánto tardaban; el dato son **~50 s** los 32 tests, más la
 descarga del navegador, que se cachea entre ejecuciones. Con eso salía a
 cuenta: un test de extremo a extremo que solo corre cuando alguien se acuerda
 es un test que se pudre.

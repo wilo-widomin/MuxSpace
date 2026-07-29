@@ -498,11 +498,12 @@ permisos cambian, el error se traga y la acción sigue adelante. Un panel
 que deja de funcionar porque no puede escribir su propio log de auditoría
 es peor que un panel sin log.
 
-> **Auditoría (2026-07-27)**: hay hallazgos abiertos, dos de severidad alta
-> (falta de cabeceras de seguridad y API accesible sin autenticación desde
-> localhost). Informe completo en
-> [`docs/auditoria-2026-07.md`](docs/auditoria-2026-07.md) y plan de
-> corrección en [`docs/plans/seguridad-y-qa.md`](docs/plans/seguridad-y-qa.md).
+> **Auditoría (2026-07-27)**: los **17 hallazgos están corregidos**, incluidos
+> los dos de severidad alta (cabeceras de seguridad y API accesible sin
+> autenticación desde localhost). Informe completo, con el porqué de cada uno,
+> en [`docs/auditoria-2026-07.md`](docs/auditoria-2026-07.md); el plan de
+> corrección que se siguió, en
+> [`docs/plans/seguridad-y-qa.md`](docs/plans/seguridad-y-qa.md).
 
 ## Producción
 

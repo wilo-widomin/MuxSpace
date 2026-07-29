@@ -19,6 +19,15 @@
  */
 import { T, entrar, expect, nombreSesion, test } from './fixtures.js'
 
+test.afterEach(async ({ page, entorno }) => {
+  // Se entra otra vez porque algún test termina con la sesión ya cerrada, y
+  // el borrado necesita estar autenticado.
+  if ((await page.locator('input[type="password"]').count()) > 0) {
+    await entrar(page, entorno)
+  }
+  await borrarEspacios(page)
+})
+
 /** El selector de espacio de la barra. */
 const selectorEspacios = (page) => page.getByTitle(T['spaces.select_title'])
 
@@ -47,6 +56,30 @@ async function mirarEspacio(page, titulo) {
     .first()
     .getAttribute('value')
   await selectorEspacios(page).selectOption(valor)
+}
+
+/**
+ * Borra del backend todos los espacios que queden.
+ *
+ * NO es aseo opcional: el andamiaje comparte un backend entre specs, y los
+ * espacios se persisten en `spaces.json`. Dejarlos ahí hace crecer la barra
+ * de espacios, el sidebar se queda sin alto y filas que antes se veían pasan
+ * a medir cero — lo que tumbó ocho tests de los otros dos specs la primera
+ * vez que se añadió este archivo. Un spec no puede cambiarle el mundo a los
+ * demás.
+ */
+async function borrarEspacios(page) {
+  await page.evaluate(async () => {
+    const espacios = await (
+      await fetch('/api/spaces', { credentials: 'same-origin' })
+    ).json()
+    for (const e of espacios) {
+      await fetch(`/api/spaces/${encodeURIComponent(e.id)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      })
+    }
+  })
 }
 
 /** Los espacios que el backend tiene guardados ahora mismo. */

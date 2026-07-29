@@ -215,10 +215,11 @@ Tres detalles que no son evidentes:
   va a ver probando a mano.
 - **La cobertura se mide sin los tests** (`[tool.coverage.run] omit` en
   `pyproject.toml`). Con ellos sale 90% y no significa nada: un test se ejecuta
-  entero por definición. Sin ellos, hoy es el **76%**, y el gate está en 60.
-  El margen es deliberado — los endpoints `async` no se miden bien (coverage
-  deja de trazar la corrutina en cuanto se suspende), así que subir el listón
-  chocaría con ese techo artificial y no con la calidad de las pruebas.
+  entero por definición. Sin ellos, hoy es el **84,7%**, y el gate está en 80.
+  Los 5 puntos de margen son para el techo artificial de los endpoints `async`
+  —coverage deja de trazar la corrutina en cuanto se suspende, y por eso
+  `main.py` está en 68% y `pty_bridge.py` en 72% aun teniendo tests de
+  sobra—, no para poder aflojar.
 
 ### Protección de rama (se configura a mano, una vez)
 

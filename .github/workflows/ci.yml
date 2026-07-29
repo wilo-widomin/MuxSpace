@@ -48,15 +48,24 @@ jobs:
       - name: ruff
         run: ruff check backend/
 
-      # `--cov-fail-under=60` con la cobertura real en el 76% de las
+      # `--cov-fail-under=80` con la cobertura real en el **84,7%** de las
       # sentencias de código fuente (los tests se excluyen en la config de
       # coverage: medir la cobertura de los tests infla el número sin decir
-      # nada). El margen es a propósito: los endpoints `async` no se miden
-      # bien —coverage deja de trazar la corrutina en cuanto se suspende, ver
-      # docs/historias/contexto-tecnico.md— y subir el listón chocaría con ese
-      # techo artificial, no con la calidad de las pruebas.
+      # nada).
+      #
+      # El listón estuvo en 60 mientras la cobertura real era del 76%, y con
+      # 16 puntos de aire el gate no podía saltar: se habría podido borrar un
+      # cuarto de los tests sin que el CI dijera nada. Un gate que no puede
+      # fallar no es un gate.
+      #
+      # Se sube a 80 y no a 85 por el techo artificial que ya se documentaba:
+      # los endpoints `async` no se miden bien —coverage deja de trazar la
+      # corrutina en cuanto se suspende, ver
+      # docs/historias/contexto-tecnico.md—, y por eso `main.py` está en 68% y
+      # `pty_bridge.py` en 72% aun teniendo tests de sobra. Los 5 puntos de
+      # margen son para eso, no para poder aflojar.
       - name: pytest
-        run: pytest --cov=backend --cov-fail-under=60
+        run: pytest --cov=backend --cov-fail-under=80
 
   frontend:
     runs-on: ubuntu-latest

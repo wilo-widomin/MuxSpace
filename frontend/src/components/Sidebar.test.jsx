@@ -35,7 +35,6 @@ function props(extra = {}) {
     commands: [],
     projects: [],
     openNames: [],
-    activeName: null,
     spaces: [],
     activeSpace: null,
     onSetActiveSpace: noop,

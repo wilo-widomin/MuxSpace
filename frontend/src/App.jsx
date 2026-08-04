@@ -442,22 +442,17 @@ export default function App() {
   }
 
   // ---- Ejecutar un Comando (una línea) ----
-  // Si hay una terminal con foco, se le envía vía send-keys. Si no hay
-  // foco, se abre una sesión nueva y se ejecuta ahí (reutiliza el launch).
+  // Siempre en una ventana nueva: el comando nunca se cuela en la terminal
+  // que el usuario tenía delante (podía estar a media faena). Si hay foco,
+  // se lo lleva la ventana recién abierta.
   const handleRunCommand = async (cmd) => {
-    if (activeName && openSessions.some((s) => s.name === activeName)) {
-      try {
-        await api.sendCommand(activeName, cmd.command)
-        focusTerminal(activeName)
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 401) handleAuthFailure()
-        else setError(tError(err))
-      }
-      return
+    try {
+      const name = await handleLaunchCommand(cmd.id)
+      if (name) focusTerminal(name)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) handleAuthFailure()
+      else setError(tError(err))
     }
-    // Sin foco: abrir sesión nueva y ejecutar.
-    const name = await handleLaunchCommand(cmd.id)
-    if (name) focusTerminal(name)
   }
 
   // ---- Guardar / editar / eliminar un Proyecto ----
@@ -625,7 +620,6 @@ export default function App() {
         commands={commands}
         projects={projects}
         openNames={openSessions.map((s) => s.name)}
-        activeName={activeName}
         spaces={spaces}
         activeSpace={activeSpace}
         onSetActiveSpace={setActiveSpace}

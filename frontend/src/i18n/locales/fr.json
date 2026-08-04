@@ -54,12 +54,11 @@
   "sidebar.logout": "Se déconnecter",
 
   "sidebar.commands": "Commandes",
-  "sidebar.commands_hint": "Elles s’exécutent dans le terminal actif (ou dans un nouveau s’il n’y en a pas).",
+  "sidebar.commands_hint": "Elles s’ouvrent toujours dans une nouvelle session, jamais dans le terminal actif.",
   "sidebar.new_command": "Nouvelle commande",
   "sidebar.edit_command": "Modifier la commande",
   "sidebar.delete_command": "Supprimer la commande",
   "sidebar.confirm_delete_command": "Supprimer la commande « {label} » de la bibliothèque ?",
-  "sidebar.run_in_terminal": "Exécuter dans le terminal « {name} »",
   "sidebar.run_in_new_session": "Ouvrir dans une nouvelle session et exécuter",
 
   "sidebar.projects": "Projets",

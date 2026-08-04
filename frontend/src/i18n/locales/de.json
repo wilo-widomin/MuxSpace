@@ -54,12 +54,11 @@
   "sidebar.logout": "Abmelden",
 
   "sidebar.commands": "Befehle",
-  "sidebar.commands_hint": "Werden im fokussierten Terminal ausgeführt (oder in einem neuen, falls keines da ist).",
+  "sidebar.commands_hint": "Werden immer in einer neuen Session geöffnet, nie im fokussierten Terminal.",
   "sidebar.new_command": "Neuer Befehl",
   "sidebar.edit_command": "Befehl bearbeiten",
   "sidebar.delete_command": "Befehl löschen",
   "sidebar.confirm_delete_command": "Befehl „{label}“ aus der Bibliothek löschen?",
-  "sidebar.run_in_terminal": "Im Terminal „{name}“ ausführen",
   "sidebar.run_in_new_session": "In neuer Session öffnen und ausführen",
 
   "sidebar.projects": "Projekte",

@@ -54,12 +54,11 @@
   "sidebar.logout": "Esci",
 
   "sidebar.commands": "Comandi",
-  "sidebar.commands_hint": "Vengono eseguiti nel terminale attivo (o in uno nuovo se non ce n'è).",
+  "sidebar.commands_hint": "Si aprono sempre in una nuova sessione, mai nel terminale attivo.",
   "sidebar.new_command": "Nuovo comando",
   "sidebar.edit_command": "Modifica comando",
   "sidebar.delete_command": "Elimina comando",
   "sidebar.confirm_delete_command": "Eliminare il comando «{label}» dalla libreria?",
-  "sidebar.run_in_terminal": "Esegui nel terminale «{name}»",
   "sidebar.run_in_new_session": "Apri in una nuova sessione ed esegui",
 
   "sidebar.projects": "Progetti",

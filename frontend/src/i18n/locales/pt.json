@@ -54,12 +54,11 @@
   "sidebar.logout": "Terminar sessão",
 
   "sidebar.commands": "Comandos",
-  "sidebar.commands_hint": "Executam-se no terminal com foco (ou num novo, se não houver).",
+  "sidebar.commands_hint": "Abrem-se sempre numa sessão nova, nunca no terminal com foco.",
   "sidebar.new_command": "Novo comando",
   "sidebar.edit_command": "Editar comando",
   "sidebar.delete_command": "Eliminar comando",
   "sidebar.confirm_delete_command": "Eliminar o comando «{label}» da biblioteca?",
-  "sidebar.run_in_terminal": "Executar no terminal «{name}»",
   "sidebar.run_in_new_session": "Abrir em sessão nova e executar",
 
   "sidebar.projects": "Projetos",

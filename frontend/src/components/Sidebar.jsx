@@ -47,7 +47,6 @@ export default function Sidebar({
   commands,
   projects,
   openNames,
-  activeName,
   spaces,
   activeSpace,
   onSetActiveSpace,
@@ -467,11 +466,6 @@ export default function Sidebar({
     }
   }
 
-  const runTargetTitle = () =>
-    activeName
-      ? t('sidebar.run_in_terminal', { name: activeName })
-      : t('sidebar.run_in_new_session')
-
   // Estado colapsado: rail estrecho con un único botón para expandir, de
   // modo que el grid de terminales ocupa casi toda la pantalla.
   if (collapsed) {
@@ -756,12 +750,15 @@ export default function Sidebar({
                           e.currentTarget.blur()
                           onRunCommand(c)
                         }}
-                        title={runTargetTitle()}
+                        title={t('sidebar.run_in_new_session')}
                         className="shrink-0 rounded p-0.5 text-panel-muted transition hover:bg-panel-surface hover:text-green-400"
                       >
                         <PlayIcon />
                       </button>
-                      <span className="min-w-0 flex-1 truncate" title={c.command}>
+                      <span
+                        className="min-w-0 flex-1 truncate font-medium text-gray-100"
+                        title={c.command}
+                      >
                         {c.label}
                       </span>
                       <button

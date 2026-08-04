@@ -63,11 +63,11 @@ async function crearComando(page, etiqueta, comando = 'echo hola') {
 /**
  * El botón de lanzar un comando de la biblioteca.
  *
- * Su nombre accesible **cambia según el foco**: sin terminal activa dice
- * «Abrir en sesión nueva y ejecutar»; con una activa, «Ejecutar en la
- * terminal X», porque hace otra cosa. No es un detalle de maquetación, es la
- * diferencia entre crear una sesión y escribir en una que ya existe — y por
- * eso el localizador tiene que ser explícito sobre cuál de los dos espera.
+ * Hace **siempre** lo mismo —abrir una sesión nueva y ejecutar ahí—, haya o
+ * no una terminal con foco. Antes cambiaba de significado según el foco y
+ * escribía en la terminal que el usuario tuviera delante; el localizador
+ * sigue siendo explícito con el nombre accesible porque es la garantía de que
+ * no ha vuelto a hacerlo.
  */
 const botonLanzarEnSesionNueva = (page) =>
   page.getByRole('button', { name: T['sidebar.run_in_new_session'] }).first()
@@ -218,13 +218,10 @@ test('lanzar dos veces el mismo comando no colisiona de nombre', async ({
   await botonLanzarEnSesionNueva(page).click()
   await expect.poll(() => sesiones(tmux).length).toBe(1)
 
-  // Hay que cerrar el tile antes de volver a lanzar. No es un rodeo del test:
-  // con una terminal enfocada, ese botón deja de crear sesiones y pasa a
-  // escribir en la que tiene el foco. Cerrar la vista libera el foco (la
-  // sesión sigue viva, así que su nombre sigue cogido, que es justo lo que
-  // hace falta para probar `_next_label_name`).
-  await page.getByRole('button', { name: T['tile.close'] }).first().click()
-
+  // El segundo lanzamiento va CON el tile abierto y enfocado a propósito:
+  // antes eso hacía que el botón escribiera en la terminal del foco en vez de
+  // crear nada, y el test tenía que cerrar la vista para poder seguir. Ahora
+  // abre otra sesión igualmente, y es lo que se comprueba aquí de paso.
   await botonLanzarEnSesionNueva(page).click()
   await expect
     .poll(() => sesiones(tmux).length, {

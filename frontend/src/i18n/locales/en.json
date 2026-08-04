@@ -54,12 +54,11 @@
   "sidebar.logout": "Log out",
 
   "sidebar.commands": "Commands",
-  "sidebar.commands_hint": "They run in the focused terminal (or in a new one if there is none).",
+  "sidebar.commands_hint": "They always open in a new session, never in the focused terminal.",
   "sidebar.new_command": "New command",
   "sidebar.edit_command": "Edit command",
   "sidebar.delete_command": "Delete command",
   "sidebar.confirm_delete_command": "Delete the command \"{label}\" from the library?",
-  "sidebar.run_in_terminal": "Run in the \"{name}\" terminal",
   "sidebar.run_in_new_session": "Open in a new session and run",
 
   "sidebar.projects": "Projects",

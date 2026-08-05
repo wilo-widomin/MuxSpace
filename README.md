@@ -5,6 +5,8 @@ tmux de forma simultánea desde el navegador. No es un emulador de terminal:
 es un panel de control sobre el servidor tmux del usuario que ejecuta el
 backend.
 
+![Tres sesiones de tmux abiertas en el grid, con la barra lateral de espacios, biblioteca y pegado de imágenes a la izquierda](docs/img/muxspace.png)
+
 Qué hace:
 
 - **Sesiones de tmux**: listar, crear, abrir/cerrar su vista en un *grid*
@@ -355,6 +357,7 @@ muxspace/
 ├── scripts/
 │   └── dev.sh             # Arranca backend + frontend (Vite HMR)
 └── docs/
+    ├── img/                   # Capturas usadas en la documentación
     ├── onboarding.md          # Guía de puesta en marcha paso a paso
     ├── muxspace.md            # Especificación
     ├── mtls.md                # Acceso por certificado de cliente

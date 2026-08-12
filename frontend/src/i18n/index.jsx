@@ -2,7 +2,8 @@
 //
 // Módulo propio en vez de react-i18next: de un motor ICU completo solo
 // necesitamos lookup por clave, interpolación `{name}` y un único plural
-// (el contador de ventanas), y `Intl.PluralRules` ya viene en el navegador.
+// (el aviso de cuántas sesiones se quedan sin espacio al borrarlo), y
+// `Intl.PluralRules` ya viene en el navegador.
 //
 // El catálogo `es` es la FUENTE DE VERDAD: el resto de idiomas se derivan
 // de él y cualquier clave que les falte cae de vuelta al español, de modo

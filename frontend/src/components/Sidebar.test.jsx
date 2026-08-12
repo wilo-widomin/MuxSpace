@@ -214,13 +214,16 @@ describe('fila de sesión', () => {
     return montar({ sessions: [sesion], activeSpace: 'unassigned', ...extra })
   }
 
-  it('enseña las ventanas también cuando la sesión está abierta', () => {
-    // El caso que se rompía: al abrirla, el contador se sustituía por la
-    // palabra «abierta» y dejabas de saber cuántas ventanas tenía.
+  it('no escribe el estado ni el número de ventanas junto al nombre', () => {
+    // El ancho de la fila es el presupuesto del NOMBRE, que es lo único que
+    // distingue una sesión de otra. Ni «abierta» —que ya se ve por el fondo
+    // de la fila y por la ✕ de ocultar— ni el contador de ventanas de tmux
+    // valían lo que costaban.
     conSesion({ openNames: ['trabajo'] })
 
-    expect(screen.getByText('3 ventanas')).toBeTruthy()
+    expect(screen.getByText('trabajo')).toBeTruthy()
     expect(screen.queryByText('abierta')).toBeNull()
+    expect(screen.queryByText(/ventana/)).toBeNull()
   })
 
   it('el selector de espacio sigue siendo alcanzable por su nombre', () => {

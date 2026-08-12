@@ -44,10 +44,6 @@
   "sidebar.open": "Open",
   "sidebar.attached": "Attached session",
   "sidebar.detached": "Detached session",
-  "sidebar.windows": {
-    "one": "{count} window",
-    "other": "{count} windows"
-  },
   "sidebar.rename_session": "Rename session",
   "sidebar.kill_session": "Kill the tmux session (kill-session)",
   "sidebar.hide_tile": "Close the tile (the terminal stays alive)",

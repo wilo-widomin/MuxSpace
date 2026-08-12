@@ -635,9 +635,17 @@ export default function Sidebar({
                     >
                       <button
                         onClick={() => onSelect(s.name)}
-                        className="flex min-w-0 flex-1 items-center justify-between px-3 py-2 text-left"
+                        className="flex min-w-0 flex-1 items-center px-3 py-2 text-left"
                         title={isOpen ? t('sidebar.bring_to_front') : t('sidebar.open')}
                       >
+                        {/* Punto de estado y nombre, y nada más. Aquí hubo un
+                          «abierta» y un contador de ventanas de tmux, y los
+                          dos se fueron por lo mismo: se comían el ancho del
+                          nombre —que es lo único que de verdad distingue una
+                          fila de otra— para decir algo que ya se ve en otro
+                          sitio o que no se usa. Que la sesión está abierta lo
+                          dicen el fondo de la fila, el nombre atenuado y la ✕
+                          de ocultar, que solo existe si lo está. */}
                         <span className="flex items-center gap-2 truncate">
                           <span
                             className={`h-2 w-2 shrink-0 rounded-full ${
@@ -654,18 +662,6 @@ export default function Sidebar({
                           >
                             {s.name}
                           </span>
-                        </span>
-                        {/* Que la sesión esté abierta ya lo dicen el fondo de
-                          la fila, el nombre atenuado y la ✕ de ocultar, que
-                          solo existe si lo está. Escribirlo además aquí
-                          gastaba el hueco del contador —el nombre es lo que
-                          se quedaba sin sitio— y dejaba sin ventanas a la
-                          sesión en cuanto la abrías. */}
-                        {/* En hover desaparece para dejarle su hueco al
-                          nombre: al pasar por encima estás yendo a los
-                          botones, no leyendo cuántas ventanas hay. */}
-                        <span className="ml-2 shrink-0 text-xs text-panel-muted group-hover:hidden">
-                          {t('sidebar.windows', { count: s.windows })}
                         </span>
                       </button>
                       {/* Los controles de hover COLAPSAN, no se limitan a

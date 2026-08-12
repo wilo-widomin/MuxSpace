@@ -67,6 +67,30 @@ function CheckIcon() {
   )
 }
 
+export // Icono de espacio (estilo lucide "square-stack"): dos marcos apilados.
+// Es el control de "mover a otro espacio" en la fila de sesión, donde antes
+// había un desplegable con el nombre del espacio escrito. Deliberadamente
+// distinto de los iconos de distribución (`LayoutIcon`), que también son
+// rectángulos pero hablan de cómo se reparte la rejilla, no de espacios.
+function SpaceIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2" />
+      <rect x="8" y="8" width="14" height="14" rx="2" />
+    </svg>
+  )
+}
+
 export // Icono de papelera (estilo lucide "trash-2").
 function TrashIcon() {
   return (

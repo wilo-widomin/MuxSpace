@@ -188,3 +188,38 @@ test('«Sin asignar» no se puede renombrar ni borrar', async ({ page, entorno }
     page.getByRole('button', { name: T['spaces.delete_disabled'] }),
   ).toBeDisabled()
 })
+
+test('mover una sesión a otro espacio desde su fila', async ({
+  page,
+  entorno,
+  tmux,
+}) => {
+  // El control de mover es un <select> nativo dibujado como un icono: va
+  // encima del dibujo, transparente. Eso lo puede romper el CSS sin que
+  // ningún test de unidad se entere, porque en el DOM sigue estando. Por eso
+  // aquí se le hace CLIC de verdad —Playwright comprueba que el elemento que
+  // hay bajo el puntero es ese y no el icono— antes de elegir la opción.
+  const sesion = nombreSesion('-a-mover')
+  tmux(['new-session', '-d', '-s', sesion])
+
+  await entrar(page, entorno)
+  const titulo = `destino-${Date.now().toString(36)}`
+  await crearEspacio(page, titulo)
+  // Crear un espacio deja la pestaña mirándolo. La sesión sigue en «Sin
+  // asignar», que es de donde hay que moverla.
+  await mirarEspacio(page, T['spaces.unassigned'])
+
+  const fila = page.locator('aside li').filter({ hasText: sesion })
+  await fila.hover()
+  const mover = fila.getByRole('combobox', { name: T['spaces.move'] })
+  await mover.click()
+
+  const destino = (await espaciosDelBackend(page)).find((e) => e.title === titulo)
+  await mover.selectOption(destino.id)
+
+  // Se ha ido del espacio que estamos mirando («Sin asignar»)...
+  await expect(page.locator('aside').getByText(sesion, { exact: true })).toHaveCount(0)
+  // ...y está en el de destino, no solo escondida.
+  await mirarEspacio(page, titulo)
+  await expect(page.locator('aside').getByText(sesion, { exact: true })).toHaveCount(1)
+})

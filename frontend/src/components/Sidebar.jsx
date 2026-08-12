@@ -7,7 +7,13 @@ import { PasteForClaude } from './sidebar/PasteForClaude.jsx'
 import { UploadFiles } from './sidebar/UploadFiles.jsx'
 import { SectionCaret } from './sidebar/SectionCaret.jsx'
 import { UNASSIGNED, spaceKeyOf } from '../spaces.js'
-import { CheckIcon, PencilIcon, PlusIcon, TrashIcon } from './sidebar/icons.jsx'
+import {
+  CheckIcon,
+  PencilIcon,
+  PlusIcon,
+  SpaceIcon,
+  TrashIcon,
+} from './sidebar/icons.jsx'
 import { SpacesBar } from './sidebar/SpacesBar.jsx'
 import { LAYOUTS, LayoutIcon } from './SessionGrid.jsx'
 
@@ -649,31 +655,50 @@ export default function Sidebar({
                             {s.name}
                           </span>
                         </span>
-                        <span className="ml-2 shrink-0 text-xs text-panel-muted">
-                          {isOpen
-                            ? t('sidebar.state_open')
-                            : t('sidebar.windows', { count: s.windows })}
+                        {/* Que la sesión esté abierta ya lo dicen el fondo de
+                          la fila, el nombre atenuado y la ✕ de ocultar, que
+                          solo existe si lo está. Escribirlo además aquí
+                          gastaba el hueco del contador —el nombre es lo que
+                          se quedaba sin sitio— y dejaba sin ventanas a la
+                          sesión en cuanto la abrías. */}
+                        {/* En hover desaparece para dejarle su hueco al
+                          nombre: al pasar por encima estás yendo a los
+                          botones, no leyendo cuántas ventanas hay. */}
+                        <span className="ml-2 shrink-0 text-xs text-panel-muted group-hover:hidden">
+                          {t('sidebar.windows', { count: s.windows })}
                         </span>
                       </button>
-                      <MoveToSpace
-                        session={s}
-                        spaces={spaces}
-                        onAssign={onAssignSpace}
-                      />
-                      <button
-                        onClick={() => startRename(s)}
-                        title={t('sidebar.rename_session')}
-                        className="shrink-0 rounded p-1.5 text-panel-muted opacity-0 transition hover:bg-panel-surface hover:text-gray-100 group-hover:opacity-100"
-                      >
-                        <PencilIcon />
-                      </button>
-                      <button
-                        onClick={() => killSession(s)}
-                        title={t('sidebar.kill_session')}
-                        className="mr-1 shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-red-500/20 hover:text-red-400"
-                      >
-                        <DoorIcon />
-                      </button>
+                      {/* Los controles de hover COLAPSAN, no se limitan a
+                        volverse transparentes: `opacity-0` sigue ocupando su
+                        hueco, y esos ~110px se los quitaba al nombre de la
+                        sesión en reposo, que es cuando de verdad quieres
+                        leerlo. `focus-within` los saca también con el
+                        teclado, que si no serían inalcanzables sin ratón.
+
+                        Y donde NO hay hover —el móvil, y este panel se usa
+                        desde el móvil— se quedan desplegados siempre: si no,
+                        no habría forma de llegar a ellos con el dedo. */}
+                      <div className="flex max-w-0 shrink-0 items-center overflow-hidden opacity-0 transition-all focus-within:max-w-[8rem] focus-within:opacity-100 group-hover:max-w-[8rem] group-hover:opacity-100 [@media(hover:none)]:max-w-[8rem] [@media(hover:none)]:opacity-100">
+                        <MoveToSpace
+                          session={s}
+                          spaces={spaces}
+                          onAssign={onAssignSpace}
+                        />
+                        <button
+                          onClick={() => startRename(s)}
+                          title={t('sidebar.rename_session')}
+                          className="shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-panel-surface hover:text-gray-100"
+                        >
+                          <PencilIcon />
+                        </button>
+                        <button
+                          onClick={() => killSession(s)}
+                          title={t('sidebar.kill_session')}
+                          className="mr-1 shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-red-500/20 hover:text-red-400"
+                        >
+                          <DoorIcon />
+                        </button>
+                      </div>
                       {isOpen && (
                         <button
                           onClick={() => onHideTile(s.name)}
@@ -1208,11 +1233,17 @@ export default function Sidebar({
   )
 }
 
-// Mueve una sesión a otro espacio. Un <select> nativo en vez de un menú
-// propio: es lo que mejor funciona con el dedo, y este panel se usa también
-// desde el móvil. En la vista «Todas» se muestra siempre (hace de etiqueta
-// de a qué espacio pertenece); dentro de un espacio concreto sería
-// redundante, así que solo aparece al pasar por encima.
+// Mueve una sesión a otro espacio. Sigue siendo un <select> NATIVO —es lo
+// que mejor funciona con el dedo, y este panel se usa también desde el
+// móvil—, pero se dibuja como un icono: el desplegable va encima,
+// transparente, cubriendo el icono. Así el control ocupa lo que un botón en
+// vez de los ~7rem que le comía al nombre de la sesión, y aun así el que se
+// abre al pulsarlo es el selector del sistema, con su teclado y su
+// accesibilidad ya resueltos.
+//
+// El nombre del espacio ya no se lee aquí, y no hace falta: la vista «Todas»
+// se retiró (ver `spaces.js`), así que todas las sesiones de la lista son del
+// espacio que está elegido arriba.
 function MoveToSpace({ session, spaces, onAssign }) {
   const { t, tError } = useT()
   const [error, setError] = useState(null)
@@ -1228,21 +1259,27 @@ function MoveToSpace({ session, spaces, onAssign }) {
   }
 
   return (
-    <select
-      value={value}
-      onChange={change}
+    <span
       title={error || t('spaces.move')}
-      className={`mr-1 max-w-[7rem] shrink-0 truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-xs opacity-0 outline-none transition hover:border-panel-border focus:border-panel-accent focus:opacity-100 group-hover:opacity-100 ${
-        error ? 'text-red-400' : 'text-panel-muted'
+      className={`relative mr-1 shrink-0 rounded p-1.5 transition hover:bg-panel-surface ${
+        error ? 'text-red-400' : 'text-panel-muted hover:text-gray-100'
       }`}
     >
-      <option value={UNASSIGNED}>{t('spaces.unassigned')}</option>
-      {spaces.map((s) => (
-        <option key={s.id} value={s.id}>
-          {s.title}
-        </option>
-      ))}
-    </select>
+      <SpaceIcon />
+      <select
+        value={value}
+        onChange={change}
+        aria-label={t('spaces.move')}
+        className="absolute inset-0 cursor-pointer opacity-0 outline-none"
+      >
+        <option value={UNASSIGNED}>{t('spaces.unassigned')}</option>
+        {spaces.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.title}
+          </option>
+        ))}
+      </select>
+    </span>
   )
 }
 

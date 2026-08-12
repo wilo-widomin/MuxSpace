@@ -201,3 +201,41 @@ describe('suggestName', () => {
     expect(suggestName(['trabajo', 'notas'])).toBe('sesion-1')
   })
 })
+
+describe('fila de sesión', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  const sesion = { name: 'trabajo', windows: 3, attached: true, space: null }
+
+  /** Monta el sidebar con una sesión suelta visible en «Sin asignar». */
+  function conSesion(extra = {}) {
+    return montar({ sessions: [sesion], activeSpace: 'unassigned', ...extra })
+  }
+
+  it('enseña las ventanas también cuando la sesión está abierta', () => {
+    // El caso que se rompía: al abrirla, el contador se sustituía por la
+    // palabra «abierta» y dejabas de saber cuántas ventanas tenía.
+    conSesion({ openNames: ['trabajo'] })
+
+    expect(screen.getByText('3 ventanas')).toBeTruthy()
+    expect(screen.queryByText('abierta')).toBeNull()
+  })
+
+  it('el selector de espacio sigue siendo alcanzable por su nombre', () => {
+    // Se dibuja como un icono, con el <select> nativo encima e invisible.
+    // Que sea invisible es cosa del CSS: el control tiene que seguir
+    // existiendo, con nombre accesible, y asignar al cambiarlo.
+    const onAssignSpace = vi.fn(() => Promise.resolve())
+    conSesion({
+      spaces: [{ id: 'esp-1', title: 'Trabajo' }],
+      onAssignSpace,
+    })
+
+    const selector = screen.getByRole('combobox', { name: 'Mover a otro espacio' })
+    fireEvent.change(selector, { target: { value: 'esp-1' } })
+
+    expect(onAssignSpace).toHaveBeenCalledWith('trabajo', 'esp-1')
+  })
+})

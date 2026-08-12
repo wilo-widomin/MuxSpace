@@ -67,26 +67,39 @@ function CheckIcon() {
   )
 }
 
-export // Icono de espacio (estilo lucide "square-stack"): dos marcos apilados.
-// Es el control de "mover a otro espacio" en la fila de sesión, donde antes
-// había un desplegable con el nombre del espacio escrito. Deliberadamente
-// distinto de los iconos de distribución (`LayoutIcon`), que también son
-// rectángulos pero hablan de cómo se reparte la rejilla, no de espacios.
+export // Icono de espacio: cuatro nodos unidos por un anillo, uno en el punto
+// medio de cada lado. Es el control de "mover a otro espacio" en la fila de
+// sesión, donde antes había un desplegable con el nombre del espacio escrito.
+//
+// El trazo del anillo se corta al llegar a cada nodo (cuatro segmentos en
+// vez de un rectángulo entero): si no, la línea cruzaría los cuadrados por
+// dentro y a este tamaño el dibujo se convierte en una mancha.
+//
+// Más grande y más fino que los demás iconos de la fila (16/1.5 frente a
+// 13/2) por la misma razón: tiene ocho trazos donde un lápiz tiene dos, así
+// que con el grosor de los otros se emborrona. Al ser más fino, el peso
+// visual acaba pareciéndose al del resto pese a medir más.
 function SpaceIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="13"
-      height="13"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2" />
-      <rect x="8" y="8" width="14" height="14" rx="2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" />
+      <rect x="9" y="17" width="6" height="4" rx="1" />
+      <rect x="2" y="10" width="6" height="4" rx="1" />
+      <rect x="16" y="10" width="6" height="4" rx="1" />
+      <path d="M9 5H6.5A1.5 1.5 0 0 0 5 6.5V10" />
+      <path d="M15 5h2.5A1.5 1.5 0 0 1 19 6.5V10" />
+      <path d="M19 14v3.5a1.5 1.5 0 0 1-1.5 1.5H15" />
+      <path d="M5 14v3.5A1.5 1.5 0 0 0 6.5 19H9" />
     </svg>
   )
 }

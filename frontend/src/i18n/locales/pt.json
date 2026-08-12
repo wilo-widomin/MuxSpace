@@ -1,5 +1,6 @@
 {
   "app.title": "MuxSpace — Painel de Sessões",
+  "app.title_space": "{space} - space",
   "app.brand": "MuxSpace",
   "app.loading": "A carregar…",
   "app.session_expired": "Sessão expirada. Inicia sessão novamente.",

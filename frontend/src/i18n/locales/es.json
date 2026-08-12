@@ -1,5 +1,6 @@
 {
   "app.title": "MuxSpace — Dashboard de Sesiones",
+  "app.title_space": "{space} - space",
   "app.brand": "MuxSpace",
   "app.loading": "Cargando…",
   "app.session_expired": "Sesión expirada. Vuelve a iniciar sesión.",

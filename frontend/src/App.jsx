@@ -324,6 +324,23 @@ export default function App() {
     // el idioma que el usuario está viendo.
   }, [authed, loadSessions, loadCommands, loadSpaces])
 
+  // ---- Título de la pestaña ----
+  // Lleva el nombre del espacio porque cada pestaña mira uno, y con varias
+  // abiertas el título es lo ÚNICO que las distingue: sin él, todas ponían
+  // «MuxSpace» y había que entrar en cada una para saber cuál era cuál.
+  //
+  // Sin autenticar se queda el nombre a secas: los espacios son datos del
+  // usuario y no tienen por qué leerse en la barra del navegador de una
+  // pantalla de login. Es también lo que se ve mientras cargan.
+  useEffect(() => {
+    const espacio =
+      activeSpace === UNASSIGNED
+        ? t('spaces.unassigned')
+        : spaces.find((s) => s.id === activeSpace)?.title
+    document.title =
+      authed && espacio ? t('app.title_space', { space: espacio }) : t('app.title')
+  }, [authed, activeSpace, spaces, t])
+
   // ---- Login ----
   // El backend valida y deja la sesión en una cookie HttpOnly; aquí no se
   // retiene la contraseña en ningún momento.

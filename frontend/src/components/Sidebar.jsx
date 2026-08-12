@@ -907,6 +907,7 @@ export default function Sidebar({
       <UploadFiles
         open={openSection === 'upload'}
         onToggle={() => toggleSection('upload')}
+        space={activeSpace}
       />
 
       <footer className="flex items-center justify-between gap-2 border-t border-panel-border bg-black px-4 py-3">

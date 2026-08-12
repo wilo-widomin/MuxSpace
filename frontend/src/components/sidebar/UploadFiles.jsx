@@ -7,11 +7,42 @@ import { DirBrowserModal } from './DirBrowserModal.jsx'
 import { FolderIcon } from './Modal.jsx'
 import { SectionCaret } from './SectionCaret.jsx'
 
+// Carpeta a la que se sube mientras nadie elija otra.
+const DEFAULT_DIR = '~/tmp'
+
+// Última carpeta elegida, POR ESPACIO. En localStorage y no en sessionStorage
+// —a diferencia del espacio activo, que es de cada pestaña— porque el destino
+// de las subidas de un espacio es una preferencia que dura, no algo que se
+// decida otra vez en cada pestaña.
+const DIR_KEY = 'muxspace:upload-dir'
+const dirKeyOf = (space) => `${DIR_KEY}:${space || 'unassigned'}`
+
+/** Carpeta recordada para `space`, o `null` si no hay ninguna. */
+function readSavedDir(space) {
+  try {
+    return localStorage.getItem(dirKeyOf(space)) || null
+  } catch {
+    return null // sin localStorage: se usa la de por defecto y no se recuerda
+  }
+}
+
+function saveDir(space, dir) {
+  try {
+    localStorage.setItem(dirKeyOf(space), dir)
+  } catch {
+    /* sin localStorage: el destino vale para esta sesión y nada más */
+  }
+}
+
 // Subir archivos a una carpeta que el usuario elige con un navegador tipo
 // explorador (DirBrowserModal). A diferencia de "pegar imagen", el destino
 // es una carpeta REAL del usuario y los archivos no se borran nunca: solo
 // guardamos el historial de las últimas 5 subidas para recopiar su ruta.
-export function UploadFiles({ open, onToggle }) {
+//
+// El destino se recuerda por espacio: cada uno suele tener su carpeta de
+// trabajo, y volver a elegirla a mano cada vez que se cambia de espacio era
+// el trabajo que este panel existe para ahorrar.
+export function UploadFiles({ open, onToggle, space }) {
   const { t, tError } = useT()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -30,24 +61,36 @@ export function UploadFiles({ open, onToggle }) {
     }
   }
 
-  // Al abrir: cargamos el historial y, si aún no hay carpeta elegida, pedimos
-  // la carpeta por defecto (la primera raíz configurada) para tener destino.
+  // Al abrir: el historial de subidas.
   useEffect(() => {
     if (!open) return
     refreshUploads()
-    if (destDir === null) {
-      api
-        .dirBrowse('')
-        .then((r) => setDestDir(r.path))
-        .catch(() => {})
-    }
-    // La regla pide `destDir`, y se silencia a propósito: el efecto es "al
-    // abrir la sección", no "cuando cambie el destino". Con `destDir` en las
-    // dependencias se relanzaría cada vez que el usuario elige carpeta,
-    // recargando el historial sin motivo; y como el propio efecto llama a
-    // `setDestDir`, la primera vez se ejecutaría dos veces seguidas.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  // Destino: el que este espacio tenga recordado y, si no, `~/tmp`.
+  //
+  // No se da por bueno sin más: se le pregunta al backend, que es quien sabe
+  // si esa carpeta existe y sigue dentro de las raíces permitidas. Una
+  // carpeta borrada desde la última vez —o un `~/tmp` que no exista— caería
+  // en un destino inválido y la subida fallaría en el peor momento, con el
+  // archivo ya elegido. Si no vale, se cae a la primera raíz configurada.
+  useEffect(() => {
+    if (!open) return
+    let cancelado = false
+    const guardada = readSavedDir(space)
+    api
+      .dirBrowse(guardada || DEFAULT_DIR)
+      .catch(() => api.dirBrowse(''))
+      .then((r) => {
+        // Cambiar de espacio mientras la respuesta viaja dejaría el destino
+        // del espacio anterior pintado en el nuevo.
+        if (!cancelado) setDestDir(r.path)
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [open, space])
 
   async function doUpload(file) {
     if (!file) return
@@ -241,6 +284,7 @@ export function UploadFiles({ open, onToggle }) {
           onClose={() => setBrowserOpen(false)}
           onPick={(path) => {
             setDestDir(path)
+            saveDir(space, path)
             setBrowserOpen(false)
           }}
         />

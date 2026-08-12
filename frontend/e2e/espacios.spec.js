@@ -223,3 +223,21 @@ test('mover una sesión a otro espacio desde su fila', async ({
   await mirarEspacio(page, titulo)
   await expect(page.locator('aside').getByText(sesion, { exact: true })).toHaveCount(1)
 })
+
+test('el título de la pestaña lleva el espacio que se está mirando', async ({
+  page,
+  entorno,
+}) => {
+  // Con varias pestañas abiertas —que es como se usa esto: una por espacio—
+  // el título es lo único que las distingue en la barra del navegador.
+  await entrar(page, entorno)
+  await expect(page).toHaveTitle(
+    T['app.title_space'].replace('{space}', T['spaces.unassigned']),
+  )
+
+  const titulo = `mirado-${Date.now().toString(36)}`
+  await crearEspacio(page, titulo)
+  await mirarEspacio(page, titulo)
+
+  await expect(page).toHaveTitle(T['app.title_space'].replace('{space}', titulo))
+})

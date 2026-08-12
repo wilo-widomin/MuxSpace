@@ -138,13 +138,17 @@ export function LangProvider({ children }) {
     return { lang, setLang, t, tError: makeTError(t) }
   }, [lang])
 
-  // `<html lang>` es lo que usan los lectores de pantalla para elegir voz
-  // y el navegador para partir palabras; el título vive aquí porque
-  // index.html ya no puede saber en qué idioma se va a pintar la página.
+  // `<html lang>` es lo que usan los lectores de pantalla para elegir voz y
+  // el navegador para partir palabras.
+  //
+  // El `<title>` NO se pone aquí, aunque también dependa del idioma: lo lleva
+  // `App`, que es quien sabe qué espacio mira esta pestaña. Puesto en los dos
+  // sitios, este efecto ganaría —los efectos de los hijos corren antes que
+  // los del padre, y `LangProvider` envuelve a `App`— y el nombre del espacio
+  // desaparecería del título en cuanto se cambiara de idioma.
   useEffect(() => {
     document.documentElement.lang = lang
-    document.title = value.t('app.title')
-  }, [lang, value])
+  }, [lang])
 
   return <LangContext.Provider value={value}>{children}</LangContext.Provider>
 }

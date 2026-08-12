@@ -43,7 +43,6 @@
   "sidebar.open": "Apri",
   "sidebar.attached": "Sessione collegata",
   "sidebar.detached": "Sessione scollegata",
-  "sidebar.state_open": "aperta",
   "sidebar.windows": {
     "one": "{count} finestra",
     "other": "{count} finestre"

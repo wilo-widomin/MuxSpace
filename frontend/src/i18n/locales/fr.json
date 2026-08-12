@@ -43,7 +43,6 @@
   "sidebar.open": "Ouvrir",
   "sidebar.attached": "Session attachée",
   "sidebar.detached": "Session détachée",
-  "sidebar.state_open": "ouverte",
   "sidebar.windows": {
     "one": "{count} fenêtre",
     "other": "{count} fenêtres"

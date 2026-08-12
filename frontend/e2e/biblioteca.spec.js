@@ -146,6 +146,10 @@ test('la sesión que crea un comando con «$» se puede matar', async ({
   const creada = sesiones(tmux)[0]
 
   page.on('dialog', (d) => d.accept())
+  // Hay que pasar por encima de la fila primero: los botones de acción están
+  // colapsados hasta el hover, para que el nombre de la sesión disponga de
+  // todo el ancho mientras solo la estás mirando.
+  await sesionEnLista(page, creada).first().hover()
   await page
     .locator('aside')
     .getByRole('button', { name: T['sidebar.kill_session'] })

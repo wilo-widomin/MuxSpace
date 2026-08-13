@@ -72,13 +72,45 @@ host no se ven afectados.
   Gestionar certificados → Tus certificados → Importar el `.p12`.
 - **Firefox:** Ajustes → Privacidad & Seguridad → Certificados → Ver
   certificados → Sus certificados → Importar.
-- **Android:** copiar el `.p12` → Ajustes → Seguridad → Instalar
-  certificado → Certificado de usuario (VPN y apps).
 - **iOS:** enviarse el `.p12` (AirDrop/Files) → Ajustes → Perfil
   descargado → Instalar.
 
 Al entrar por primera vez el navegador pregunta qué certificado usar; se
 elige una vez y queda recordado.
+
+### Android
+
+Android necesita **dos** certificados distintos, y se instalan por
+caminos distintos. Si falta el primero el navegador avisa de que el
+dominio no es de fiar; si falta el segundo el handshake muere con
+`ERR_BAD_SSL_CLIENT_AUTH_CERT`.
+
+El teléfono debe tener **bloqueo de pantalla** (PIN, patrón o huella):
+sin él Android se niega a guardar credenciales.
+
+1. **La CA que firma el certificado del dominio** (la de quien emite el
+   cert del servidor en el host — con `mkcert`, el `rootCA.pem` que
+   devuelve `mkcert -CAROOT` **en el host**, no en la VM).
+   Copiar al teléfono y: Ajustes → Seguridad → Más ajustes de seguridad →
+   Cifrado y credenciales → Instalar un certificado → **Certificado de
+   CA**. Android avisa de que «la red puede estar monitorizada»: es
+   normal con una CA propia. Chrome sí confía en las CA instaladas por el
+   usuario.
+
+2. **El `.p12` del dispositivo** (el que emite este script): mismo menú →
+   Instalar un certificado → **Certificado de VPN y apps**. Ojo: *no*
+   «Certificado de Wi-Fi», que es el que ofrece por defecto en varias
+   capas de fabricante y deja el certificado donde Chrome no lo ve.
+
+Después, al abrir el panel, Chrome debe preguntar qué certificado usar.
+**Si no pregunta y falla directamente, el `.p12` no está en el almacén
+correcto**: repetir el paso 2.
+
+El certificado de cliente tiene que ser **X.509 v3 con `clientAuth`**
+(este script ya los emite así). Los `.p12` emitidos antes de agosto de
+2026 eran de versión 1, sin extensiones: funcionan en escritorio pero
+Android no los ofrece nunca. Si el teléfono no muestra el picker con un
+certificado antiguo, reemítelo con este script.
 
 ## 4. ¿Y la contraseña del panel?
 

@@ -41,9 +41,23 @@ openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
     -keyout "$NAME.key" -out "$NAME.csr" -nodes \
     -subj "/CN=$NAME" 2>/dev/null
 chmod 600 "$NAME.key"
+
+# Extensiones v3. Sin ellas openssl emite un certificado de versión 1 (sin
+# ninguna extensión): los navegadores de escritorio lo aceptan, pero el
+# almacén de credenciales de Android exige un cliente v3 con `clientAuth`
+# y no llega a ofrecerlo al elegir certificado — la conexión muere con
+# ERR_BAD_SSL_CLIENT_AUTH_CERT sin que el picker aparezca siquiera.
+cat > "$NAME.ext" <<EXT
+basicConstraints = critical, CA:FALSE
+keyUsage = critical, digitalSignature, keyAgreement
+extendedKeyUsage = clientAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
+subjectAltName = DNS:$NAME
+EXT
 openssl x509 -req -in "$NAME.csr" -CA ca.crt -CAkey ca.key -CAcreateserial \
-    -days "$DAYS" -out "$NAME.crt" 2>/dev/null
-rm -f "$NAME.csr"
+    -days "$DAYS" -extfile "$NAME.ext" -out "$NAME.crt" 2>/dev/null
+rm -f "$NAME.csr" "$NAME.ext"
 
 # --- Paquete .p12 para el dispositivo ------------------------------------
 # -legacy: OpenSSL 3 cifra los .p12 con AES/SHA-256 por defecto y los

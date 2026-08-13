@@ -5,6 +5,87 @@ cliente** emitido por nuestra propia CA. Quien no lo tenga ni siquiera
 completa el handshake TLS: no ve el login, ni la API, ni el WebSocket. La
 fuerza bruta de contraseñas desaparece como categoría de ataque.
 
+> **¿Solo quieres conectar un dispositivo nuevo?** Salta a [Alta de un
+> dispositivo nuevo](#alta-de-un-dispositivo-nuevo). El resto del documento
+> es el montaje inicial, que ya está hecho.
+
+## Los dos certificados que no hay que confundir
+
+Casi todos los fallos al dar de alta un dispositivo salen de mezclar estas
+dos cosas, que son independientes y viajan por caminos distintos:
+
+| | **CA del dominio** | **Certificado de cliente** |
+| :--- | :--- | :--- |
+| Para qué | Que el navegador se fíe del `https://` | Que el proxy te deje pasar |
+| Quién lo emite | Quien firme el cert del servidor (aquí `mkcert`, **en el host**) | Nuestra CA de mTLS, en la VM |
+| Archivo | `rootCA.pem` (público) | `<dispositivo>.p12` (contiene clave privada) |
+| Si falta | «El sitio no es seguro» | `ERR_BAD_SSL_CLIENT_AUTH_CERT` |
+
+Ninguno sustituye al otro: **hacen falta los dos**. Y la CA del dominio es
+la del **host**, no la de la VM — si la VM también tiene `mkcert`
+instalado, su `rootCA.pem` es otra CA distinta que no firma nada de esto.
+
+## Alta de un dispositivo nuevo
+
+### 1. Emitir el certificado (en la VM)
+
+```bash
+./scripts/mtls-client-cert.sh <nombre-dispositivo>
+```
+
+Deja `<nombre-dispositivo>.p12` en `~/certs/muxspace-mtls/`, protegido con
+la contraseña de exportación que te pida.
+
+### 2. Reunir los dos archivos
+
+- **`<nombre>.p12`** — el que acabas de emitir, en la VM.
+- **`rootCA.pem`** — en el **host**, dentro de la ruta que devuelve
+  `mkcert -CAROOT` allí.
+
+Junta los dos en la misma máquina. Si el dispositivo está en la LAN y la
+VM no (caso típico: la VM vive en una red interna detrás del host), el
+punto de reunión tiene que ser **el host**, porque es el único que ve las
+dos redes:
+
+```bash
+# En el host
+scp <usuario>@<ip-de-la-vm>:~/certs/muxspace-mtls/<nombre>.p12 ~/
+cp "$(mkcert -CAROOT)/rootCA.pem" ~/
+```
+
+### 3. Pasarlos al dispositivo
+
+Cable, correo, o un servidor de usar y tirar en el host:
+
+```bash
+cd ~ && python3 -m http.server 8765   # abrir http://<ip-del-host>:8765/
+```
+
+**Córtalo en cuanto termines**: sirve el `$HOME` entero a la LAN.
+
+### 4. Instalar
+
+Ver [Instalar el `.p12` en cada dispositivo](#3-instalar-el-p12-en-cada-dispositivo)
+más abajo — el camino cambia bastante según el sistema, y el de Android
+tiene trampa.
+
+### 5. Comprobar
+
+Al abrir el panel, el navegador **debe preguntar qué certificado usar**.
+Si no pregunta y falla directamente, el certificado de cliente no está
+donde el navegador lo busca.
+
+Para comprobar desde la VM que un certificado recién emitido es válido de
+verdad, sin depender del dispositivo:
+
+```bash
+curl --resolve <dominio>:443:<ip-del-host> -k \
+     --cert <nombre>.crt --key <nombre>.key https://<dominio>/
+```
+
+Debe devolver 200. Usa el par `.crt`/`.key`, no el `.p12`: los `.p12` en
+formato legacy no los lee `curl` con OpenSSL 3.
+
 ## Dónde se aplica
 
 El mTLS se verifica **donde se termina TLS**. En este despliegue:

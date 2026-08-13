@@ -65,3 +65,6 @@ frontend/e2e/.tmp/
 frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
+
+# Documentación con detalles de red reales (IPs, dominios, hosts): nunca al repo
+docs/*.local.md

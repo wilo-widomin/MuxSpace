@@ -10,3 +10,17 @@ export const LEGACY_ALL_SPACES = 'all'
 
 // `space` de una sesión (null si no tiene) -> clave de espacio para la UI.
 export const spaceKeyOf = (session) => session.space || UNASSIGNED
+
+// Espacio con el que arranca una pestaña.
+//
+// `?space=<id>` es una ORDEN DE APERTURA, no el estado de la pestaña: la pone
+// el botón "abrir proyecto en pestaña nueva" para decir a dónde entrar. Se
+// obedece una sola vez y luego se borra de la URL (ver App.jsx); si se
+// quedara, cada recarga volvería a imponer ese espacio y pisaría en silencio
+// el que el usuario eligió después — que es exactamente lo que pasaba:
+// recargar te devolvía al proyecto que abriste en esa pestaña hace días.
+export function initialSpace(search, saved) {
+  const fromUrl = new URLSearchParams(search).get('space')
+  if (fromUrl) return fromUrl
+  return !saved || saved === LEGACY_ALL_SPACES ? UNASSIGNED : saved
+}

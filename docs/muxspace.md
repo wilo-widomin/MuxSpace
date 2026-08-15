@@ -62,8 +62,12 @@ Tres capas que se comunican entre sí, más un almacenamiento persistente.
 - **WebSocket** (`/api/terminal/{name}`) para el flujo bidireccional de
   bytes de la terminal:
   - cliente → servidor (binario): *stdin* del teclado.
-  - cliente → servidor (texto/JSON): control, p. ej. `{"type":"resize","cols":…,"rows":…}`.
+  - cliente → servidor (texto/JSON): control, p. ej. `{"type":"resize","cols":…,"rows":…}`
+    y el scroll del historial (`scroll`, `scroll-to`, `scroll-query`,
+    `scroll-exit`).
   - servidor → cliente (binario): *stdout* del terminal.
+  - servidor → cliente (texto/JSON): estado, hoy solo
+    `{"type":"scroll-state","position":…,"history":…,"height":…}`.
 - Todo por el **mismo origen** que la API; no se abren puertos adicionales
   por sesión.
 
@@ -117,6 +121,48 @@ Navegador ──HTTP──────> FastAPI (API + frontend estático)
   portapapeles, también llega al del sistema. Para ello el backend activa
   en cada sesión, *best-effort*, `allow-passthrough on` y
   `set-clipboard on` (se ignoran errores en tmux antiguos).
+- **El ratón de tmux está en `off` a propósito** (`set -g mouse off` en el
+  `~/.tmux.conf` de la máquina, que no se versiona). Con `mouse on`, tmux
+  captura el arrastre y xterm.js nunca llega a tener una selección del
+  navegador: el copiar-al-seleccionar deja de funcionar. Fue un bug real de
+  este panel, así que **no se toca**.
+
+### D. Scroll del historial
+
+- tmux ocupa la **pantalla alternativa**, de modo que el scrollback propio de
+  xterm.js está siempre vacío: todo el historial vive dentro de tmux y solo
+  se alcanza por su *copy-mode*. Por eso la rueda no movía nada y no había
+  barra que enseñar.
+- Con el ratón en off (ver arriba), el gesto lo traduce el cliente: la rueda y
+  la barra que pinta el propio componente mandan `scroll` / `scroll-to` por el
+  WebSocket, y el backend los convierte en `copy-mode -e` + `send-keys -X`.
+  tmux devuelve la posición en un `scroll-state` y con eso se dibuja la barra.
+- **Teclear vuelve al final**: si el usuario está mirando el historial, el
+  puente cancela el copy-mode antes de inyectar la pulsación. Si no, las
+  teclas se las comería el copy-mode y la terminal parecería colgada.
+- **Quién se queda la rueda lo decide `alternate_on`**, que viaja en el
+  `scroll-state`. Si el programa del panel ocupa *su* pantalla alternativa
+  (Claude Code, vim, less), tmux no guarda ni una línea de eso: el cliente no
+  intercepta la rueda y xterm.js la traduce a flechas para que scrollee el
+  programa. Solo cuando el panel está en la pantalla normal entran en juego
+  el copy-mode y la barra.
+- La barra se pinta con `z-20`: xterm.js apila sus capas hasta `z-index: 10`,
+  así que sin eso queda debajo del terminal, invisible y sin recibir clics.
+
+### E. Búsqueda en el historial
+
+- **Ctrl/Cmd+F** abre una caja de búsqueda sobre la terminal. Enter salta a la
+  coincidencia anterior (lo más reciente primero), Mayús+Enter deshace el
+  camino y Esc cierra y vuelve al final.
+- La resuelve la búsqueda del **copy-mode de tmux** (`search-backward` /
+  `search-forward`), por el mismo canal de control. El buscador de xterm.js no
+  sirve aquí por lo mismo que no servía su scrollbar: su buffer está vacío. El
+  **resaltado de coincidencias lo pinta tmux** (`copy-mode-match-style`).
+- En pantalla alternativa **no se intercepta el atajo**: ahí no hay historial
+  de tmux, y Ctrl+F es del programa (Claude Code, vim…), no del panel.
+- No debe confundirse con el campo de búsqueda de la cabecera del tile: ese
+  filtra la **biblioteca de comandos** y ejecuta el que elijas; no mira el
+  contenido de la terminal.
 
 ## 4. Flujo de Trabajo (Logic Flow)
 

@@ -3,7 +3,7 @@ import Sidebar, { Resizer } from './components/Sidebar.jsx'
 import SessionGrid, { LAYOUTS } from './components/SessionGrid.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
 import { api, ApiError } from './api.js'
-import { LEGACY_ALL_SPACES, UNASSIGNED } from './spaces.js'
+import { initialSpace, UNASSIGNED } from './spaces.js'
 import { useT } from './i18n/index.jsx'
 
 // ---- Espacios y visibilidad ----
@@ -69,12 +69,21 @@ export default function App() {
   // `?space=<id>` manda sobre lo guardado: es como llega una pestaña abierta
   // desde el botón "abrir proyecto en pestaña nueva", que necesita fijar el
   // espacio de destino aunque esta pestaña sea reutilizada por el navegador.
-  const [activeSpace, setActiveSpace] = useState(() => {
-    const fromUrl = new URLSearchParams(window.location.search).get('space')
-    if (fromUrl) return fromUrl
-    const saved = sessionStorage.getItem(ACTIVE_SPACE_KEY)
-    return !saved || saved === LEGACY_ALL_SPACES ? UNASSIGNED : saved
-  })
+  const [activeSpace, setActiveSpace] = useState(() =>
+    initialSpace(window.location.search, sessionStorage.getItem(ACTIVE_SPACE_KEY)),
+  )
+
+  // El `?space=` se consume UNA vez y se quita de la URL. Es una orden de
+  // apertura, no el estado de la pestaña: mientras siguiera ahí, cada recarga
+  // volvía a imponerlo y te sacaba del espacio en el que estabas trabajando,
+  // sin avisar y sin que nada en pantalla explicara por qué.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has('space')) return
+    url.searchParams.delete('space')
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [])
+
   useEffect(() => {
     try {
       sessionStorage.setItem(ACTIVE_SPACE_KEY, activeSpace)

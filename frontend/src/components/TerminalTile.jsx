@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { api } from '../api.js'
 import XtermTerminal from './XtermTerminal.jsx'
 import { useT } from '../i18n/index.jsx'
@@ -12,7 +12,13 @@ import { useT } from '../i18n/index.jsx'
 // transparente sobre el iframe: de lo contrario, el iframe captura los
 // eventos del ratón y no se dispararían los `dragover`/`drop`.
 //
-// Incluye un input de búsqueda para comandos de la biblioteca.
+// Junto al título hay dos acciones:
+//
+//   - ▶ abre la biblioteca de comandos (un desplegable con su filtro) para
+//     lanzar uno en esta sesión. Antes esto era un input a lo ancho de todo
+//     el tile, una línea permanente para algo que se usa de tarde en tarde.
+//   - 🔍 abre la búsqueda de la terminal, lo mismo que Ctrl+F. Existe porque
+//     en una tableta no hay Ctrl.
 export default function TerminalTile({
   session,
   isActive,
@@ -33,25 +39,35 @@ export default function TerminalTile({
 }) {
   const { t, tError } = useT()
   const [search, setSearch] = useState('')
-  const [filteredCommands, setFilteredCommands] = useState([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [inputError, setInputError] = useState(null)
+  // Cada incremento le pide a la terminal que abra su búsqueda. Es un
+  // contador y no un booleano por lo mismo que `focusToken`: el hijo se lo
+  // gestiona por dentro y el padre solo dispara, así no hay que sincronizar
+  // dos estados de "abierto" que pueden discrepar.
+  const [searchToken, setSearchToken] = useState(0)
+  const inputRef = useRef(null)
 
-  // Filtrar comandos al escribir
-  useEffect(() => {
-    if (search.length > 0) {
-      const matches = commands.filter(
+  // La lista se ofrece ORDENADA alfabéticamente: es un catálogo que se mira,
+  // no un historial, y el orden en que se creó cada comando no le dice nada a
+  // quien busca uno.
+  const filteredCommands = useMemo(() => {
+    const aguja = search.trim().toLowerCase()
+    return commands
+      .filter(
         (c) =>
-          c.label.toLowerCase().includes(search.toLowerCase()) ||
-          c.command.toLowerCase().includes(search.toLowerCase()),
+          !aguja ||
+          c.label.toLowerCase().includes(aguja) ||
+          c.command.toLowerCase().includes(aguja),
       )
-      setFilteredCommands(matches)
-      setShowDropdown(true)
-    } else {
-      setFilteredCommands([])
-      setShowDropdown(false)
-    }
+      .sort((a, b) => a.label.localeCompare(b.label))
   }, [search, commands])
+
+  // Al abrir el desplegable, el foco va al filtro: quien lo abre casi siempre
+  // sabe lo que busca y quiere escribir, no apuntar con el ratón.
+  useEffect(() => {
+    if (showDropdown) inputRef.current?.focus()
+  }, [showDropdown])
 
   const handleKill = () => {
     // Texto completo en una sola clave (saltos de línea incluidos): partirlo
@@ -73,12 +89,12 @@ export default function TerminalTile({
 
   const handleKeyDown = async (e) => {
     if (e.key === 'Enter') {
+      // Solo lanza comandos de la biblioteca. Antes, un texto que no
+      // coincidiera con ninguno se enviaba tal cual al terminal, que es un
+      // "ejecuta lo que sea" escondido en un buscador: para eso ya está la
+      // propia terminal, que además muestra lo que estás escribiendo.
       if (filteredCommands.length > 0) {
-        // Usar el primer match
         await handleSendCommand(filteredCommands[0].command)
-      } else {
-        // Enviar texto literal
-        await handleSendCommand(search)
       }
     } else if (e.key === 'Escape') {
       setSearch('')
@@ -109,9 +125,34 @@ export default function TerminalTile({
         className="flex cursor-move items-center justify-between border-b border-panel-border bg-panel-surface px-3 py-1.5 select-none"
         title={t('tile.drag_hint')}
       >
-        <span className="flex items-center gap-2 truncate text-sm font-medium text-gray-100">
-          <span className="h-2 w-2 rounded-full bg-green-400" />
+        <span className="flex min-w-0 items-center gap-2 truncate text-sm font-medium text-gray-100">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" />
           <span className="truncate">{session.name}</span>
+          {/* `relative` para que el desplegable cuelgue del botón. Y el
+              `onMouseDown` con stopPropagation en ambos: la cabecera es el asa
+              de arrastre, y sin esto pulsar un icono empieza un arrastre. */}
+          <span className="relative flex shrink-0 items-center gap-0.5">
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setShowDropdown((abierto) => !abierto)}
+              title={t('tile.run_command')}
+              aria-label={t('tile.run_command')}
+              aria-expanded={showDropdown}
+              className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-green-400"
+            >
+              <PlayIcon />
+            </button>
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setSearchToken((n) => n + 1)}
+              title={t('tile.search_terminal')}
+              aria-label={t('tile.search_terminal')}
+              className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+            >
+              <SearchIcon />
+            </button>
+
+          </span>
         </span>
         <span className="flex items-center gap-0.5">
           <button
@@ -139,25 +180,31 @@ export default function TerminalTile({
         </span>
       </div>
 
-      {/* Input de búsqueda de comandos */}
-      <div className="relative border-b border-panel-border bg-panel-surface px-3 py-1">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onFocus={() => {
-            onFocus()
-            if (search.length > 0) setShowDropdown(true)
-          }}
-          onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-          placeholder={t('tile.search_placeholder')}
-          className="w-full bg-transparent text-sm text-gray-100 placeholder:text-panel-muted outline-none"
+      <div className="relative min-h-0 flex-1">
+        {/* Terminal xterm.js propia sobre WebSocket->PTY (sustituye al iframe
+            de ttyd) para poder copiar al portapapeles con navigator.clipboard. */}
+        <XtermTerminal
+          name={session.name}
+          onFocus={() => onFocus()}
+          focusToken={focusToken}
+          searchToken={searchToken}
         />
-        {inputError && <p className="mt-1 text-xs text-red-400">{inputError}</p>}
-        {showDropdown && filteredCommands.length > 0 && (
-          <div className="absolute top-full left-0 z-20 mt-1 w-full rounded border border-panel-border bg-panel-surface shadow-lg">
-            <ul className="max-h-48 overflow-y-auto">
+        {/* La lista de comandos se pinta AQUÍ, sobre la terminal, y no
+            colgando del botón ▶: el tile lleva `overflow-hidden` por las
+            esquinas redondeadas, así que ahí arriba quedaba recortada y solo
+            se veía el filtro. */}
+        {showDropdown && (
+          <div className="absolute top-1 left-2 z-30 w-64 rounded border border-panel-border bg-panel-surface shadow-lg">
+            <input
+              ref={inputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={t('tile.command_filter_placeholder')}
+              className="w-full border-b border-panel-border bg-transparent px-2 py-1 text-xs text-gray-100 placeholder:text-panel-muted outline-none"
+            />
+            <ul className="max-h-64 overflow-y-auto">
               {filteredCommands.map((c) => (
                 <li
                   key={c.id}
@@ -168,23 +215,61 @@ export default function TerminalTile({
                   {c.label}
                 </li>
               ))}
+              {filteredCommands.length === 0 && (
+                <li className="px-2 py-1 text-xs text-panel-muted">
+                  {t('tile.no_commands')}
+                </li>
+              )}
             </ul>
+            {inputError && (
+              <p className="px-2 py-1 text-xs text-red-400">{inputError}</p>
+            )}
           </div>
         )}
-      </div>
-
-      <div className="relative min-h-0 flex-1">
-        {/* Terminal xterm.js propia sobre WebSocket->PTY (sustituye al iframe
-            de ttyd) para poder copiar al portapapeles con navigator.clipboard. */}
-        <XtermTerminal
-          name={session.name}
-          onFocus={() => onFocus()}
-          focusToken={focusToken}
-        />
         {/* Capa que intercepta los eventos de arrastre sobre la terminal. */}
         {dragging && <div className="absolute inset-0 z-10" />}
       </div>
     </div>
+  )
+}
+
+// Triángulo de "ejecutar" (estilo lucide "play"), el mismo de la biblioteca
+// de comandos del Sidebar: la acción es la misma, el icono también.
+function PlayIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polygon points="6 3 20 12 6 21 6 3" />
+    </svg>
+  )
+}
+
+// Lupa (estilo lucide "search"): abre la búsqueda de la terminal sin teclado.
+function SearchIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
   )
 }
 

@@ -67,6 +67,11 @@ export const api = {
   logout: () => request('/api/logout', { method: 'POST' }),
   me: () => request('/api/me'),
   listSessions: () => request('/api/sessions'),
+  // Conversación de la sesión de Claude que corre en ese panel, para poder
+  // buscarla: lo que Claude ya sacó de pantalla no está en ningún buffer del
+  // terminal (ocupa la pantalla alternativa), pero sí en su transcript.
+  getTranscript: (name) =>
+    request(`/api/terminal/${encodeURIComponent(name)}/transcript`),
   createSession: (name, body) =>
     request(`/api/create-session/${encodeURIComponent(name)}`, {
       method: 'POST',

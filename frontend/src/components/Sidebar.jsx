@@ -521,7 +521,10 @@ export default function Sidebar({
     >
       <header className="flex items-center justify-between border-b border-panel-border bg-black px-4 py-3">
         <h1 className="text-base font-semibold">{t('app.brand')}</h1>
-        <div className="flex items-center gap-1">
+        {/* `flex-wrap`: son ocho iconos y el sidebar puede estar estrecho. Sin
+            envolver, los últimos se salen de la barra y dejan de poder
+            pulsarse — lo cazaron los E2E al añadir el cronómetro. */}
+        <div className="flex flex-wrap items-center justify-end gap-1">
           {LAYOUTS.map((mode) => (
             <button
               key={mode}

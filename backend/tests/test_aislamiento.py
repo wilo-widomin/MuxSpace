@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from conftest import ORIGIN, USERNAME
+from conftest import _FUERA_DEL_CENTINELA, ORIGIN, USERNAME
 
 import auth
 import config
@@ -19,6 +19,7 @@ import library_store
 import main
 import space_store
 import upload_store
+import worklog
 
 # La lista se DECLARA aquí y no se importa del conftest, a propósito. Es
 # contabilidad por partida doble: si el guardián leyera la misma lista que el
@@ -34,6 +35,11 @@ RUTAS = [
     ("auth", "_BANNED_PATH"),
     ("main", "_PASTE_DIR"),
     ("main", "_DATA_DIR"),
+    # El registro de tiempo (SQLite). Aquí es donde MÁS importa: es el único
+    # dato del panel que no se puede reconstruir, y además el centinela de
+    # `backend/data/` lo excluye —el panel del usuario escribe ahí cada 30 s
+    # mientras trabaja—, así que esta es la comprobación que queda.
+    ("worklog", "_DB_PATH"),
 ]
 
 _MODULOS = {
@@ -42,6 +48,7 @@ _MODULOS = {
     "main": main,
     "space_store": space_store,
     "upload_store": upload_store,
+    "worklog": worklog,
 }
 
 # Se recalcula aquí, sin importarlo del conftest, por el mismo motivo que RUTAS.
@@ -63,11 +70,19 @@ def _ruta(modulo: str, atributo: str) -> Path:
 
 
 def _huella(raiz: Path) -> dict[str, tuple[int, int]]:
-    """Ruta -> (mtime_ns, tamaño) de todo lo que cuelga de `raiz`."""
+    """Ruta -> (mtime_ns, tamaño) de todo lo que cuelga de `raiz`.
+
+    Ignora lo mismo que el centinela de sesión: el panel del usuario corre en
+    esta máquina y escribe el registro de tiempo cada 30 s (ver
+    `_FUERA_DEL_CENTINELA` en conftest.py). Que esa base esté aislada lo
+    comprueban los tests de ruta de este mismo archivo.
+    """
     if not raiz.exists():
         return {}
     huella: dict[str, tuple[int, int]] = {}
     for p in [raiz, *raiz.rglob("*")]:
+        if p.name in _FUERA_DEL_CENTINELA:
+            continue
         try:
             st = p.lstat()
         except OSError:
@@ -136,6 +151,7 @@ def test_escribir_en_todos_los_stores_no_toca_backend_data(
     space_store.create_space("Espacio de prueba")
     upload_store.add("archivo.txt", str(data_dir / "archivo.txt"), "~")
     auth.register_login_failure("203.0.113.9")
+    worklog.registrar("sp_prueba")
     resp = client_auth.post(
         "/api/paste-image", content=PNG_1X1, headers={"content-type": "image/png"}
     )
@@ -147,6 +163,7 @@ def test_escribir_en_todos_los_stores_no_toca_backend_data(
     assert (data_dir / "spaces.json").is_file()
     assert (data_dir / "upload_history.json").is_file()
     assert (data_dir / "login_failures.json").is_file()
+    assert (data_dir / "worklog.db").is_file()
     assert list((data_dir / "pastes").glob("paste-*")), "la captura no llegó a tmp"
     # La ruta que devuelve el endpoint es la que el usuario copia y pega: si
     # apuntara a los datos reales, la huella de arriba no lo vería (el fichero

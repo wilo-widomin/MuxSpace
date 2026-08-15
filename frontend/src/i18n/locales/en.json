@@ -278,5 +278,6 @@
   },
   "dashboard.declared": "declared",
   "dashboard.declared_hint": "Part of this stretch was declared by hand, not measured.",
-  "dashboard.declared_note": "Of that total, {time} is time declared by hand (work outside the panel), not measured."
+  "dashboard.declared_note": "Of that total, {time} is time declared by hand (work outside the panel), not measured.",
+  "dashboard.program": "Program"
 }

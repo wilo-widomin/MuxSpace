@@ -432,8 +432,11 @@ function GraficoDias({ dias, max }) {
 }
 
 function TablaTramos({ tramos, titulo, t }) {
-  // Fechas siempre en dd/mm/aaaa y horas en 24 h: ver `formatDate`.
-  const hora = formatTime
+  // Fechas siempre en dd/mm/aaaa y horas en 24 h CON segundos: las ranuras
+  // duran 30 s, y sin los segundos el fin de un tramo y el principio del
+  // siguiente se pintan iguales y parecen solaparse (no lo hacen: una ranura
+  // solo puede pertenecer a un espacio).
+  const hora = (epoch) => formatTime(epoch, { segundos: true })
   const fecha = formatDate
 
   return (
@@ -453,7 +456,7 @@ function TablaTramos({ tramos, titulo, t }) {
             {t('dashboard.time')}
           </th>
           <th scope="col" className="py-1 text-left font-normal">
-            {t('dashboard.sessions')}
+            {t('dashboard.program')}
           </th>
         </tr>
       </thead>
@@ -485,11 +488,18 @@ function TablaTramos({ tramos, titulo, t }) {
               <td className="py-1 pr-3 text-right tabular-nums text-gray-200">
                 {formatDurationExact(b.seconds)}
               </td>
+              {/* El programa, no la sesión: cuando cada sesión se llama
+                  como su espacio, el nombre repetía la primera columna. Los
+                  nombres siguen ahí, en el tooltip. */}
               <td
                 className="max-w-[14rem] truncate py-1 text-panel-muted"
-                title={b.sessions.join(', ')}
+                title={
+                  b.sessions.length
+                    ? `${t('dashboard.sessions')}: ${b.sessions.join(', ')}`
+                    : undefined
+                }
               >
-                {b.sessions.join(', ')}
+                {b.commands.join(', ')}
               </td>
             </tr>
           )

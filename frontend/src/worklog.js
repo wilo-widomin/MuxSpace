@@ -99,12 +99,19 @@ export function formatDate(valor) {
   return `${dia}/${mes}/${fecha.getFullYear()}`
 }
 
-/** Hora local en hh:mm (24 h). */
-export function formatTime(epochSegundos) {
+/**
+ * Hora local en 24 h. Con `segundos`, hh:mm:ss.
+ *
+ * Los tramos se listan CON segundos a propósito: las ranuras duran 30 s, así
+ * que un tramo puede acabar a las 16:11:00 y el siguiente empezar a las
+ * 16:11:00 —contiguos, no solapados—, y a resolución de minuto los dos se
+ * pintan «16:11» y parecen pisarse.
+ */
+export function formatTime(epochSegundos, { segundos = false } = {}) {
   const fecha = new Date(epochSegundos * 1000)
-  return `${String(fecha.getHours()).padStart(2, '0')}:${String(
-    fecha.getMinutes(),
-  ).padStart(2, '0')}`
+  const dosCifras = (n) => String(n).padStart(2, '0')
+  const base = `${dosCifras(fecha.getHours())}:${dosCifras(fecha.getMinutes())}`
+  return segundos ? `${base}:${dosCifras(fecha.getSeconds())}` : base
 }
 
 /**

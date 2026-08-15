@@ -113,12 +113,18 @@ class _WebSocketFalso:
         self.entrada.put_nowait({"type": "websocket.receive", "text": json.dumps(msg)})
 
     async def esperar_estado(self, timeout: float = 10.0) -> dict:
-        """Espera al siguiente `scroll-state` y lo devuelve."""
+        """Espera al siguiente `scroll-state` y lo devuelve.
+
+        Se filtra por tipo a propósito: una búsqueda manda además un
+        `search-result`, y quedarse con "el último mensaje" hacía que el test
+        leyera el que no era según cuál llegara primero.
+        """
         cuantos = len(self.control)
         limite = time.monotonic() + timeout
         while time.monotonic() < limite:
-            if len(self.control) > cuantos:
-                return self.control[-1]
+            for msg in self.control[cuantos:]:
+                if msg.get("type") == "scroll-state":
+                    return msg
             await asyncio.sleep(0.02)
         raise AssertionError("el backend no mandó ningún scroll-state")
 

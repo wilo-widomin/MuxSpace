@@ -237,5 +237,29 @@
   "compose.chars": {
     "one": "{count} Zeichen",
     "other": "{count} Zeichen"
-  }
+  },
+  "clock.counting": "Arbeitszeit wird gezählt",
+  "clock.idle": "Keine Aktivität: es wird nicht gezählt. Klicken, um trotzdem zu zählen.",
+  "clock.manual": "Manuelle Zählung (läuft nach 30 Min ohne Aktivität ab)",
+  "clock.aria": "Arbeitszeiterfassung",
+  "dashboard.title": "Arbeitszeit",
+  "dashboard.back": "Zurück zum Panel",
+  "dashboard.loading": "Wird geladen…",
+  "dashboard.empty": "In diesem Zeitraum ist noch keine Zeit erfasst.",
+  "dashboard.range_7d": "7 Tage",
+  "dashboard.range_30d": "30 Tage",
+  "dashboard.range_90d": "90 Tage",
+  "dashboard.range_all": "Alles",
+  "dashboard.total": "Gesamt",
+  "dashboard.days_worked": "Gearbeitete Tage",
+  "dashboard.avg_per_day": "Durchschnitt pro Arbeitstag",
+  "dashboard.by_space": "Nach Bereich",
+  "dashboard.by_day": "Nach Tag",
+  "dashboard.day": "Tag",
+  "dashboard.time": "Zeit",
+  "dashboard.as_table": "Als Tabelle",
+  "dashboard.as_chart": "Als Diagramm",
+  "dashboard.series_agent": "Mit laufendem Agenten",
+  "dashboard.series_other": "Übrige Arbeit",
+  "dashboard.since": "Aufzeichnung seit {date}."
 }

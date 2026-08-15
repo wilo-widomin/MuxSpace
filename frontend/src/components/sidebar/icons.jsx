@@ -126,3 +126,48 @@ function TrashIcon() {
     </svg>
   )
 }
+
+// Cronómetro (estilo lucide "timer"): estado del registro de tiempo. Cuando
+// cuenta, se rellena la aguja para que el estado no dependa solo del color.
+export function ClockIcon({ activo = false }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="10" y1="2" x2="14" y2="2" />
+      <line x1="12" y1="14" x2={activo ? '16' : '12'} y2={activo ? '11' : '9'} />
+      <circle cx="12" cy="14" r="8" />
+      {activo && <circle cx="12" cy="14" r="2" fill="currentColor" stroke="none" />}
+    </svg>
+  )
+}
+
+// Barras (estilo lucide "bar-chart-3"): la vista de tiempos.
+export function ChartIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 3v18h18" />
+      <rect x="7" y="12" width="3" height="6" />
+      <rect x="12" y="8" width="3" height="10" />
+      <rect x="17" y="4" width="3" height="14" />
+    </svg>
+  )
+}

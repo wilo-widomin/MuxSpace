@@ -237,5 +237,29 @@
   "compose.chars": {
     "one": "{count} caractère",
     "other": "{count} caractères"
-  }
+  },
+  "clock.counting": "Comptage du temps de travail",
+  "clock.idle": "Sans activité : on ne compte pas. Clique pour compter quand même.",
+  "clock.manual": "Comptage manuel (expire après 30 min sans activité)",
+  "clock.aria": "Suivi du temps de travail",
+  "dashboard.title": "Temps de travail",
+  "dashboard.back": "Retour au panneau",
+  "dashboard.loading": "Chargement…",
+  "dashboard.empty": "Aucun temps enregistré dans cette période.",
+  "dashboard.range_7d": "7 jours",
+  "dashboard.range_30d": "30 jours",
+  "dashboard.range_90d": "90 jours",
+  "dashboard.range_all": "Tout",
+  "dashboard.total": "Total",
+  "dashboard.days_worked": "Jours travaillés",
+  "dashboard.avg_per_day": "Moyenne par jour travaillé",
+  "dashboard.by_space": "Par espace",
+  "dashboard.by_day": "Par jour",
+  "dashboard.day": "Jour",
+  "dashboard.time": "Temps",
+  "dashboard.as_table": "Voir en tableau",
+  "dashboard.as_chart": "Voir en graphique",
+  "dashboard.series_agent": "Avec un agent en cours",
+  "dashboard.series_other": "Reste du travail",
+  "dashboard.since": "Enregistrement depuis le {date}."
 }

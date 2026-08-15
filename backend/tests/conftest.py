@@ -93,6 +93,7 @@ import main  # noqa: E402
 import space_store  # noqa: E402
 import tmux_service  # noqa: E402
 import upload_store  # noqa: E402
+import worklog  # noqa: E402
 
 # El directorio que nadie puede tocar, deducido de dónde vive el módulo que
 # calcula las rutas de los stores (y no de una constante escrita a mano, que
@@ -150,6 +151,11 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     # deja una línea en el `data/` real. Lo cazó el centinela de esta misma
     # sesión la primera vez que se ejecutó la suite con el log ya enganchado.
     monkeypatch.setattr(audit, "_LOG_PATH", datos / "audit.log")
+    # El registro de tiempo es SQLite y tampoco pasa por los stores. Sin esto,
+    # cualquier test que toque el endpoint del latido metería ranuras falsas en
+    # el histórico real del usuario, que es justo el dato que no se puede
+    # reconstruir.
+    monkeypatch.setattr(worklog, "_DB_PATH", datos / "worklog.db")
     # Crítico: el `lifespan` de la app llama a `harden_tree(_DATA_DIR)`, que es
     # un chmod recursivo. Sin este parche, abrir el TestClient como contexto
     # cambiaría los permisos de los ficheros reales del usuario.

@@ -237,5 +237,29 @@
   "compose.chars": {
     "one": "{count} carácter",
     "other": "{count} caracteres"
-  }
+  },
+  "clock.counting": "Contando tiempo de trabajo",
+  "clock.idle": "Sin actividad: no se está contando. Púlsalo para contar igual.",
+  "clock.manual": "Contando a mano (caduca en 30 min sin actividad)",
+  "clock.aria": "Registro de tiempo de trabajo",
+  "dashboard.title": "Tiempo de trabajo",
+  "dashboard.back": "Volver al panel",
+  "dashboard.loading": "Cargando…",
+  "dashboard.empty": "Todavía no hay tiempo registrado en este rango.",
+  "dashboard.range_7d": "7 días",
+  "dashboard.range_30d": "30 días",
+  "dashboard.range_90d": "90 días",
+  "dashboard.range_all": "Todo",
+  "dashboard.total": "Total",
+  "dashboard.days_worked": "Días con trabajo",
+  "dashboard.avg_per_day": "Media por día trabajado",
+  "dashboard.by_space": "Por espacio",
+  "dashboard.by_day": "Por día",
+  "dashboard.day": "Día",
+  "dashboard.time": "Tiempo",
+  "dashboard.as_table": "Ver como tabla",
+  "dashboard.as_chart": "Ver como gráfico",
+  "dashboard.series_agent": "Con un agente delante",
+  "dashboard.series_other": "Resto del trabajo",
+  "dashboard.since": "Hay registro desde el {date}."
 }

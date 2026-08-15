@@ -239,8 +239,8 @@
     "other": "{count} caractères"
   },
   "clock.counting": "Comptage du temps de travail",
-  "clock.idle": "Sans activité : on ne compte pas. Clique pour compter quand même.",
-  "clock.manual": "Comptage manuel (expire après 30 min sans activité)",
+  "clock.idle": "Sans activité : on ne compte pas. Clique pour déclarer que tu travailles dans cet espace.",
+  "clock.manual": "Comptage du temps déclaré (hors du panneau). Expire après 30 min sans que tu reviennes.",
   "clock.aria": "Suivi du temps de travail",
   "dashboard.title": "Temps de travail",
   "dashboard.back": "Retour au panneau",
@@ -261,5 +261,22 @@
   "dashboard.as_chart": "Voir en graphique",
   "dashboard.series_agent": "Avec un agent en cours",
   "dashboard.series_other": "Reste du travail",
-  "dashboard.since": "Enregistrement depuis le {date}."
+  "dashboard.since": "Enregistrement depuis le {date}.",
+  "dashboard.from": "Du",
+  "dashboard.to": "Au",
+  "dashboard.space": "Espace",
+  "dashboard.all_spaces": "Tous",
+  "dashboard.clear_filters": "Effacer les filtres",
+  "dashboard.blocks": "Relevés",
+  "dashboard.blocks_hint": "Chaque plage de travail continue. Un trou de plus d'une minute en ouvre une nouvelle.",
+  "dashboard.start": "Début",
+  "dashboard.end": "Fin",
+  "dashboard.sessions": "Sessions",
+  "dashboard.blocks_total": {
+    "one": "{count} relevé · {time}",
+    "other": "{count} relevés · {time}"
+  },
+  "dashboard.declared": "déclaré",
+  "dashboard.declared_hint": "Une partie de cette plage a été déclarée à la main, pas mesurée.",
+  "dashboard.declared_note": "Sur ce total, {time} est du temps déclaré à la main (travail hors du panneau), non mesuré."
 }

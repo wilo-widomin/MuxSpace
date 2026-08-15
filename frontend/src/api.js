@@ -70,12 +70,23 @@ export const api = {
   // ---- Registro de tiempo de trabajo ----
   // El latido dice QUE hubo entrada del usuario, nunca qué se tecleó. La hora
   // la pone el servidor: el reloj del navegador no es de fiar para esto.
-  workBeat: (space, session) =>
+  // `mode`: 'auto' (medido) o 'manual' (declarado). Se guarda para poder
+  // mirarlos por separado en la vista de tiempos.
+  workBeat: (space, session, mode = 'auto') =>
     request('/api/worklog/beat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ space, session: session || null }),
+      body: JSON.stringify({ space, session: session || null, mode }),
     }),
+  // Tramos de trabajo (inicio y fin). No se guardan como tales: el servidor
+  // los deriva agrupando ranuras contiguas.
+  workBlocks: ({ desde, hasta, space } = {}) => {
+    const params = new URLSearchParams()
+    if (desde) params.set('desde', String(Math.floor(desde / 1000)))
+    if (hasta) params.set('hasta', String(Math.floor(hasta / 1000)))
+    if (space) params.set('space', space)
+    return request(`/api/worklog/blocks?${params.toString()}`)
+  },
   workSummary: ({ desde, hasta, tz } = {}) => {
     const params = new URLSearchParams()
     if (desde) params.set('desde', String(Math.floor(desde / 1000)))

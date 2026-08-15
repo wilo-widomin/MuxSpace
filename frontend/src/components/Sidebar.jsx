@@ -525,9 +525,11 @@ export default function Sidebar({
           aria-label={t('clock.aria')}
           aria-pressed={Boolean(workClock?.manual)}
           className={`mt-2 rounded p-1.5 transition hover:bg-panel-bg ${
-            workClock?.activo
-              ? 'text-green-400'
-              : 'text-panel-muted hover:text-gray-100'
+            !workClock?.activo
+              ? 'text-panel-muted hover:text-gray-100'
+              : workClock?.manual
+                ? 'text-amber-400'
+                : 'text-green-400'
           }`}
         >
           <ClockIcon activo={Boolean(workClock?.activo)} />
@@ -589,10 +591,15 @@ export default function Sidebar({
             }
             aria-label={t('clock.aria')}
             aria-pressed={Boolean(workClock?.manual)}
+            // Ámbar y no verde en modo declarado: el color distingue "lo
+            // estoy midiendo" de "me estás diciendo que trabajas", que es la
+            // misma distinción que guarda la base y que separa el dashboard.
             className={`rounded p-1.5 transition hover:bg-panel-bg ${
-              workClock?.activo
-                ? 'text-green-400'
-                : 'text-panel-muted hover:text-gray-100'
+              !workClock?.activo
+                ? 'text-panel-muted hover:text-gray-100'
+                : workClock?.manual
+                  ? 'text-amber-400'
+                  : 'text-green-400'
             }`}
           >
             <ClockIcon activo={Boolean(workClock?.activo)} />

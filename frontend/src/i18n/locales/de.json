@@ -239,8 +239,8 @@
     "other": "{count} Zeichen"
   },
   "clock.counting": "Arbeitszeit wird gezählt",
-  "clock.idle": "Keine Aktivität: es wird nicht gezählt. Klicken, um trotzdem zu zählen.",
-  "clock.manual": "Manuelle Zählung (läuft nach 30 Min ohne Aktivität ab)",
+  "clock.idle": "Keine Aktivität: es wird nicht gezählt. Klicken, um zu erklären, dass du in diesem Bereich arbeitest.",
+  "clock.manual": "Erklärte Zeit wird gezählt (außerhalb des Panels). Läuft nach 30 Min ohne dich ab.",
   "clock.aria": "Arbeitszeiterfassung",
   "dashboard.title": "Arbeitszeit",
   "dashboard.back": "Zurück zum Panel",
@@ -261,5 +261,22 @@
   "dashboard.as_chart": "Als Diagramm",
   "dashboard.series_agent": "Mit laufendem Agenten",
   "dashboard.series_other": "Übrige Arbeit",
-  "dashboard.since": "Aufzeichnung seit {date}."
+  "dashboard.since": "Aufzeichnung seit {date}.",
+  "dashboard.from": "Von",
+  "dashboard.to": "Bis",
+  "dashboard.space": "Bereich",
+  "dashboard.all_spaces": "Alle",
+  "dashboard.clear_filters": "Filter entfernen",
+  "dashboard.blocks": "Einträge",
+  "dashboard.blocks_hint": "Jede zusammenhängende Arbeitsphase. Eine Lücke von über einer Minute beginnt eine neue.",
+  "dashboard.start": "Beginn",
+  "dashboard.end": "Ende",
+  "dashboard.sessions": "Sitzungen",
+  "dashboard.blocks_total": {
+    "one": "{count} Eintrag · {time}",
+    "other": "{count} Einträge · {time}"
+  },
+  "dashboard.declared": "erklärt",
+  "dashboard.declared_hint": "Ein Teil dieser Phase wurde von Hand erklärt, nicht gemessen.",
+  "dashboard.declared_note": "Davon sind {time} von Hand erklärte Zeit (Arbeit außerhalb des Panels), nicht gemessen."
 }

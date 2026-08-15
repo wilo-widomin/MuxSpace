@@ -239,8 +239,8 @@
     "other": "{count} characters"
   },
   "clock.counting": "Counting work time",
-  "clock.idle": "No activity: not counting. Click to count anyway.",
-  "clock.manual": "Counting manually (expires after 30 min without activity)",
+  "clock.idle": "No activity: not counting. Click to declare you're working in this space.",
+  "clock.manual": "Counting declared time (outside the panel). Expires after 30 min without you showing up.",
   "clock.aria": "Work time tracking",
   "dashboard.title": "Work time",
   "dashboard.back": "Back to the panel",
@@ -261,5 +261,22 @@
   "dashboard.as_chart": "View as chart",
   "dashboard.series_agent": "With an agent running",
   "dashboard.series_other": "Other work",
-  "dashboard.since": "Recording since {date}."
+  "dashboard.since": "Recording since {date}.",
+  "dashboard.from": "From",
+  "dashboard.to": "To",
+  "dashboard.space": "Space",
+  "dashboard.all_spaces": "All",
+  "dashboard.clear_filters": "Clear filters",
+  "dashboard.blocks": "Records",
+  "dashboard.blocks_hint": "Each continuous work stretch. A gap longer than a minute starts a new one.",
+  "dashboard.start": "Start",
+  "dashboard.end": "End",
+  "dashboard.sessions": "Sessions",
+  "dashboard.blocks_total": {
+    "one": "{count} record · {time}",
+    "other": "{count} records · {time}"
+  },
+  "dashboard.declared": "declared",
+  "dashboard.declared_hint": "Part of this stretch was declared by hand, not measured.",
+  "dashboard.declared_note": "Of that total, {time} is time declared by hand (work outside the panel), not measured."
 }

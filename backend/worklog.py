@@ -79,6 +79,15 @@ CREATE TABLE IF NOT EXISTS work_slots (
 CREATE INDEX IF NOT EXISTS idx_work_slots_space ON work_slots(space);
 """
 
+# Cómo se supo que esa ranura era trabajo:
+#   'auto'   — medido: el panel tenía el foco y hubo entrada del usuario.
+#   'manual' — declarado: el usuario encendió el cronómetro para trabajar
+#              FUERA del panel (probar la app que construye, por ejemplo).
+# Se guardan juntos pero se pueden mirar por separado, y eso no es un adorno:
+# si algún día el total no cuadra con lo que uno recuerda, lo primero que hay
+# que poder saber es qué parte se midió y qué parte se declaró.
+FUENTES = ("auto", "manual")
+
 
 def _ruta() -> Path:
     return _DB_PATH
@@ -99,10 +108,26 @@ def _conexion() -> Iterator[sqlite3.Connection]:
             except OSError:
                 pass
         con.executescript(_ESQUEMA)
+        _migrar(con)
         yield con
         con.commit()
     finally:
         con.close()
+
+
+def _migrar(con: sqlite3.Connection) -> None:
+    """Añade columnas nuevas a una base que ya existe.
+
+    El registro es el único dato del panel que **no se puede reconstruir**:
+    borrarlo y empezar de cero cuesta el histórico entero. Así que las
+    columnas se añaden en sitio, con su valor por defecto para lo ya escrito.
+    """
+    columnas = {fila[1] for fila in con.execute("PRAGMA table_info(work_slots)")}
+    if "source" not in columnas:
+        # Lo anterior a esta columna se midió con foco y entrada: 'auto'.
+        con.execute(
+            "ALTER TABLE work_slots ADD COLUMN source TEXT NOT NULL DEFAULT 'auto'"
+        )
 
 
 def slot_de(instante: float) -> int:
@@ -115,6 +140,7 @@ def registrar(
     session: str | None = None,
     command: str | None = None,
     ahora: float | None = None,
+    source: str = "auto",
 ) -> int:
     """Anota la ranura actual como trabajada. Devuelve su inicio.
 
@@ -126,11 +152,13 @@ def registrar(
     pestaña que la reclama se la queda, y las demás no pueden inflar el total.
     """
     inicio = slot_de(time.time() if ahora is None else ahora)
+    if source not in FUENTES:
+        source = "auto"
     with _conexion() as con:
         con.execute(
-            "INSERT OR IGNORE INTO work_slots (slot_start, space, session, command)"
-            " VALUES (?, ?, ?, ?)",
-            (inicio, space, session, command),
+            "INSERT OR IGNORE INTO work_slots"
+            " (slot_start, space, session, command, source) VALUES (?, ?, ?, ?, ?)",
+            (inicio, space, session, command, source),
         )
     return inicio
 
@@ -145,6 +173,83 @@ def _rango(desde: float | None, hasta: float | None) -> tuple[int, int]:
 # en minutos desde el cliente porque el servidor no tiene por qué correr en la
 # zona del usuario, y agrupar por UTC partiría la jornada a las 02:00.
 _DIA_LOCAL = "date((slot_start + ? * 60), 'unixepoch')"
+
+
+# Hueco máximo, en ranuras, que NO parte un bloque de trabajo. Uno de más
+# porque un latido puede perderse (pestaña que tarda, red que falla) y eso no
+# significa que el usuario se levantara: partir el bloque ahí llenaría la
+# lista de tramos falsos de dos minutos.
+_TOLERANCIA_RANURAS = 2
+
+
+def bloques(
+    desde: float | None = None,
+    hasta: float | None = None,
+    space: str | None = None,
+) -> list[dict]:
+    """Tramos de trabajo continuos: cuándo empezó y cuándo acabó cada uno.
+
+    Las ranuras no se guardan como tramos a propósito (ver el docstring del
+    módulo: un tramo abierto sobrevive mal a un portátil que se cierra), así
+    que los tramos se **derivan** al leer: ranuras consecutivas del mismo
+    espacio, permitiendo un hueco de `_TOLERANCIA_RANURAS`.
+
+    El fin de un bloque es el fin de su última ranura, no su principio: una
+    ranura representa el tiempo que cubre.
+    """
+    inicio, fin = _rango(desde, hasta)
+    condicion = "slot_start >= ? AND slot_start < ?"
+    parametros: list = [inicio, fin]
+    if space:
+        condicion += " AND space = ?"
+        parametros.append(space)
+
+    with _conexion() as con:
+        filas = list(
+            con.execute(
+                # noqa S608: `condicion` la construye esta función con literales;
+                # los valores viajan como parámetros (`?`), incluido el espacio.
+                "SELECT slot_start, space, session, command, source FROM work_slots"  # noqa: S608
+                f" WHERE {condicion} ORDER BY slot_start",
+                parametros,
+            )
+        )
+
+    salida: list[dict] = []
+    actual: dict | None = None
+    for slot, espacio, sesion, comando, fuente in filas:
+        continua = (
+            actual is not None
+            and actual["space"] == espacio
+            and slot - actual["_ultima"] <= SLOT_SECONDS * _TOLERANCIA_RANURAS
+        )
+        if not continua:
+            actual = {
+                "space": espacio,
+                "start": slot,
+                "end": slot + SLOT_SECONDS,
+                "seconds": 0,
+                "claude_seconds": 0,
+                # Cuánto del tramo es tiempo declarado a mano (ver FUENTES).
+                "manual_seconds": 0,
+                # Qué se estuvo mirando en el tramo, en orden de aparición.
+                "sessions": [],
+                "_ultima": slot,
+            }
+            salida.append(actual)
+        actual["_ultima"] = slot
+        actual["end"] = slot + SLOT_SECONDS
+        actual["seconds"] += SLOT_SECONDS
+        if comando == "claude":
+            actual["claude_seconds"] += SLOT_SECONDS
+        if fuente == "manual":
+            actual["manual_seconds"] += SLOT_SECONDS
+        if sesion and sesion not in actual["sessions"]:
+            actual["sessions"].append(sesion)
+
+    for bloque in salida:
+        bloque.pop("_ultima", None)
+    return salida
 
 
 def resumen(
@@ -165,10 +270,13 @@ def resumen(
                 "seconds": fila[1] * SLOT_SECONDS,
                 # Horas con un agente delante, dentro del total del espacio.
                 "claude_seconds": fila[2] * SLOT_SECONDS,
+                # Y cuánto de ese total es tiempo declarado, no medido.
+                "manual_seconds": fila[3] * SLOT_SECONDS,
             }
             for fila in con.execute(
                 "SELECT space, COUNT(*),"
-                "       SUM(CASE WHEN command = 'claude' THEN 1 ELSE 0 END)"
+                "       SUM(CASE WHEN command = 'claude' THEN 1 ELSE 0 END),"
+                "       SUM(CASE WHEN source = 'manual' THEN 1 ELSE 0 END)"
                 "  FROM work_slots WHERE slot_start >= ? AND slot_start < ?"
                 " GROUP BY space ORDER BY COUNT(*) DESC",
                 (inicio, fin),
@@ -195,15 +303,18 @@ def resumen(
                 (tz_offset_min, inicio, fin),
             )
         ]
-        total = con.execute(
-            "SELECT COUNT(*) FROM work_slots WHERE slot_start >= ? AND slot_start < ?",
+        total, total_manual = con.execute(
+            "SELECT COUNT(*), SUM(CASE WHEN source = 'manual' THEN 1 ELSE 0 END)"
+            " FROM work_slots WHERE slot_start >= ? AND slot_start < ?",
             (inicio, fin),
-        ).fetchone()[0]
+        ).fetchone()
         primera = con.execute("SELECT MIN(slot_start) FROM work_slots").fetchone()[0]
 
     return {
         "slot_seconds": SLOT_SECONDS,
         "total_seconds": total * SLOT_SECONDS,
+        # Del total, cuánto se declaró a mano en vez de medirse.
+        "manual_seconds": (total_manual or 0) * SLOT_SECONDS,
         "by_space": por_espacio,
         "by_day": por_dia,
         "by_day_space": por_dia_espacio,

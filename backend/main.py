@@ -921,6 +921,10 @@ class WorkBeat(BaseModel):
     # Sesión que el usuario estaba mirando, para poder distinguir después las
     # horas con un agente delante. Opcional: un espacio puede estar vacío.
     session: str | None = None
+    # 'auto' (medido: foco + entrada) o 'manual' (declarado: el usuario
+    # encendió el cronómetro para trabajar fuera del panel). Se guarda para
+    # poder mirarlos por separado, nunca para descartar uno.
+    mode: str | None = None
 
 
 @app.post("/api/worklog/beat")
@@ -947,7 +951,7 @@ def post_work_beat(beat: WorkBeat, user: str = _auth) -> dict:
             # se registra igual: lo que se mide es al usuario, no a tmux.
             comando = None
 
-    inicio = worklog.registrar(espacio, sesion, comando)
+    inicio = worklog.registrar(espacio, sesion, comando, source=beat.mode or "auto")
     return {"slot": inicio, "slot_seconds": worklog.SLOT_SECONDS}
 
 
@@ -966,6 +970,22 @@ def get_work_summary(
     # Un desfase fuera de las zonas reales solo puede venir de un cliente roto.
     tz = max(-14 * 60, min(tz, 14 * 60))
     return worklog.resumen(desde, hasta, tz)
+
+
+@app.get("/api/worklog/blocks")
+def get_work_blocks(
+    desde: float | None = None,
+    hasta: float | None = None,
+    space: str | None = None,
+    user: str = _auth,
+) -> list[dict]:
+    """Tramos de trabajo (inicio y fin) derivados de las ranuras.
+
+    Los tramos no se guardan: se derivan al leer agrupando ranuras contiguas.
+    Guardarlos obligaría a cerrarlos, y un tramo sin cerrar —portátil cerrado,
+    wifi caído— o se pierde entero o cuenta ocho horas.
+    """
+    return worklog.bloques(desde, hasta, (space or "").strip()[:64] or None)
 
 
 @app.get("/api/terminal/{name}/transcript")

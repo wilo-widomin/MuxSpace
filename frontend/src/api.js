@@ -67,6 +67,24 @@ export const api = {
   logout: () => request('/api/logout', { method: 'POST' }),
   me: () => request('/api/me'),
   listSessions: () => request('/api/sessions'),
+  // ---- Registro de tiempo de trabajo ----
+  // El latido dice QUE hubo entrada del usuario, nunca qué se tecleó. La hora
+  // la pone el servidor: el reloj del navegador no es de fiar para esto.
+  workBeat: (space, session) =>
+    request('/api/worklog/beat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ space, session: session || null }),
+    }),
+  workSummary: ({ desde, hasta, tz } = {}) => {
+    const params = new URLSearchParams()
+    if (desde) params.set('desde', String(Math.floor(desde / 1000)))
+    if (hasta) params.set('hasta', String(Math.floor(hasta / 1000)))
+    // Desfase local en minutos: agrupar por UTC partiría la jornada de noche.
+    params.set('tz', String(-new Date().getTimezoneOffset()))
+    if (tz !== undefined) params.set('tz', String(tz))
+    return request(`/api/worklog/summary?${params.toString()}`)
+  },
   // Conversación de la sesión de Claude que corre en ese panel, para poder
   // buscarla: lo que Claude ya sacó de pantalla no está en ningún buffer del
   // terminal (ocupa la pantalla alternativa), pero sí en su transcript.

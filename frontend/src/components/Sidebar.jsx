@@ -8,7 +8,9 @@ import { UploadFiles } from './sidebar/UploadFiles.jsx'
 import { SectionCaret } from './sidebar/SectionCaret.jsx'
 import { UNASSIGNED, spaceKeyOf } from '../spaces.js'
 import {
+  ChartIcon,
   CheckIcon,
+  ClockIcon,
   PencilIcon,
   PlusIcon,
   SpaceIcon,
@@ -46,6 +48,9 @@ export function suggestName(existing) {
 // Panel de Control (20%): catálogo de sesiones disponibles. Al hacer
 // clic sobre una sesión se solicita su apertura en el grid.
 export default function Sidebar({
+  // Estado del reloj de trabajo (ver useWorkClock.js): si se está contando,
+  // si está forzado a mano y cómo alternarlo.
+  workClock,
   collapsed,
   onToggleCollapse,
   width,
@@ -516,7 +521,10 @@ export default function Sidebar({
     >
       <header className="flex items-center justify-between border-b border-panel-border bg-black px-4 py-3">
         <h1 className="text-base font-semibold">{t('app.brand')}</h1>
-        <div className="flex items-center gap-1">
+        {/* `flex-wrap`: son ocho iconos y el sidebar puede estar estrecho. Sin
+            envolver, los últimos se salen de la barra y dejan de poder
+            pulsarse — lo cazaron los E2E al añadir el cronómetro. */}
+        <div className="flex flex-wrap items-center justify-end gap-1">
           {LAYOUTS.map((mode) => (
             <button
               key={mode}
@@ -533,6 +541,40 @@ export default function Sidebar({
               <LayoutIcon mode={mode} />
             </button>
           ))}
+          <span className="mx-1 h-4 w-px bg-panel-border" />
+          {/* Cronómetro: verde cuando el tiempo se está contando, apagado
+              cuando no. Es el mando de "no me fío": si el detector no ve la
+              actividad (leer un rato largo sin tocar nada), se pulsa y cuenta
+              igual — con caducidad, para que un olvido no apunte la noche. */}
+          <button
+            onClick={workClock?.alternarManual}
+            title={
+              !workClock?.activo
+                ? t('clock.idle')
+                : workClock?.manual
+                  ? t('clock.manual')
+                  : t('clock.counting')
+            }
+            aria-label={t('clock.aria')}
+            aria-pressed={Boolean(workClock?.manual)}
+            className={`rounded p-1.5 transition hover:bg-panel-bg ${
+              workClock?.activo
+                ? 'text-green-400'
+                : 'text-panel-muted hover:text-gray-100'
+            }`}
+          >
+            <ClockIcon activo={Boolean(workClock?.activo)} />
+          </button>
+          <a
+            href="/dashboard"
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t('dashboard.title')}
+            aria-label={t('dashboard.title')}
+            className="rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+          >
+            <ChartIcon />
+          </a>
           <span className="mx-1 h-4 w-px bg-panel-border" />
           <button
             onClick={openForm}

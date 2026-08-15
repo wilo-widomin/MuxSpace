@@ -76,7 +76,7 @@ export function trocear(texto, aguja, indiceInicial) {
 function Bloque({ bloque, aguja, indiceInicial, actual, refActual }) {
   const { partes } = useMemo(
     () => trocear(bloque.text, aguja, indiceInicial),
-    [bloque.text, aguja, indiceInicial]
+    [bloque.text, aguja, indiceInicial],
   )
   return (
     <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-gray-200">
@@ -91,7 +91,7 @@ function Bloque({ bloque, aguja, indiceInicial, actual, refActual }) {
           </mark>
         ) : (
           <span key={i}>{parte.texto}</span>
-        )
+        ),
       )}
     </pre>
   )
@@ -200,7 +200,7 @@ export default function TranscriptSearch({ name, onClose }) {
       if (!total) return
       setActual((n) => (n + paso + total) % total)
     },
-    [total]
+    [total],
   )
 
   const onTecla = useCallback(
@@ -213,7 +213,7 @@ export default function TranscriptSearch({ name, onClose }) {
         onClose()
       }
     },
-    [mover, onClose]
+    [mover, onClose],
   )
 
   return (

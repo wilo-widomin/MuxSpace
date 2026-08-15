@@ -73,6 +73,8 @@ Tres capas que se comunican entre sí, más un almacenamiento persistente.
 
 ### Almacenamiento
 
+- `backend/data/worklog.db` (SQLite) guarda el registro de tiempo de trabajo:
+  una fila por ranura de 30 s, con la ranura como clave primaria (ver 3.G).
 - `backend/data/commands.json` y `backend/data/library.json` guardan la
   biblioteca de comandos y proyectos. El directorio `data/` se crea
   automáticamente al primer escritorio y está fuera de git (datos del
@@ -175,6 +177,50 @@ Navegador ──HTTP──────> FastAPI (API + frontend estático)
   como veinte pulsaciones de Enter. Deja el texto en el prompt; no envía.
 - Al cerrar, el texto queda en el portapapeles, y el borrador se guarda **por
   sesión** en `localStorage` para que cerrar sin querer no cueste el texto.
+
+### G. Registro de tiempo de trabajo
+
+Mide **horas del usuario por espacio**, para poder decidir cuántos proyectos
+caben en paralelo con una fecha comprometida. No mide tiempo transcurrido: un
+espacio puede estar abierto ocho horas mientras un agente construye y el
+usuario trabaja en otro.
+
+- **La salida del terminal NO es actividad.** Es la regla que da sentido a
+  todo lo demás: con el agente construyendo, el PTY escupe texto durante
+  minutos con el usuario en otra pestaña. Si esos bytes contaran, el registro
+  mediría exactamente las horas que **no** se trabaja. El cliente solo mira
+  entrada del usuario (`keydown`, `mousemove`, `click`, `scroll`,
+  `touchstart`) y no toca el WebSocket del puente.
+- Un espacio acumula cuando se cumplen **las dos**: el documento tiene el
+  **foco** y ha habido entrada en los últimos **3 minutos**. El foco solo no
+  basta (dejar la pestaña abierta e irse a comer apuntaría 45 minutos falsos).
+- **Latido, no arranque/parada.** El cliente late cada **30 s** mientras está
+  activo; el servidor redondea a una ranura de 30 s y la guarda con la ranura
+  como **clave primaria**. Un cierre sucio cuesta una ranura, no un tramo
+  abierto de ocho horas, y dos pestañas (o dos dispositivos) colapsan en la
+  misma ranura: el invariante «la suma de los espacios nunca supera el tiempo
+  transcurrido» lo **impide el esquema**, no lo vigila un test.
+- **No hay acumulados.** El total se deriva contando ranuras al leer.
+- La hora la pone el **servidor**: el reloj del navegador metería horas en el
+  día equivocado sin forma de detectarlo. Los totales por día se agrupan por
+  **día local** (el desfase viaja en la petición), porque en UTC la jornada se
+  parte a las 02:00.
+- Junto a la ranura se guarda qué programa corría en la sesión mirada
+  (`pane_current_command`), lo que permite separar **horas con un agente
+  delante** de horas de terminal a secas.
+- **Precisión objetivo ±15 %.** Hay dos sesgos conocidos que se compensan:
+  leer sin tocar nada más de 3 minutos resta, y seguir contando hasta 3
+  minutos tras la última tecla suma. Afinar uno solo empeora el dato.
+- **Cronómetro en la cabecera del sidebar**: verde mientras se cuenta. Si el
+  detector no ve la actividad, se pulsa y cuenta igual — con caducidad de 30
+  minutos, para que un olvido no apunte la noche entera.
+- **`/dashboard`** (icono de barras, abre en pestaña nueva) muestra totales
+  por espacio y por día. Necesita ruta propia en el backend porque
+  `StaticFiles` devuelve 404 para lo que no es un archivo; `App.jsx` decide la
+  vista mirando el `pathname`, sin router.
+- Almacenamiento: **SQLite** en `backend/data/worklog.db`. Los stores en JSON
+  se reescriben enteros en cada cambio, y esto son ~1000 ranuras por jornada.
+- Se registra **que** hubo entrada, nunca **qué** se tecleó.
 
 ## 4. Flujo de Trabajo (Logic Flow)
 

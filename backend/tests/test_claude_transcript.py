@@ -40,7 +40,9 @@ def mensaje(role: str, contenido, ts: str = "2026-08-15T09:00:00Z") -> dict:
 
 def test_el_slug_es_el_directorio_que_usa_claude() -> None:
     """El nombre del directorio se deriva de la ruta, no se busca a ciegas."""
-    assert ct._slug("/home/willy/proyectos/muxspace") == "-home-willy-proyectos-muxspace"
+    assert (
+        ct._slug("/home/willy/proyectos/muxspace") == "-home-willy-proyectos-muxspace"
+    )
 
 
 def test_lee_la_conversacion_con_texto_y_herramientas(proyectos: Path) -> None:

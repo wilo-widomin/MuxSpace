@@ -4,6 +4,8 @@ import SessionGrid, { LAYOUTS } from './components/SessionGrid.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
 import { api, ApiError } from './api.js'
 import { initialSpace, UNASSIGNED } from './spaces.js'
+import { useWorkClock } from './useWorkClock.js'
+import Dashboard from './components/Dashboard.jsx'
 import { useT } from './i18n/index.jsx'
 
 // ---- Espacios y visibilidad ----
@@ -69,6 +71,11 @@ export default function App() {
   // `?space=<id>` manda sobre lo guardado: es como llega una pestaña abierta
   // desde el botón "abrir proyecto en pestaña nueva", que necesita fijar el
   // espacio de destino aunque esta pestaña sea reutilizada por el navegador.
+  // `/dashboard` es una vista alternativa de la MISMA aplicación (el backend
+  // sirve ahí el mismo index.html). Se decide una vez: no hay navegación
+  // dentro de la pestaña, se abre en una nueva.
+  const esDashboard = window.location.pathname === '/dashboard'
+
   const [activeSpace, setActiveSpace] = useState(() =>
     initialSpace(window.location.search, sessionStorage.getItem(ACTIVE_SPACE_KEY)),
   )
@@ -299,6 +306,14 @@ export default function App() {
     },
     [handleAuthFailure, tError],
   )
+
+  // Reloj de trabajo: late al servidor mientras HAYA entrada del usuario y
+  // esta pestaña tenga el foco. Cuenta al espacio que se está mirando y anota
+  // qué sesión estaba activa, para poder separar después las horas con un
+  // agente delante. La salida del terminal no cuenta (ver `worklog.js`).
+  // En la vista de tiempos no se cuenta: mirar cuánto has trabajado no es
+  // trabajar en un proyecto, y contarlo ahí ensuciaría el espacio activo.
+  const workClock = useWorkClock(activeSpace, activeName, authed && !esDashboard)
 
   // Si la tile con foco desaparece del grid (cierre/kill), liberamos el foco.
   useEffect(() => {
@@ -636,9 +651,21 @@ export default function App() {
     return <LoginScreen onSubmit={handleLogin} error={loginError} />
   }
 
+  // `/dashboard` se resuelve mirando el `pathname`, sin router: es UNA vista
+  // alternativa, y traer una biblioteca de rutas para eso sería más código que
+  // el que ahorra. El backend sirve ahí el mismo index.html (ver main.py).
+  //
+  // No monta el grid, así que en esta pestaña no hay terminales conectadas y
+  // el reloj de trabajo no cuenta: mirar los tiempos no es trabajar en un
+  // proyecto.
+  if (esDashboard) {
+    return <Dashboard spaces={spaces} />
+  }
+
   return (
     <div className="flex h-full w-full bg-panel-bg">
       <Sidebar
+        workClock={workClock}
         collapsed={sidebarCollapsed}
         onToggleCollapse={toggleSidebar}
         width={sidebarWidth}

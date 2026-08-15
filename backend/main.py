@@ -26,10 +26,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import audit
+import claude_transcript
 import config
 import logs
 import space_store
 import upload_store
+import worklog
 from auth import (
     SESSION_COOKIE,
     check_login_allowed,
@@ -72,13 +74,11 @@ from tmux_service import (
     detach_session,
     kill_session,
     list_sessions,
-    pane_info,
+    pane_info as tmux_pane_info,
     rename_session,
     send_command,
     session_exists,
 )
-
-import claude_transcript
 
 # Caracteres permitidos en el nombre de una sesión de tmux. Evitamos
 # ':' y '.' (sintaxis de targets de tmux) y espacios para que el nombre
@@ -914,6 +914,60 @@ async def terminal_ws(websocket: WebSocket, name: str) -> None:
     await bridge(websocket, name)
 
 
+class WorkBeat(BaseModel):
+    """Latido de actividad. NO dice qué se tecleó: solo que hubo entrada."""
+
+    space: str
+    # Sesión que el usuario estaba mirando, para poder distinguir después las
+    # horas con un agente delante. Opcional: un espacio puede estar vacío.
+    session: str | None = None
+
+
+@app.post("/api/worklog/beat")
+def post_work_beat(beat: WorkBeat, user: str = _auth) -> dict:
+    """Anota la ranura actual como trabajada en ese espacio.
+
+    Quién decide que hay actividad es el CLIENTE, y solo mira entrada del
+    usuario (teclado, ratón, scroll). La salida del terminal no cuenta: con el
+    agente construyendo, el PTY escupe texto durante minutos con el usuario en
+    otra pestaña, y contarlo mediría justo las horas que no se trabajan.
+
+    La hora la pone el servidor. Si la ranura ya estaba tomada, no pasa nada:
+    es exactamente lo que impide que dos pestañas cuenten doble.
+    """
+    espacio = (beat.space or "").strip()[:64] or "unassigned"
+    sesion = (beat.session or "").strip()[:64] or None
+
+    comando = None
+    if sesion:
+        try:
+            comando = tmux_pane_info(sesion)["command"] or None
+        except TmuxError:
+            # La sesión pudo morir entre el latido y esta consulta. El tiempo
+            # se registra igual: lo que se mide es al usuario, no a tmux.
+            comando = None
+
+    inicio = worklog.registrar(espacio, sesion, comando)
+    return {"slot": inicio, "slot_seconds": worklog.SLOT_SECONDS}
+
+
+@app.get("/api/worklog/summary")
+def get_work_summary(
+    desde: float | None = None,
+    hasta: float | None = None,
+    tz: int = 0,
+    user: str = _auth,
+) -> dict:
+    """Totales de tiempo trabajado: general, por espacio y por día local.
+
+    `desde`/`hasta` en segundos epoch; `tz` es el desfase local en minutos
+    (el del navegador), porque agrupar por UTC partiría la jornada de noche.
+    """
+    # Un desfase fuera de las zonas reales solo puede venir de un cliente roto.
+    tz = max(-14 * 60, min(tz, 14 * 60))
+    return worklog.resumen(desde, hasta, tz)
+
+
 @app.get("/api/terminal/{name}/transcript")
 def get_transcript(name: str, user: str = _auth) -> dict:
     """La conversación de la sesión de Claude que corre en ese panel.
@@ -929,7 +983,7 @@ def get_transcript(name: str, user: str = _auth) -> dict:
     if not _SESSION_NAME_RE.match(name):
         raise http_error(400, "err.session_name_invalid", {"name": name})
     try:
-        panel = pane_info(name)
+        panel = tmux_pane_info(name)
     except TmuxError as exc:
         raise http_from(404, exc) from exc
     if not panel["path"]:
@@ -1343,6 +1397,26 @@ def run_project_endpoint(
 # assets bajo `/assets/...`. Se monta al final para que las rutas /api
 # tengan prioridad.
 _FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+
+
+@app.get("/dashboard")
+def get_dashboard() -> FileResponse:
+    """Sirve el `index.html` para la vista de tiempos.
+
+    Hace falta una ruta explícita: `StaticFiles` devuelve 404 para lo que no
+    es un archivo, y `/dashboard` es una ruta del cliente (la resuelve
+    `App.jsx` mirando el `pathname`, sin router). Sin esto, recargar ahí o
+    abrirla en pestaña nueva daría un 404 del servidor.
+
+    No lleva autenticación porque no devuelve datos: es la misma cáscara que
+    `/`. Los tiempos viajan por `/api/worklog/*`, que sí la exige.
+    """
+    indice = _FRONTEND_DIST / "index.html"
+    if not indice.is_file():
+        raise http_error(404, "err.http", {"status": 404})
+    return FileResponse(str(indice))
+
+
 if _FRONTEND_DIST.is_dir():
     app.mount(
         "/",

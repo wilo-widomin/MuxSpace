@@ -285,8 +285,10 @@ export default function XtermTerminal({
       e.preventDefault()
       e.stopPropagation()
       // deltaMode 1 = líneas, 2 = páginas; 0 = píxeles (lo normal).
-      const alturaFila = term.element?.querySelector('.xterm-rows > div')?.offsetHeight || 17
-      const factor = e.deltaMode === 1 ? 1 : e.deltaMode === 2 ? term.rows : 1 / alturaFila
+      const alturaFila =
+        term.element?.querySelector('.xterm-rows > div')?.offsetHeight || 17
+      const factor =
+        e.deltaMode === 1 ? 1 : e.deltaMode === 2 ? term.rows : 1 / alturaFila
       // Hacia arriba (deltaY negativo) es ir hacia el historial: positivo.
       lineasPendientes -= e.deltaY * factor
       if (!scrollTimer) scrollTimer = setTimeout(enviarScroll, 40)
@@ -456,7 +458,7 @@ export default function XtermTerminal({
       // Arriba del todo = toda la historia por encima; abajo = en vivo.
       return history - fraccion * history
     },
-    [altoPulgar, history]
+    [altoPulgar, history],
   )
 
   const onPulgarDown = useCallback(
@@ -476,7 +478,7 @@ export default function XtermTerminal({
       if (!dentroDelPulgar) irA(posicionDesdeRaton(e.clientY, agarre))
       e.currentTarget.setPointerCapture?.(e.pointerId)
     },
-    [altoPulgar, topePulgar, irA, posicionDesdeRaton]
+    [altoPulgar, topePulgar, irA, posicionDesdeRaton],
   )
 
   const onPulgarMove = useCallback(
@@ -484,7 +486,7 @@ export default function XtermTerminal({
       if (arrastreRef.current === null) return
       irA(posicionDesdeRaton(e.clientY, arrastreRef.current))
     },
-    [irA, posicionDesdeRaton]
+    [irA, posicionDesdeRaton],
   )
 
   const enviarWs = useCallback((msg) => {
@@ -500,7 +502,7 @@ export default function XtermTerminal({
       // salto (el historial cambia mientras el programa escribe).
       enviarWs({ type: 'scroll-query' })
     },
-    [enviarWs]
+    [enviarWs],
   )
 
   // ---- Búsqueda en el historial ----
@@ -513,7 +515,7 @@ export default function XtermTerminal({
       // La búsqueda mueve el copy-mode: que la barra refleje dónde ha caído.
       enviarWs({ type: 'scroll-query' })
     },
-    [busqueda, enviarWs]
+    [busqueda, enviarWs],
   )
 
   const cerrarBusqueda = useCallback(() => {
@@ -537,7 +539,7 @@ export default function XtermTerminal({
         cerrarBusqueda()
       }
     },
-    [buscar, cerrarBusqueda]
+    [buscar, cerrarBusqueda],
   )
 
   useEffect(() => {

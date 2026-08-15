@@ -489,8 +489,15 @@ def test_el_recorrido_http_detecta_una_ruta_sin_proteger() -> None:
         _exige_401_sin_credenciales(c, "GET", "/api/protegida")
 
 
+# Rutas que NO son API: entregan la misma cáscara HTML que `/`, que ya se
+# sirve sin autenticar (StaticFiles). Añadir algo aquí es una decisión
+# deliberada y solo vale para páginas del cliente sin datos dentro; en cuanto
+# una devuelva algo del usuario, deja de pertenecer a esta lista.
+_PAGINAS_SIN_API = {"/dashboard"}
+
+
 def test_no_hay_endpoints_api_fuera_del_prefijo() -> None:
-    """Toda `APIRoute` de la app cuelga de `/api`.
+    """Toda `APIRoute` de la app cuelga de `/api`, salvo páginas declaradas.
 
     Cierra el bypass obvio de todo lo anterior: declarar `@app.get("/estado")`
     en vez de `@app.get("/api/estado")`. El censo filtra por prefijo, así que
@@ -500,12 +507,33 @@ def test_no_hay_endpoints_api_fuera_del_prefijo() -> None:
     fuera = [
         r.path
         for r in main.app.routes
-        if isinstance(r, APIRoute) and not r.path.startswith("/api")
+        if isinstance(r, APIRoute)
+        and not r.path.startswith("/api")
+        and r.path not in _PAGINAS_SIN_API
     ]
     assert fuera == [], (
         f"Endpoints fuera del prefijo /api, invisibles para el contrato de "
         f"autenticación: {fuera}"
     )
+
+
+def test_las_paginas_sin_api_solo_devuelven_la_cascara() -> None:
+    """Lo que se excluye del contrato no puede llevar datos dentro.
+
+    La exclusión anterior es una puerta: si alguien mete ahí una ruta que
+    responde JSON del usuario, se habría saltado la autenticación entera con
+    una línea. Aquí se comprueba que lo que sirven es HTML, el mismo que ya
+    entrega `/` sin credenciales.
+    """
+    with TestClient(main.app) as c:
+        for ruta in _PAGINAS_SIN_API:
+            resp = c.get(ruta)
+            assert resp.status_code in (200, 404), ruta
+            if resp.status_code == 200:
+                assert resp.headers["content-type"].startswith("text/html"), (
+                    f"{ruta} no devuelve HTML: si sirve datos, tiene que exigir "
+                    "autenticación como el resto"
+                )
 
 
 # ----------------------------------------------------------------------

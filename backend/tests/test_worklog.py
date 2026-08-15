@@ -284,6 +284,10 @@ def test_el_tramo_dice_qué_se_estuvo_mirando() -> None:
     tramo = worklog.bloques()[0]
 
     assert tramo["sessions"] == ["MUXSPACE", "TERM"]
+    # Y con qué. Es lo que la sesión no dice: en un panel donde cada sesión se
+    # llama como su espacio, el nombre repite la primera columna de la lista y
+    # el programa es la única información nueva de esa fila.
+    assert tramo["commands"] == ["claude", "zsh"]
     assert tramo["claude_seconds"] == 60
     assert tramo["seconds"] == 90
 

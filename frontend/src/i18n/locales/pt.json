@@ -278,5 +278,6 @@
   },
   "dashboard.declared": "declarado",
   "dashboard.declared_hint": "Parte deste trecho foi declarada à mão, não medida.",
-  "dashboard.declared_note": "Desse total, {time} é tempo declarado à mão (trabalho fora do painel), não medido."
+  "dashboard.declared_note": "Desse total, {time} é tempo declarado à mão (trabalho fora do painel), não medido.",
+  "dashboard.program": "Programa"
 }

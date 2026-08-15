@@ -234,6 +234,11 @@ def bloques(
                 "manual_seconds": 0,
                 # Qué se estuvo mirando en el tramo, en orden de aparición.
                 "sessions": [],
+                # Y con qué se estuvo trabajando ('claude', 'zsh', 'vim'…).
+                # Es lo que la sesión no dice: en un panel donde cada sesión
+                # se llama como su espacio, el nombre repite la primera
+                # columna y el programa es la información nueva.
+                "commands": [],
                 "_ultima": slot,
             }
             salida.append(actual)
@@ -246,6 +251,8 @@ def bloques(
             actual["manual_seconds"] += SLOT_SECONDS
         if sesion and sesion not in actual["sessions"]:
             actual["sessions"].append(sesion)
+        if comando and comando not in actual["commands"]:
+            actual["commands"].append(comando)
 
     for bloque in salida:
         bloque.pop("_ultima", None)

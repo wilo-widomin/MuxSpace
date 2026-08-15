@@ -239,6 +239,21 @@ def client_auth(client):
     return client
 
 
+# Lo que el centinela NO puede vigilar por mtime.
+#
+# El panel del usuario corre en esta misma máquina y escribe una ranura de
+# trabajo cada 30 segundos mientras él trabaja: con `worklog.db` dentro, el
+# centinela saltaría en CADA ejecución de la suite sin que nadie hubiera hecho
+# nada mal. Y un centinela que avisa siempre es peor que no tenerlo, porque se
+# aprende a ignorarlo justo antes del día en que tiene razón.
+#
+# El riesgo no se queda sin cubrir: `test_aislamiento.py` comprueba —por ruta
+# y escribiendo de verdad— que `worklog._DB_PATH` apunta al `tmp_path` del
+# test y que una escritura acaba ahí. Para que un test tocara la base real
+# tendría que caerse ese parche, y eso sí lo caza.
+_FUERA_DEL_CENTINELA = {"worklog.db", "worklog.db-journal", "worklog.db-wal"}
+
+
 def _huella(raiz: Path) -> dict[str, tuple[int, int]]:
     """Ruta -> (mtime_ns, tamaño) de todo lo que cuelga de `raiz`.
 
@@ -251,6 +266,8 @@ def _huella(raiz: Path) -> dict[str, tuple[int, int]]:
     rutas = [raiz, *raiz.rglob("*")]
     huella: dict[str, tuple[int, int]] = {}
     for p in rutas:
+        if p.name in _FUERA_DEL_CENTINELA:
+            continue
         try:
             st = p.lstat()
         except OSError:

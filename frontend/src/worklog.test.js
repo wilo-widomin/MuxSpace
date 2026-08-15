@@ -135,6 +135,15 @@ describe('formatTime', () => {
     const fecha = new Date(2026, 7, 15, 9, 5)
     expect(formatTime(Math.floor(fecha.getTime() / 1000))).toBe('09:05')
   })
+
+  it('con segundos, para que dos tramos contiguos no parezcan solapados', () => {
+    // Un tramo acaba a las 09:05:00 y el siguiente empieza a las 09:05:00: a
+    // resolución de minuto los dos se pintan «09:05» y parece que se pisan.
+    const fecha = new Date(2026, 7, 15, 9, 5, 30)
+    expect(formatTime(Math.floor(fecha.getTime() / 1000), { segundos: true })).toBe(
+      '09:05:30',
+    )
+  })
 })
 
 describe('formatDurationExact', () => {

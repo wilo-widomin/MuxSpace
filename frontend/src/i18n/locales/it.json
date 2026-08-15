@@ -278,5 +278,6 @@
   },
   "dashboard.declared": "dichiarato",
   "dashboard.declared_hint": "Parte di questo tratto è stata dichiarata a mano, non misurata.",
-  "dashboard.declared_note": "Di quel totale, {time} è tempo dichiarato a mano (lavoro fuori dal pannello), non misurato."
+  "dashboard.declared_note": "Di quel totale, {time} è tempo dichiarato a mano (lavoro fuori dal pannello), non misurato.",
+  "dashboard.program": "Programma"
 }

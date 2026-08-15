@@ -278,5 +278,6 @@
   },
   "dashboard.declared": "déclaré",
   "dashboard.declared_hint": "Une partie de cette plage a été déclarée à la main, pas mesurée.",
-  "dashboard.declared_note": "Sur ce total, {time} est du temps déclaré à la main (travail hors du panneau), non mesuré."
+  "dashboard.declared_note": "Sur ce total, {time} est du temps déclaré à la main (travail hors du panneau), non mesuré.",
+  "dashboard.program": "Programme"
 }

@@ -226,5 +226,16 @@
   "transcript.block_tool_result": "salida",
   "transcript.block_text": "texto",
   "transcript.block_tool_use": "herramientas",
-  "transcript.filters": "Mostrar:"
+  "transcript.filters": "Mostrar:",
+  "tile.compose": "Escribir un texto largo (Enter no lo envía)",
+  "compose.title": "Redactar · {name}",
+  "compose.placeholder": "Escribe aquí. Enter hace un salto de línea; nada se envía hasta que tú lo pegues.",
+  "compose.paste": "Pegar en la terminal",
+  "compose.copy": "Copiar",
+  "compose.copied": "¡Copiado!",
+  "compose.close": "Cerrar (copia al portapapeles)",
+  "compose.chars": {
+    "one": "{count} carácter",
+    "other": "{count} caracteres"
+  }
 }

@@ -226,5 +226,16 @@
   "transcript.block_tool_result": "Ausgabe",
   "transcript.block_text": "Text",
   "transcript.block_tool_use": "Werkzeuge",
-  "transcript.filters": "Anzeigen:"
+  "transcript.filters": "Anzeigen:",
+  "tile.compose": "Langen Text schreiben (Enter sendet nicht)",
+  "compose.title": "Verfassen · {name}",
+  "compose.placeholder": "Hier schreiben. Enter fügt einen Zeilenumbruch ein; nichts wird gesendet, bis du es einfügst.",
+  "compose.paste": "Ins Terminal einfügen",
+  "compose.copy": "Kopieren",
+  "compose.copied": "Kopiert!",
+  "compose.close": "Schließen (kopiert in die Zwischenablage)",
+  "compose.chars": {
+    "one": "{count} Zeichen",
+    "other": "{count} Zeichen"
+  }
 }

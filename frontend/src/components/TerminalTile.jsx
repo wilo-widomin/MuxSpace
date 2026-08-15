@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { api } from '../api.js'
 import XtermTerminal from './XtermTerminal.jsx'
+import TextComposer from './TextComposer.jsx'
 import { useT } from '../i18n/index.jsx'
 
 // Contenedor de una sesión en el grid. Incrusta la terminal de ttyd
@@ -46,6 +47,11 @@ export default function TerminalTile({
   // gestiona por dentro y el padre solo dispara, así no hay que sincronizar
   // dos estados de "abierto" que pueden discrepar.
   const [searchToken, setSearchToken] = useState(0)
+  const [composing, setComposing] = useState(false)
+  // Igual que `searchToken`: el contador es lo que dispara el pegado en la
+  // terminal, y el texto viaja al lado. Con un booleano habría que apagarlo
+  // después para poder volver a pegar lo mismo.
+  const [paste, setPaste] = useState({ token: 0, text: '' })
   const inputRef = useRef(null)
 
   // La lista se ofrece ORDENADA alfabéticamente: es un catálogo que se mira,
@@ -151,6 +157,16 @@ export default function TerminalTile({
             >
               <SearchIcon />
             </button>
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setComposing((abierto) => !abierto)}
+              title={t('tile.compose')}
+              aria-label={t('tile.compose')}
+              aria-pressed={composing}
+              className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+            >
+              <PencilIcon />
+            </button>
 
           </span>
         </span>
@@ -188,7 +204,15 @@ export default function TerminalTile({
           onFocus={() => onFocus()}
           focusToken={focusToken}
           searchToken={searchToken}
+          pasteRequest={paste}
         />
+        {composing && (
+          <TextComposer
+            name={session.name}
+            onClose={() => setComposing(false)}
+            onPaste={(texto) => setPaste((p) => ({ token: p.token + 1, text: texto }))}
+          />
+        )}
         {/* La lista de comandos se pinta AQUÍ, sobre la terminal, y no
             colgando del botón ▶: el tile lleva `overflow-hidden` por las
             esquinas redondeadas, así que ahí arriba quedaba recortada y solo
@@ -249,6 +273,27 @@ function PlayIcon() {
       strokeLinejoin="round"
     >
       <polygon points="6 3 20 12 6 21 6 3" />
+    </svg>
+  )
+}
+
+// Lápiz sobre hoja (estilo lucide "square-pen"): redactar un texto largo sin
+// que Enter lo envíe.
+function PencilIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.375 2.625a1.768 1.768 0 0 1 2.5 2.5L12 14l-4 1 1-4Z" />
     </svg>
   )
 }

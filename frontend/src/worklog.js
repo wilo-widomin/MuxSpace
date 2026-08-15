@@ -29,13 +29,7 @@ export const HEARTBEAT_MS = 30 * 1000
 // se va, apuntaría la noche entera.
 export const MANUAL_MAX_MS = 30 * 60 * 1000
 
-export const ACTIVITY_EVENTS = [
-  'keydown',
-  'mousemove',
-  'click',
-  'scroll',
-  'touchstart',
-]
+export const ACTIVITY_EVENTS = ['keydown', 'mousemove', 'click', 'scroll', 'touchstart']
 
 /**
  * Decide si esta ranura cuenta como trabajada.

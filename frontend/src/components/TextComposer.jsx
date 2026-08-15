@@ -19,7 +19,7 @@ const CLAVE_BORRADOR = 'muxspace:composer:'
 export default function TextComposer({ name, onClose, onPaste }) {
   const { t } = useT()
   const [texto, setTexto] = useState(
-    () => localStorage.getItem(CLAVE_BORRADOR + name) || ''
+    () => localStorage.getItem(CLAVE_BORRADOR + name) || '',
   )
   const [copiado, setCopiado] = useState(false)
   const areaRef = useRef(null)
@@ -80,7 +80,7 @@ export default function TextComposer({ name, onClose, onPaste }) {
       // Las pulsaciones no deben llegar a la terminal de detrás.
       e.stopPropagation()
     },
-    [cerrar]
+    [cerrar],
   )
 
   return (

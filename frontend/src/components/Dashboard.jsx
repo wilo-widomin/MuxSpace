@@ -130,9 +130,7 @@ export default function Dashboard({ spaces = [] }) {
             </section>
 
             <section className="mb-8">
-              <h2 className="mb-1 text-sm font-medium">
-                {t('dashboard.by_space')}
-              </h2>
+              <h2 className="mb-1 text-sm font-medium">{t('dashboard.by_space')}</h2>
               <Leyenda t={t} />
               {porEspacio.length === 0 && (
                 <p className="text-sm text-panel-muted">{t('dashboard.empty')}</p>

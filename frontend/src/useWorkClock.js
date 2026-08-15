@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
-import {
-  ACTIVITY_EVENTS,
-  HEARTBEAT_MS,
-  isWorking,
-  manualExpired,
-} from './worklog.js'
+import { ACTIVITY_EVENTS, HEARTBEAT_MS, isWorking, manualExpired } from './worklog.js'
 
 /**
  * Reloj de trabajo de esta pestaña: late al servidor mientras hay actividad.

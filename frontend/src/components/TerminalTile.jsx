@@ -167,7 +167,6 @@ export default function TerminalTile({
             >
               <PencilIcon />
             </button>
-
           </span>
         </span>
         <span className="flex items-center gap-0.5">

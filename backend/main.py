@@ -26,10 +26,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import audit
+import claude_transcript
 import config
 import logs
 import space_store
 import upload_store
+import worklog
 from auth import (
     SESSION_COOKIE,
     check_login_allowed,
@@ -77,9 +79,6 @@ from tmux_service import (
     send_command,
     session_exists,
 )
-
-import claude_transcript
-import worklog
 
 # Caracteres permitidos en el nombre de una sesión de tmux. Evitamos
 # ':' y '.' (sintaxis de targets de tmux) y espacios para que el nombre
@@ -925,7 +924,7 @@ class WorkBeat(BaseModel):
 
 
 @app.post("/api/worklog/beat")
-def post_work_beat(beat: WorkBeat = Body(...), user: str = _auth) -> dict:
+def post_work_beat(beat: WorkBeat, user: str = _auth) -> dict:
     """Anota la ranura actual como trabajada en ese espacio.
 
     Quién decide que hay actividad es el CLIENTE, y solo mira entrada del

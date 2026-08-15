@@ -177,7 +177,10 @@ def resumen(
         por_dia = [
             {"day": fila[0], "seconds": fila[1] * SLOT_SECONDS}
             for fila in con.execute(
-                f"SELECT {_DIA_LOCAL} AS dia, COUNT(*)"
+                # noqa S608: no hay interpolación de datos. `_DIA_LOCAL` es una
+                # constante de este módulo y el desfase viaja como parámetro
+                # (`?`), igual que el resto.
+                f"SELECT {_DIA_LOCAL} AS dia, COUNT(*)"  # noqa: S608
                 "  FROM work_slots WHERE slot_start >= ? AND slot_start < ?"
                 " GROUP BY dia ORDER BY dia",
                 (tz_offset_min, inicio, fin),
@@ -186,7 +189,7 @@ def resumen(
         por_dia_espacio = [
             {"day": fila[0], "space": fila[1], "seconds": fila[2] * SLOT_SECONDS}
             for fila in con.execute(
-                f"SELECT {_DIA_LOCAL} AS dia, space, COUNT(*)"
+                f"SELECT {_DIA_LOCAL} AS dia, space, COUNT(*)"  # noqa: S608
                 "  FROM work_slots WHERE slot_start >= ? AND slot_start < ?"
                 " GROUP BY dia, space ORDER BY dia",
                 (tz_offset_min, inicio, fin),

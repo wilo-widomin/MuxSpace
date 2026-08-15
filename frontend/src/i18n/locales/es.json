@@ -239,8 +239,8 @@
     "other": "{count} caracteres"
   },
   "clock.counting": "Contando tiempo de trabajo",
-  "clock.idle": "Sin actividad: no se está contando. Púlsalo para contar igual.",
-  "clock.manual": "Contando a mano (caduca en 30 min sin actividad)",
+  "clock.idle": "Sin actividad: no se está contando. Púlsalo para declarar que trabajas en este espacio.",
+  "clock.manual": "Contando tiempo declarado (fuera del panel). Caduca en 30 min sin que aparezcas.",
   "clock.aria": "Registro de tiempo de trabajo",
   "dashboard.title": "Tiempo de trabajo",
   "dashboard.back": "Volver al panel",
@@ -261,5 +261,22 @@
   "dashboard.as_chart": "Ver como gráfico",
   "dashboard.series_agent": "Con un agente delante",
   "dashboard.series_other": "Resto del trabajo",
-  "dashboard.since": "Hay registro desde el {date}."
+  "dashboard.since": "Hay registro desde el {date}.",
+  "dashboard.from": "Desde",
+  "dashboard.to": "Hasta",
+  "dashboard.space": "Espacio",
+  "dashboard.all_spaces": "Todos",
+  "dashboard.clear_filters": "Quitar filtros",
+  "dashboard.blocks": "Registros",
+  "dashboard.blocks_hint": "Cada tramo de trabajo continuo. Un hueco de más de un minuto abre uno nuevo.",
+  "dashboard.start": "Inicio",
+  "dashboard.end": "Fin",
+  "dashboard.sessions": "Sesiones",
+  "dashboard.blocks_total": {
+    "one": "{count} registro · {time}",
+    "other": "{count} registros · {time}"
+  },
+  "dashboard.declared": "declarado",
+  "dashboard.declared_hint": "Parte de este tramo se declaró a mano, no se midió.",
+  "dashboard.declared_note": "De ese total, {time} son tiempo declarado a mano (trabajo fuera del panel), no medido."
 }

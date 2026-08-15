@@ -1,7 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, ApiError } from '../api.js'
 import { UNASSIGNED } from '../spaces.js'
-import { formatDuration } from '../worklog.js'
+import {
+  formatDate,
+  formatDuration,
+  formatDurationExact,
+  formatTime,
+} from '../worklog.js'
 import { useT } from '../i18n/index.jsx'
 
 // Vista de tiempos: cuántas horas MÍAS lleva cada proyecto.
@@ -38,18 +43,47 @@ export default function Dashboard({ spaces = [] }) {
   const { t, tError } = useT()
   const [rango, setRango] = useState('30d')
   const [datos, setDatos] = useState(null)
+  const [tramos, setTramos] = useState([])
   const [error, setError] = useState(null)
   const [verTabla, setVerTabla] = useState(false)
+  // Fechas a mano: mandan sobre el rango de botones en cuanto se rellena una.
+  // Se guardan como 'YYYY-MM-DD' (lo que da un <input type="date">).
+  const [desdeFecha, setDesdeFecha] = useState('')
+  const [hastaFecha, setHastaFecha] = useState('')
+  const [espacioFiltro, setEspacioFiltro] = useState('')
+
+  // El rango efectivo en milisegundos. Las fechas escritas se interpretan en
+  // hora LOCAL —«desde el 1» es desde las 00:00 de tu día, no de UTC— y el
+  // «hasta» incluye el día entero: si no, filtrar «hasta hoy» dejaría fuera
+  // todo lo de hoy.
+  const { desde, hasta } = useMemo(() => {
+    if (desdeFecha || hastaFecha) {
+      const ini = desdeFecha ? new Date(`${desdeFecha}T00:00:00`).getTime() : undefined
+      const fin = hastaFecha ? new Date(`${hastaFecha}T23:59:59`).getTime() : undefined
+      return { desde: ini, hasta: fin }
+    }
+    const elegido = RANGOS.find((r) => r.id === rango)
+    // El «hasta» se congela al cargar aunque no se haya elegido ninguno. Sin
+    // eso, el resumen y la lista de tramos son dos consultas con dos cortes
+    // distintos: un latido que cae entre ambas aparece en una y no en la
+    // otra, y los totales se separan justo en 30 segundos. Se ve como un
+    // error de cuentas y no lo es.
+    return { desde: desdeHace(elegido.dias), hasta: Date.now() }
+  }, [rango, desdeFecha, hastaFecha])
 
   const cargar = useCallback(async () => {
-    const elegido = RANGOS.find((r) => r.id === rango)
     try {
       setError(null)
-      setDatos(await api.workSummary({ desde: desdeHace(elegido.dias) }))
+      const [resumen, bloques] = await Promise.all([
+        api.workSummary({ desde, hasta }),
+        api.workBlocks({ desde, hasta, space: espacioFiltro || undefined }),
+      ])
+      setDatos(resumen)
+      setTramos(bloques)
     } catch (e) {
       setError(e instanceof ApiError ? e : new ApiError(0))
     }
-  }, [rango])
+  }, [desde, hasta, espacioFiltro])
 
   useEffect(() => {
     cargar()
@@ -92,10 +126,17 @@ export default function Dashboard({ spaces = [] }) {
               <button
                 key={r.id}
                 type="button"
-                onClick={() => setRango(r.id)}
-                aria-pressed={rango === r.id}
+                onClick={() => {
+                  // Elegir un rango de botones descarta las fechas escritas:
+                  // dos filtros de fecha a la vez, uno de ellos invisible,
+                  // es la forma más fácil de leer mal un total.
+                  setDesdeFecha('')
+                  setHastaFecha('')
+                  setRango(r.id)
+                }}
+                aria-pressed={!desdeFecha && !hastaFecha && rango === r.id}
                 className={`rounded-full border px-3 py-1 text-xs transition ${
-                  rango === r.id
+                  !desdeFecha && !hastaFecha && rango === r.id
                     ? 'border-panel-accent bg-panel-accent/20 text-gray-100'
                     : 'border-panel-border text-panel-muted hover:text-gray-100'
                 }`}
@@ -105,6 +146,56 @@ export default function Dashboard({ spaces = [] }) {
             ))}
           </div>
         </header>
+
+        <div className="mb-6 flex flex-wrap items-center gap-2 text-xs text-panel-muted">
+          <label className="flex items-center gap-1">
+            {t('dashboard.from')}
+            <input
+              type="date"
+              value={desdeFecha}
+              onChange={(e) => setDesdeFecha(e.target.value)}
+              className="rounded border border-panel-border bg-panel-surface px-2 py-1 text-gray-100 outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-1">
+            {t('dashboard.to')}
+            <input
+              type="date"
+              value={hastaFecha}
+              onChange={(e) => setHastaFecha(e.target.value)}
+              className="rounded border border-panel-border bg-panel-surface px-2 py-1 text-gray-100 outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-1">
+            {t('dashboard.space')}
+            <select
+              value={espacioFiltro}
+              onChange={(e) => setEspacioFiltro(e.target.value)}
+              className="rounded border border-panel-border bg-panel-surface px-2 py-1 text-gray-100 outline-none"
+            >
+              <option value="">{t('dashboard.all_spaces')}</option>
+              <option value={UNASSIGNED}>{t('spaces.unassigned')}</option>
+              {spaces.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          {(desdeFecha || hastaFecha || espacioFiltro) && (
+            <button
+              type="button"
+              onClick={() => {
+                setDesdeFecha('')
+                setHastaFecha('')
+                setEspacioFiltro('')
+              }}
+              className="underline-offset-2 hover:text-gray-100 hover:underline"
+            >
+              {t('dashboard.clear_filters')}
+            </button>
+          )}
+        </div>
 
         {error && <p className="text-sm text-red-400">{tError(error)}</p>}
         {!error && !datos && (
@@ -128,6 +219,17 @@ export default function Dashboard({ spaces = [] }) {
                 valor={formatDuration(media)}
               />
             </section>
+
+            {/* El tiempo declarado a mano se enseña aparte del medido. Si un
+                día el total no cuadra con lo que uno recuerda, lo primero que
+                hay que poder mirar es qué parte se declaró. */}
+            {datos.manual_seconds > 0 && (
+              <p className="-mt-6 mb-8 text-xs text-panel-muted">
+                {t('dashboard.declared_note', {
+                  time: formatDuration(datos.manual_seconds),
+                })}
+              </p>
+            )}
 
             <section className="mb-8">
               <h2 className="mb-1 text-sm font-medium">{t('dashboard.by_space')}</h2>
@@ -185,11 +287,34 @@ export default function Dashboard({ spaces = [] }) {
               )}
             </section>
 
+            <section className="mt-8">
+              <div className="mb-1 flex flex-wrap items-baseline gap-2">
+                <h2 className="text-sm font-medium">{t('dashboard.blocks')}</h2>
+                {/* El total de LO LISTADO, no el de la página: con el filtro de
+                    espacio puesto, los dos números no coinciden y el de aquí es
+                    el que responde a "cuánto suma esto que estoy viendo". */}
+                <span className="text-xs text-panel-muted">
+                  {t('dashboard.blocks_total', {
+                    count: tramos.length,
+                    time: formatDurationExact(
+                      tramos.reduce((suma, b) => suma + b.seconds, 0),
+                    ),
+                  })}
+                </span>
+              </div>
+              <p className="mb-3 text-xs text-panel-muted">
+                {t('dashboard.blocks_hint')}
+              </p>
+              {tramos.length === 0 ? (
+                <p className="text-sm text-panel-muted">{t('dashboard.empty')}</p>
+              ) : (
+                <TablaTramos tramos={tramos} titulo={titulo} t={t} />
+              )}
+            </section>
+
             {datos.since && (
               <p className="mt-6 text-xs text-panel-muted">
-                {t('dashboard.since', {
-                  date: new Date(datos.since * 1000).toLocaleDateString(),
-                })}
+                {t('dashboard.since', { date: formatDate(datos.since) })}
               </p>
             )}
           </>
@@ -258,28 +383,119 @@ function BarraEspacio({ total, agente, max, t }) {
   )
 }
 
-// Una serie por día: sin leyenda (el título ya la nombra) y sin número encima
-// de cada barra; el valor aparece al pasar por encima y en la vista de tabla.
+// Una serie por día: una barra por cada día del calendario con tiempo
+// registrado, y su altura es el total de ese día. Sin leyenda (el título ya
+// la nombra) y sin número encima de cada barra, pero SÍ con la fecha debajo y
+// el máximo como referencia: una barra suelta sin escala ni etiqueta no dice
+// nada, y este gráfico empieza siempre con un solo día.
 function GraficoDias({ dias, max }) {
+  // Con muchos días, las fechas se pisarían: se etiquetan salteadas.
+  const cadaCuantas = Math.ceil(dias.length / 12)
   return (
-    <div className="flex h-40 items-end gap-1 border-b border-panel-border pb-0">
-      {dias.map((d) => (
-        <div
-          key={d.day}
-          className="group relative flex-1"
-          style={{ minWidth: 4 }}
-          title={`${d.day} · ${formatDuration(d.seconds)}`}
-        >
+    <div>
+      <div className="mb-1 text-xs text-panel-muted">
+        {formatDuration(max)} {'\u2191'}
+      </div>
+      <div className="flex h-40 items-end gap-1 border-b border-panel-border">
+        {dias.map((d) => (
           <div
-            className="w-full rounded-t-sm transition-opacity group-hover:opacity-80"
-            style={{
-              height: `${Math.max(2, (d.seconds / max) * 150)}px`,
-              background: SERIE_AGENTE,
-            }}
-          />
-        </div>
-      ))}
+            key={d.day}
+            className="group relative flex-1"
+            // Con pocos días, sin tope cada barra ocuparía media pantalla y el
+            // gráfico dejaría de leerse como un gráfico.
+            style={{ minWidth: 4, maxWidth: 48 }}
+            title={`${formatDate(d.day)} · ${formatDuration(d.seconds)}`}
+          >
+            <div
+              className="w-full rounded-t-sm transition-opacity group-hover:opacity-80"
+              style={{
+                height: `${Math.max(2, (d.seconds / max) * 150)}px`,
+                background: SERIE_AGENTE,
+              }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-1">
+        {dias.map((d, i) => (
+          <div
+            key={d.day}
+            className="flex-1 pt-1 text-center text-[10px] text-panel-muted"
+            style={{ minWidth: 4, maxWidth: 48 }}
+          >
+            {i % cadaCuantas === 0 ? formatDate(d.day).slice(0, 5) : ''}
+          </div>
+        ))}
+      </div>
     </div>
+  )
+}
+
+function TablaTramos({ tramos, titulo, t }) {
+  // Fechas siempre en dd/mm/aaaa y horas en 24 h: ver `formatDate`.
+  const hora = formatTime
+  const fecha = formatDate
+
+  return (
+    <table className="w-full border-collapse text-sm">
+      <thead>
+        <tr className="text-xs text-panel-muted">
+          <th scope="col" className="py-1 text-left font-normal">
+            {t('dashboard.space')}
+          </th>
+          <th scope="col" className="py-1 text-left font-normal">
+            {t('dashboard.start')}
+          </th>
+          <th scope="col" className="py-1 text-left font-normal">
+            {t('dashboard.end')}
+          </th>
+          <th scope="col" className="py-1 pr-3 text-right font-normal">
+            {t('dashboard.time')}
+          </th>
+          <th scope="col" className="py-1 text-left font-normal">
+            {t('dashboard.sessions')}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...tramos].reverse().map((b) => {
+          const mismoDia = fecha(b.start) === fecha(b.end)
+          return (
+            <tr
+              key={`${b.space}-${b.start}`}
+              className="border-b border-panel-border/50"
+            >
+              <td className="py-1 pr-3 text-gray-200">
+                {titulo(b.space)}
+                {b.manual_seconds > 0 && (
+                  <span
+                    className="ml-2 rounded-full border border-amber-400/60 px-1.5 py-0.5 text-[10px] text-amber-400"
+                    title={t('dashboard.declared_hint')}
+                  >
+                    {t('dashboard.declared')}
+                  </span>
+                )}
+              </td>
+              <td className="py-1 pr-3 tabular-nums text-gray-200">
+                {fecha(b.start)} {hora(b.start)}
+              </td>
+              <td className="py-1 pr-3 tabular-nums text-gray-200">
+                {mismoDia ? hora(b.end) : `${fecha(b.end)} ${hora(b.end)}`}
+              </td>
+              <td className="py-1 pr-3 text-right tabular-nums text-gray-200">
+                {formatDurationExact(b.seconds)}
+              </td>
+              <td
+                className="max-w-[14rem] truncate py-1 text-panel-muted"
+                title={b.sessions.join(', ')}
+              >
+                {b.sessions.join(', ')}
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }
 
@@ -299,7 +515,7 @@ function TablaDias({ dias, t }) {
       <tbody>
         {dias.map((d) => (
           <tr key={d.day} className="border-b border-panel-border/50">
-            <td className="py-1 text-gray-200">{d.day}</td>
+            <td className="py-1 text-gray-200">{formatDate(d.day)}</td>
             <td className="py-1 text-right tabular-nums text-gray-200">
               {formatDuration(d.seconds)}
             </td>

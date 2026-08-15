@@ -211,9 +211,23 @@ usuario trabaja en otro.
 - **Precisión objetivo ±15 %.** Hay dos sesgos conocidos que se compensan:
   leer sin tocar nada más de 3 minutos resta, y seguir contando hasta 3
   minutos tras la última tecla suma. Afinar uno solo empeora el dato.
-- **Cronómetro en la cabecera del sidebar**: verde mientras se cuenta. Si el
-  detector no ve la actividad, se pulsa y cuenta igual — con caducidad de 30
-  minutos, para que un olvido no apunte la noche entera.
+- **Cronómetro en la cabecera del sidebar** (y en el rail plegado): **verde**
+  cuando el tiempo se mide, **ámbar** cuando se declara, apagado si no cuenta.
+- **Tiempo medido y tiempo declarado.** El detector no puede ver el trabajo
+  que ocurre *fuera* del panel —probar en otra pestaña la app que construyes—,
+  porque ahí no hay ni foco ni entrada que medir. Para eso está el cronómetro:
+  al encenderlo, cuenta **sin exigir foco**. Cada ranura guarda cómo se supo
+  (`source`: `auto` o `manual`) y el dashboard los enseña por separado; si un
+  día el total no cuadra con lo que uno recuerda, lo primero que hay que poder
+  saber es qué parte se midió y qué parte se declaró.
+- El modo declarado es **renovable, no indefinido**: cualquier entrada tuya en
+  el panel, o volver a su pestaña, reinicia la cuenta; **30 minutos** sin que
+  aparezcas y se apaga solo. Además, si el navegador ofrece detección de
+  presencia (Chrome, con permiso y en contexto seguro), deja de contar cuando
+  el sistema dice que te has ido o la pantalla está bloqueada. Sin esa API, la
+  caducidad es la única red, y basta.
+- Con foco y entrada, **lo medido manda**: esa ranura se guarda como `auto`
+  aunque el interruptor esté encendido.
 - **`/dashboard`** (icono de barras, abre en pestaña nueva) muestra totales
   por espacio y por día. Necesita ruta propia en el backend porque
   `StaticFiles` devuelve 404 para lo que no es un archivo; `App.jsx` decide la

@@ -239,8 +239,8 @@
     "other": "{count} caratteri"
   },
   "clock.counting": "Conteggio del tempo di lavoro",
-  "clock.idle": "Nessuna attività: non si conta. Clicca per contare lo stesso.",
-  "clock.manual": "Conteggio manuale (scade dopo 30 min senza attività)",
+  "clock.idle": "Nessuna attività: non si conta. Clicca per dichiarare che stai lavorando in questo spazio.",
+  "clock.manual": "Conteggio del tempo dichiarato (fuori dal pannello). Scade dopo 30 min senza che tu compaia.",
   "clock.aria": "Registro del tempo di lavoro",
   "dashboard.title": "Tempo di lavoro",
   "dashboard.back": "Torna al pannello",
@@ -261,5 +261,22 @@
   "dashboard.as_chart": "Vedi come grafico",
   "dashboard.series_agent": "Con un agente in esecuzione",
   "dashboard.series_other": "Resto del lavoro",
-  "dashboard.since": "Registrazione dal {date}."
+  "dashboard.since": "Registrazione dal {date}.",
+  "dashboard.from": "Dal",
+  "dashboard.to": "Al",
+  "dashboard.space": "Spazio",
+  "dashboard.all_spaces": "Tutti",
+  "dashboard.clear_filters": "Togli i filtri",
+  "dashboard.blocks": "Registrazioni",
+  "dashboard.blocks_hint": "Ogni tratto di lavoro continuo. Un vuoto di più di un minuto ne apre uno nuovo.",
+  "dashboard.start": "Inizio",
+  "dashboard.end": "Fine",
+  "dashboard.sessions": "Sessioni",
+  "dashboard.blocks_total": {
+    "one": "{count} registrazione · {time}",
+    "other": "{count} registrazioni · {time}"
+  },
+  "dashboard.declared": "dichiarato",
+  "dashboard.declared_hint": "Parte di questo tratto è stata dichiarata a mano, non misurata.",
+  "dashboard.declared_note": "Di quel totale, {time} è tempo dichiarato a mano (lavoro fuori dal pannello), non misurato."
 }

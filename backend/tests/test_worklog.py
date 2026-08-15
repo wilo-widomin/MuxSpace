@@ -165,6 +165,129 @@ def test_dice_desde_cuando_hay_datos() -> None:
     assert worklog.resumen()["since"] == worklog.slot_de(base)
 
 
+def test_el_tiempo_declarado_se_guarda_marcado_y_se_puede_mirar_aparte() -> None:
+    """Medido y declarado suman juntos, pero se distinguen.
+
+    El declarado no lo verifica nadie: el usuario enciende el cronómetro
+    porque está trabajando fuera del panel. Mezclarlo con lo medido sin dejar
+    rastro haría imposible responder a «este total, ¿de dónde sale?».
+    """
+    base = epoch("2026-08-15 09:00:00")
+    worklog.registrar("sp_a", ahora=base)
+    worklog.registrar("sp_a", ahora=base + 30, source="manual")
+
+    datos = worklog.resumen()
+
+    assert datos["total_seconds"] == 60
+    assert datos["manual_seconds"] == 30
+    assert datos["by_space"][0]["manual_seconds"] == 30
+
+
+def test_una_fuente_desconocida_se_guarda_como_medida() -> None:
+    """El cliente no puede inventarse categorías nuevas por su cuenta."""
+    worklog.registrar("sp_a", ahora=epoch("2026-08-15 09:00:00"), source="inventado")
+    assert worklog.resumen()["manual_seconds"] == 0
+
+
+def test_una_base_anterior_a_la_columna_source_sigue_valiendo(
+    base_temporal: Path,
+) -> None:
+    """El registro es el único dato del panel que no se puede reconstruir.
+
+    Así que al añadir la columna hay que migrar en sitio, no empezar de cero:
+    lo ya escrito se midió con foco y entrada, o sea 'auto'.
+    """
+    import sqlite3
+
+    con = sqlite3.connect(base_temporal)
+    con.executescript(
+        "CREATE TABLE work_slots (slot_start INTEGER PRIMARY KEY, space TEXT NOT NULL,"
+        " session TEXT, command TEXT);"
+        "INSERT INTO work_slots VALUES (1755248400, 'sp_viejo', NULL, 'zsh');"
+    )
+    con.commit()
+    con.close()
+
+    datos = worklog.resumen()
+
+    assert datos["total_seconds"] == 30, "se perdió el histórico al migrar"
+    assert datos["manual_seconds"] == 0
+    assert datos["by_space"][0]["space"] == "sp_viejo"
+
+
+# ----------------------------------------------------------------------
+# Tramos de trabajo (inicio y fin)
+# ----------------------------------------------------------------------
+
+
+def test_ranuras_seguidas_son_un_solo_tramo() -> None:
+    base = epoch("2026-08-15 09:00:00")
+    for n in range(4):
+        worklog.registrar("sp_a", ahora=base + n * 30)
+
+    tramos = worklog.bloques()
+
+    assert len(tramos) == 1
+    assert tramos[0]["start"] == worklog.slot_de(base)
+    # El fin es el FIN de la última ranura, no su principio: una ranura
+    # representa el tiempo que cubre, y si no, un tramo de una sola ranura
+    # duraría cero.
+    assert tramos[0]["end"] == worklog.slot_de(base) + 4 * 30
+    assert tramos[0]["seconds"] == 120
+
+
+def test_un_hueco_largo_parte_el_tramo_y_uno_corto_no() -> None:
+    """La tolerancia existe porque un latido puede perderse.
+
+    Sin ella, una pestaña que tarda o una red que falla llenarían la lista de
+    tramos falsos de dos minutos donde el usuario no se levantó de la silla.
+    """
+    base = epoch("2026-08-15 09:00:00")
+    worklog.registrar("sp_a", ahora=base)
+    worklog.registrar("sp_a", ahora=base + 60)  # un latido perdido: sigue igual
+    worklog.registrar("sp_a", ahora=base + 3600)  # una hora después: otro tramo
+
+    tramos = worklog.bloques()
+
+    assert len(tramos) == 2
+    assert tramos[0]["seconds"] == 60
+    assert tramos[1]["start"] == worklog.slot_de(base + 3600)
+
+
+def test_cambiar_de_espacio_parte_el_tramo() -> None:
+    """Aunque el reloj no se pare: es otro proyecto, es otro tramo."""
+    base = epoch("2026-08-15 09:00:00")
+    worklog.registrar("sp_a", ahora=base)
+    worklog.registrar("sp_b", ahora=base + 30)
+
+    tramos = worklog.bloques()
+
+    assert [b["space"] for b in tramos] == ["sp_a", "sp_b"]
+
+
+def test_los_tramos_se_filtran_por_espacio_y_por_fechas() -> None:
+    base = epoch("2026-08-15 09:00:00")
+    worklog.registrar("sp_a", ahora=base)
+    worklog.registrar("sp_b", ahora=base + 3600)
+
+    assert len(worklog.bloques(space="sp_a")) == 1
+    assert len(worklog.bloques(desde=base + 1800)) == 1
+    assert worklog.bloques(desde=base + 1800)[0]["space"] == "sp_b"
+
+
+def test_el_tramo_dice_qué_se_estuvo_mirando() -> None:
+    base = epoch("2026-08-15 09:00:00")
+    worklog.registrar("sp_a", "MUXSPACE", "claude", ahora=base)
+    worklog.registrar("sp_a", "MUXSPACE", "claude", ahora=base + 30)
+    worklog.registrar("sp_a", "TERM", "zsh", ahora=base + 60)
+
+    tramo = worklog.bloques()[0]
+
+    assert tramo["sessions"] == ["MUXSPACE", "TERM"]
+    assert tramo["claude_seconds"] == 60
+    assert tramo["seconds"] == 90
+
+
 # ----------------------------------------------------------------------
 # Por HTTP
 # ----------------------------------------------------------------------

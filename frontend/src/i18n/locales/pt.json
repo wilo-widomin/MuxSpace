@@ -239,8 +239,8 @@
     "other": "{count} caracteres"
   },
   "clock.counting": "A contar tempo de trabalho",
-  "clock.idle": "Sem atividade: não se está a contar. Clica para contar à mesma.",
-  "clock.manual": "A contar manualmente (expira após 30 min sem atividade)",
+  "clock.idle": "Sem atividade: não se está a contar. Clica para declarar que trabalhas neste espaço.",
+  "clock.manual": "A contar tempo declarado (fora do painel). Expira ao fim de 30 min sem apareceres.",
   "clock.aria": "Registo de tempo de trabalho",
   "dashboard.title": "Tempo de trabalho",
   "dashboard.back": "Voltar ao painel",
@@ -261,5 +261,22 @@
   "dashboard.as_chart": "Ver como gráfico",
   "dashboard.series_agent": "Com um agente a correr",
   "dashboard.series_other": "Resto do trabalho",
-  "dashboard.since": "Há registo desde {date}."
+  "dashboard.since": "Há registo desde {date}.",
+  "dashboard.from": "Desde",
+  "dashboard.to": "Até",
+  "dashboard.space": "Espaço",
+  "dashboard.all_spaces": "Todos",
+  "dashboard.clear_filters": "Tirar filtros",
+  "dashboard.blocks": "Registos",
+  "dashboard.blocks_hint": "Cada trecho de trabalho contínuo. Um intervalo de mais de um minuto abre um novo.",
+  "dashboard.start": "Início",
+  "dashboard.end": "Fim",
+  "dashboard.sessions": "Sessões",
+  "dashboard.blocks_total": {
+    "one": "{count} registo · {time}",
+    "other": "{count} registos · {time}"
+  },
+  "dashboard.declared": "declarado",
+  "dashboard.declared_hint": "Parte deste trecho foi declarada à mão, não medida.",
+  "dashboard.declared_note": "Desse total, {time} é tempo declarado à mão (trabalho fora do painel), não medido."
 }

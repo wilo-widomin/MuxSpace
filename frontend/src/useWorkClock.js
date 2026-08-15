@@ -22,7 +22,15 @@ export function useWorkClock(space, session, enabled) {
   const [manual, setManual] = useState(false)
 
   const lastInputRef = useRef(Date.now())
+  // Última renovación del modo declarado. Se reinicia con cualquier entrada
+  // tuya y al volver a esta pestaña: por eso el tope es "renovable" y no un
+  // límite duro de media hora de trabajo.
   const manualDesdeRef = useRef(0)
+  const manualRef = useRef(false)
+  manualRef.current = manual
+  // ¿El sistema dice que no estás delante? `undefined` mientras no se sepa.
+  const ausenteRef = useRef(undefined)
+  const detectorRef = useRef(null)
   // Espacio y sesión en refs: el latido corre en un intervalo que no debe
   // reiniciarse cada vez que el usuario cambia de terminal.
   const spaceRef = useRef(space)
@@ -33,14 +41,43 @@ export function useWorkClock(space, session, enabled) {
   useEffect(() => {
     const marcar = () => {
       lastInputRef.current = Date.now()
+      // Trabajar en el panel renueva el modo declarado: si estás aquí, la
+      // media hora de gracia vuelve a empezar.
+      if (manualRef.current) manualDesdeRef.current = Date.now()
     }
     for (const evento of ACTIVITY_EVENTS) {
       window.addEventListener(evento, marcar, { passive: true, capture: true })
     }
+    // Volver a la pestaña también renueva, aunque todavía no toques nada.
+    window.addEventListener('focus', marcar)
     return () => {
       for (const evento of ACTIVITY_EVENTS) {
         window.removeEventListener(evento, marcar, { capture: true })
       }
+      window.removeEventListener('focus', marcar)
+    }
+  }, [])
+
+  // Detección de presencia del navegador (Chrome, con permiso y en contexto
+  // seguro). Solo se usa para APAGAR: dice si te has ido de la máquina o si
+  // la pantalla está bloqueada mientras el modo declarado sigue encendido.
+  // Sin ella, lo único que protege es la caducidad — que ya es suficiente,
+  // así que no se pide permiso salvo al encender el modo.
+  const vigilarPresencia = useCallback(async () => {
+    if (detectorRef.current || !('IdleDetector' in window)) return
+    try {
+      const permiso = await window.IdleDetector.requestPermission()
+      if (permiso !== 'granted') return
+      const detector = new window.IdleDetector()
+      detector.addEventListener('change', () => {
+        ausenteRef.current =
+          detector.userState === 'idle' || detector.screenState === 'locked'
+      })
+      await detector.start({ threshold: 60_000 })
+      detectorRef.current = detector
+    } catch {
+      // Sin permiso, sin API o en un contexto no seguro: se sigue con la
+      // caducidad como única red. No es motivo para no dejar contar.
     }
   }, [])
 
@@ -48,11 +85,17 @@ export function useWorkClock(space, session, enabled) {
     setManual((actual) => {
       const siguiente = !actual
       manualDesdeRef.current = siguiente ? Date.now() : 0
-      // Encenderlo cuenta como entrada: si el usuario lo pulsa, está delante.
-      if (siguiente) lastInputRef.current = Date.now()
+      if (siguiente) {
+        // Encenderlo cuenta como entrada: si lo pulsas, estás delante.
+        lastInputRef.current = Date.now()
+        ausenteRef.current = undefined
+        // El clic es el gesto del usuario que la API de presencia exige para
+        // poder pedir permiso.
+        vigilarPresencia()
+      }
       return siguiente
     })
-  }, [])
+  }, [vigilarPresencia])
 
   useEffect(() => {
     if (!enabled) {
@@ -67,17 +110,18 @@ export function useWorkClock(space, session, enabled) {
         lastInput: lastInputRef.current,
         manual,
         manualSince: manualDesdeRef.current,
+        userAway: ausenteRef.current,
       }
       if (manualExpired(estado, ahora)) {
         setManual(false)
         manualDesdeRef.current = 0
         estado.manual = false
       }
-      const trabajando = isWorking(estado, ahora)
-      setActivo(trabajando)
-      if (!trabajando) return
+      const modo = isWorking(estado, ahora)
+      setActivo(Boolean(modo))
+      if (!modo) return
       try {
-        await api.workBeat(spaceRef.current, sessionRef.current)
+        await api.workBeat(spaceRef.current, sessionRef.current, modo)
       } catch {
         // Un latido perdido cuesta 30 segundos y nada más. Reintentar sería
         // recuperar un instante que ya pasó: la siguiente ranura es la que
@@ -89,6 +133,14 @@ export function useWorkClock(space, session, enabled) {
     const temporizador = setInterval(latir, HEARTBEAT_MS)
     return () => clearInterval(temporizador)
   }, [enabled, manual])
+
+  // El detector de presencia sobrevive a los cambios de estado, así que se
+  // suelta al desmontar y no en cada latido.
+  useEffect(() => {
+    return () => {
+      detectorRef.current = null
+    }
+  }, [])
 
   return { activo, manual, alternarManual }
 }

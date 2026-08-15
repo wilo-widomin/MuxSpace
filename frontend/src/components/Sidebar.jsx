@@ -510,6 +510,38 @@ export default function Sidebar({
         >
           <LayoutIcon mode={layout} />
         </button>
+        {/* El cronómetro tiene que verse SIEMPRE, colapsado incluido: es el
+            indicador de si se está registrando el tiempo, y un indicador que
+            hay que desplegar para consultar no avisa de nada. */}
+        <button
+          onClick={workClock?.alternarManual}
+          title={
+            !workClock?.activo
+              ? t('clock.idle')
+              : workClock?.manual
+                ? t('clock.manual')
+                : t('clock.counting')
+          }
+          aria-label={t('clock.aria')}
+          aria-pressed={Boolean(workClock?.manual)}
+          className={`mt-2 rounded p-1.5 transition hover:bg-panel-bg ${
+            workClock?.activo
+              ? 'text-green-400'
+              : 'text-panel-muted hover:text-gray-100'
+          }`}
+        >
+          <ClockIcon activo={Boolean(workClock?.activo)} />
+        </button>
+        <a
+          href="/dashboard"
+          target="_blank"
+          rel="noopener noreferrer"
+          title={t('dashboard.title')}
+          aria-label={t('dashboard.title')}
+          className="mt-2 rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+        >
+          <ChartIcon />
+        </a>
       </aside>
     )
   }

@@ -5,15 +5,12 @@
   "app.loading": "Loading…",
   "app.session_expired": "Session expired. Please log in again.",
   "app.server_unreachable": "Couldn't reach the server.",
-
   "lang.label": "Language",
-
   "login.subtitle": "Enter your credentials to continue.",
   "login.username": "Username",
   "login.password": "Password",
   "login.submit": "Log in",
   "login.submitting": "Connecting…",
-
   "grid.empty_title": "No terminals open",
   "grid.empty_hint": "Pick a session in the sidebar to view it here.",
   "grid.resize_hint": "Drag to resize (double-click: split evenly)",
@@ -21,17 +18,26 @@
   "grid.layout_cols": "Side by side (columns)",
   "grid.layout_rows": "Stacked (rows)",
   "grid.restore": "Restore layout",
-
   "tile.drag_hint": "Drag to reorder",
   "tile.kill": "Kill the tmux session (kill-session)",
   "tile.close": "Close and stop the terminal",
   "tile.maximize": "Maximize",
   "tile.restore": "Restore layout",
-  "tile.search_placeholder": "Search a command or type one (Enter to send)… (Esc to clear)",
+  "tile.run_command": "Run a command from the library",
+  "tile.search_terminal": "Search the terminal (Ctrl+F)",
+  "tile.command_filter_placeholder": "Filter commands…",
+  "tile.no_commands": "No matching commands.",
   "tile.confirm_kill": "Kill the tmux session \"{name}\"?\n\nThis runs \"tmux kill-session\" on the server: the session and everything running in it will be lost. This can't be undone.",
-
   "term.disconnected": "[disconnected from server]",
-
+  "term.search_placeholder": "Search the scrollback…",
+  "term.search_prev": "Previous match (Enter)",
+  "term.search_next": "Next match (Shift+Enter)",
+  "term.search_close": "Close search (Esc)",
+  "term.search_matches": {
+    "one": "{count} match",
+    "other": "{count} matches"
+  },
+  "term.search_none": "no results",
   "sidebar.expand": "Expand panel",
   "sidebar.collapse": "Hide panel",
   "sidebar.new_session": "New session",
@@ -48,7 +54,6 @@
   "sidebar.kill_session": "Kill the tmux session (kill-session)",
   "sidebar.hide_tile": "Close the tile (the terminal stays alive)",
   "sidebar.logout": "Log out",
-
   "sidebar.commands": "Commands",
   "sidebar.commands_hint": "They always open in a new session, never in the focused terminal.",
   "sidebar.new_command": "New command",
@@ -56,7 +61,6 @@
   "sidebar.delete_command": "Delete command",
   "sidebar.confirm_delete_command": "Delete the command \"{label}\" from the library?",
   "sidebar.run_in_new_session": "Open in a new session and run",
-
   "sidebar.projects": "Projects",
   "sidebar.projects_hint": "They open a new session: cd to the directory + a list of commands.",
   "sidebar.new_project": "New project",
@@ -65,7 +69,6 @@
   "sidebar.confirm_delete_project": "Delete the project \"{title}\" from the library?",
   "sidebar.run_project": "Open in a new session and run the sequence",
   "sidebar.run_project_new_tab": "Open the project in its own space, in a new tab",
-
   "form.new_session_title": "New session",
   "form.session_name_label": "Name of the new session",
   "form.session_name_hint": "Letters, numbers, hyphen (-) and underscore (_) only. A slash \"/\" becomes \"_\".",
@@ -78,7 +81,6 @@
   "form.project_title_default_placeholder": "project title (defaults to the session name)",
   "form.create_session": "Create session",
   "form.creating": "Creating…",
-
   "form.new_command_title": "New command",
   "form.edit_command_title": "Edit command",
   "form.name_optional_label": "Name (optional)",
@@ -86,7 +88,6 @@
   "form.command_label": "Command",
   "form.command_only_placeholder": "command",
   "form.quick_command_placeholder": "command (e.g. {example})",
-
   "form.new_project_title": "New project",
   "form.edit_project_title": "Edit project",
   "form.title_label": "Title",
@@ -102,13 +103,11 @@
   "form.save_project": "Save project",
   "form.save": "Save",
   "form.saving": "Saving…",
-
   "form.need_one_command": "Add at least one command.",
   "form.create_session_failed": "Couldn't create the session.",
   "form.rename_session_failed": "Couldn't rename the session.",
   "form.save_command_failed": "Couldn't save the command.",
   "form.save_project_failed": "Couldn't save the project.",
-
   "spaces.title": "Spaces",
   "spaces.unassigned": "Unassigned",
   "spaces.option": "{title} ({count})",
@@ -128,7 +127,6 @@
     "other": "Delete the space \"{title}\"?\n\nIts {count} sessions are NOT killed: they go back to \"Unassigned\"."
   },
   "spaces.move": "Move to another space",
-
   "paste.title": "Paste an image for Claude",
   "paste.uploading": "Uploading…",
   "paste.placeholder": "Click here and paste the image (Ctrl+V)",
@@ -148,7 +146,6 @@
   "paste.copied": "Path copied! Paste it to Claude:",
   "paste.copy_hint": "Click the path to copy it:",
   "paste.copy_path": "Click to copy the path",
-
   "upload.title": "Upload file",
   "upload.dest_label": "Destination folder:",
   "upload.choose_dir": "Choose folder",
@@ -173,22 +170,18 @@
   "upload.save_here": "Save here",
   "upload.browse_failed": "Couldn't list the folder.",
   "upload.create_failed": "Couldn't create the folder.",
-
   "modal.close": "Close",
-
   "err.unknown": "Unexpected error.",
   "err.http": "Error {status}",
   "err.unauthorized": "Not authorized.",
   "err.unauthenticated": "Not authenticated.",
   "err.bad_credentials": "Wrong username or password.",
   "err.login_rate_limited": "Too many failed attempts. Wait a minute.",
-
   "err.image_unsupported_format": "Unsupported format. Paste a PNG, JPEG, WebP or GIF image.",
   "err.image_missing": "No image was received.",
   "err.image_too_large": "The image is over the {mb} MB limit.",
   "err.paste_not_found": "Screenshot not found.",
   "err.paste_delete_failed": "Couldn't delete the screenshot.",
-
   "err.upload_missing": "No file was received.",
   "err.upload_too_large": "The file exceeds the {mb} MB limit.",
   "err.upload_name_invalid": "Invalid file name.",
@@ -198,7 +191,6 @@
   "err.dir_not_found": "Folder not found or outside the allowed area.",
   "err.dir_name_invalid": "Invalid folder name.",
   "err.dir_create_failed": "Couldn't create the folder.",
-
   "err.session_name_invalid": "Invalid name. Use only letters, numbers, hyphen (-) and underscore (_), 64 characters max.",
   "err.session_exists": "A session named \"{name}\" already exists.",
   "err.session_missing": "The tmux session \"{name}\" doesn't exist.",
@@ -209,20 +201,30 @@
   "err.session_kill_failed": "Couldn't kill the session.",
   "err.session_detach_failed": "Couldn't detach the session.",
   "err.send_command_failed": "Couldn't send the command to the \"{name}\" session.",
-
   "err.tmux_not_found": "The tmux binary wasn't found (\"{binary}\").",
   "err.tmux_timeout": "tmux didn't respond in time.",
   "err.tmux_unknown": "Unknown tmux error.",
-
+  "err.tmux_session_missing": "The tmux session “{name}” no longer exists.",
   "err.command_empty": "The command can't be empty.",
   "err.command_not_found": "Command not found.",
   "err.project_not_found": "Project not found.",
   "err.project_title_required": "The project needs a title.",
   "err.project_needs_command": "The project needs at least one command.",
   "err.project_no_commands": "The project has no commands to run.",
-
   "err.space_title_empty": "The space title can't be empty.",
   "err.space_title_too_long": "The title can't be longer than {max} characters.",
   "err.space_not_found": "The space \"{id}\" doesn't exist.",
-  "err.spaces_save_failed": "Couldn't save the spaces."
+  "err.spaces_save_failed": "Couldn't save the spaces.",
+  "transcript.title": "Claude conversation · {name}",
+  "transcript.search_placeholder": "Search the conversation…",
+  "transcript.position": "{current} of {total}",
+  "transcript.loading": "Loading the conversation…",
+  "transcript.unavailable": "No Claude conversation found for this pane.",
+  "transcript.role_user": "You",
+  "transcript.role_assistant": "Claude",
+  "transcript.block_thinking": "thinking",
+  "transcript.block_tool_result": "output",
+  "transcript.block_text": "text",
+  "transcript.block_tool_use": "tools",
+  "transcript.filters": "Show:"
 }

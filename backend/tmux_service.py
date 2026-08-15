@@ -167,6 +167,26 @@ def session_exists(name: str) -> bool:
     return any(s.name == name for s in list_sessions())
 
 
+def pane_info(name: str) -> dict[str, str]:
+    """Directorio y programa del panel activo de una sesión.
+
+    Lo usa la búsqueda del transcript de Claude: del directorio sale el
+    proyecto, y de ahí el `.jsonl` de la conversación. `alternate_on` dice si
+    el programa ocupa su propia pantalla, que es lo que distingue "aquí busca
+    tmux" de "aquí hay que leer el transcript".
+    """
+    formato = "#{pane_current_path}\t#{pane_current_command}\t#{alternate_on}"
+    resultado = _run_tmux(["display-message", "-p", "-t", name, "-F", formato])
+    if resultado.returncode != 0:
+        raise TmuxError("err.tmux_session_missing", {"name": name})
+    partes = resultado.stdout.strip().split("\t")
+    return {
+        "path": partes[0] if partes else "",
+        "command": partes[1] if len(partes) > 1 else "",
+        "alternate": partes[2] if len(partes) > 2 else "0",
+    }
+
+
 def _quote_path(path: str) -> str:
     """Prepara una ruta para inyectarla en el shell con `cd`.
 

@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import fcntl
+import json
 import os
 import shlex
 import shutil
@@ -74,6 +75,7 @@ class _WebSocketFalso:
     def __init__(self) -> None:
         self.entrada: asyncio.Queue[dict] = asyncio.Queue()
         self.salida = bytearray()
+        self.control: list[dict] = []
         self.cerrado_con: int | None = None
         self.recibido = asyncio.Event()
 
@@ -84,6 +86,12 @@ class _WebSocketFalso:
     async def send_bytes(self, data: bytes) -> None:
         self.salida += data
         self.recibido.set()
+
+    async def send_text(self, data: str) -> None:
+        # El canal de control del backend hacia el cliente (hoy solo el estado
+        # del scroll). Se guarda aparte de `salida` porque confundir estado con
+        # bytes del terminal es justo lo que el protocolo evita.
+        self.control.append(json.loads(data))
 
     async def close(self, code: int = 1000) -> None:
         self.cerrado_con = code
@@ -99,6 +107,20 @@ class _WebSocketFalso:
                 "text": f'{{"type":"resize","cols":{cols},"rows":{rows}}}',
             }
         )
+
+    def pedir(self, msg: dict) -> None:
+        """Manda un mensaje de control cualquiera (scroll, scroll-to, …)."""
+        self.entrada.put_nowait({"type": "websocket.receive", "text": json.dumps(msg)})
+
+    async def esperar_estado(self, timeout: float = 10.0) -> dict:
+        """Espera al siguiente `scroll-state` y lo devuelve."""
+        cuantos = len(self.control)
+        limite = time.monotonic() + timeout
+        while time.monotonic() < limite:
+            if len(self.control) > cuantos:
+                return self.control[-1]
+            await asyncio.sleep(0.02)
+        raise AssertionError("el backend no mandó ningún scroll-state")
 
     def colgar(self) -> None:
         self.entrada.put_nowait({"type": "websocket.disconnect"})
@@ -300,6 +322,279 @@ def test_el_redimensionado_llega_al_pty_y_tmux_lo_ve(
         assert visto == "132x43", (
             f"tmux sigue viendo {visto!r}: el resize no llegó al cliente, que es "
             "el fallo que produce una terminal clavada en 80x24"
+        )
+
+        ws.colgar()
+        await asyncio.wait_for(puente, timeout=10)
+
+    asyncio.run(_correr())
+
+
+def sembrar_historial(wrapper: Path, nombre: str, lineas: int) -> None:
+    """Llena el scrollback de la sesión con `lineas` líneas numeradas."""
+    subprocess.run(
+        [str(wrapper), "send-keys", "-t", nombre,
+         f"seq 1 {lineas}", "Enter"],
+        capture_output=True, timeout=10, check=True,
+    )
+
+
+def historial_de(wrapper: Path, nombre: str) -> int:
+    salida = subprocess.run(
+        [str(wrapper), "display-message", "-p", "-t", nombre, "#{history_size}"],
+        capture_output=True, text=True, timeout=10,
+    ).stdout.strip()
+    return int(salida or 0)
+
+
+@sin_tmux
+def test_la_rueda_sube_por_el_historial_de_tmux(tmux_aislado: Path) -> None:
+    """El gesto de rueda mueve el historial DE TMUX y el cliente se entera.
+
+    Es la prueba de que el scroll no depende del scrollback de xterm.js: ese
+    buffer está siempre vacío porque tmux ocupa la pantalla alternativa. Lo
+    que se comprueba es que un `scroll` por el canal de control acaba en un
+    copy-mode desplazado, y que la posición vuelve al cliente para que pueda
+    pintar la barra.
+    """
+    async def _correr() -> None:
+        nombre = f"scroll-{uuid.uuid4().hex[:6]}"
+        crear_sesion(tmux_aislado, nombre)
+        ws = _WebSocketFalso()
+        puente = asyncio.create_task(pty_bridge.bridge(ws, nombre))
+        await asyncio.sleep(0.5)
+
+        sembrar_historial(tmux_aislado, nombre, 300)
+        limite = time.monotonic() + 10
+        while historial_de(tmux_aislado, nombre) < 100 and time.monotonic() < limite:
+            await asyncio.sleep(0.05)
+
+        ws.pedir({"type": "scroll", "lines": 40})
+        estado = await ws.esperar_estado()
+        assert estado["type"] == "scroll-state"
+        assert estado["history"] >= 100, "no se sembró historial suficiente"
+        assert estado["position"] > 0, (
+            "la rueda no movió el historial de tmux: sin esto el usuario no "
+            "puede subir a ver lo que ya ha pasado"
+        )
+        assert estado["height"] > 0
+
+        arriba = estado["position"]
+        ws.pedir({"type": "scroll", "lines": -10})
+        estado = await ws.esperar_estado()
+        assert estado["position"] < arriba, "bajar con la rueda no hizo nada"
+
+        # Saltar a una posición absoluta: es lo que hace arrastrar la barra.
+        ws.pedir({"type": "scroll-to", "position": estado["history"]})
+        estado = await ws.esperar_estado()
+        assert estado["position"] == estado["history"], (
+            "arrastrar la barra hasta arriba no llegó al principio del historial"
+        )
+
+        ws.colgar()
+        await asyncio.wait_for(puente, timeout=10)
+
+    asyncio.run(_correr())
+
+
+@sin_tmux
+def test_la_busqueda_salta_a_la_coincidencia_del_historial(
+    tmux_aislado: Path,
+) -> None:
+    """El ⌘F busca en el historial de TMUX y deja el panel sobre el resultado.
+
+    Es lo que no puede hacer el buscador de xterm.js: su buffer está vacío
+    porque tmux ocupa la pantalla alternativa. Se comprueba con una aguja
+    empujada lejos del final: si la posición no se mueve, la búsqueda no ha
+    saltado a ningún sitio.
+    """
+    async def _correr() -> None:
+        nombre = f"buscar-{uuid.uuid4().hex[:6]}"
+        crear_sesion(tmux_aislado, nombre)
+        ws = _WebSocketFalso()
+        puente = asyncio.create_task(pty_bridge.bridge(ws, nombre))
+        await asyncio.sleep(0.5)
+
+        aguja = f"AGUJA{uuid.uuid4().hex[:6].upper()}"
+        subprocess.run(
+            [str(tmux_aislado), "send-keys", "-t", nombre, f"echo {aguja}", "Enter"],
+            capture_output=True, timeout=10, check=True,
+        )
+        # Empujar la aguja bien arriba: si estuviera en pantalla, saltar a ella
+        # no movería la posición y el test no probaría nada.
+        sembrar_historial(tmux_aislado, nombre, 300)
+        limite = time.monotonic() + 10
+        while historial_de(tmux_aislado, nombre) < 300 and time.monotonic() < limite:
+            await asyncio.sleep(0.05)
+
+        ws.pedir({"type": "search", "text": aguja, "direction": "up"})
+        estado = await ws.esperar_estado()
+        assert estado["position"] > 0, (
+            "la búsqueda no llevó el panel a la coincidencia: con la aguja 300 "
+            "líneas más arriba, quedarse en el final es no haber buscado"
+        )
+
+        ws.colgar()
+        await asyncio.wait_for(puente, timeout=10)
+
+    asyncio.run(_correr())
+
+
+@sin_tmux
+def test_la_busqueda_ignora_mayusculas_y_dice_cuantas_hay(
+    tmux_aislado: Path,
+) -> None:
+    """Dos defectos que hacían parecer rota una búsqueda que funcionaba.
+
+    - tmux es *smartcase*: una aguja con mayúsculas exigía coincidencia
+      exacta, así que `MIAGUJA` no encontraba `MiAguja`.
+    - Y cuando no hay coincidencia se queda quieto **y en silencio**, que
+      desde fuera es idéntico a haberla encontrado.
+    """
+    async def _correr() -> None:
+        nombre = f"caso-{uuid.uuid4().hex[:6]}"
+        crear_sesion(tmux_aislado, nombre)
+        ws = _WebSocketFalso()
+        puente = asyncio.create_task(pty_bridge.bridge(ws, nombre))
+        await asyncio.sleep(0.5)
+
+        sufijo = uuid.uuid4().hex[:6]
+        aguja = f"MiAguja{sufijo}"
+        subprocess.run(
+            [str(tmux_aislado), "send-keys", "-t", nombre, f"echo {aguja}", "Enter"],
+            capture_output=True, timeout=10, check=True,
+        )
+        sembrar_historial(tmux_aislado, nombre, 300)
+        limite = time.monotonic() + 10
+        while historial_de(tmux_aislado, nombre) < 300 and time.monotonic() < limite:
+            await asyncio.sleep(0.05)
+
+        # En MAYÚSCULAS: antes no encontraba nada.
+        ws.pedir({"type": "search", "text": aguja.upper(), "direction": "up"})
+        estado = await ws.esperar_estado()
+        assert estado["position"] > 0, (
+            "buscar en mayúsculas no encontró la aguja: el smartcase de tmux "
+            "sigue mandando"
+        )
+        resultado = next(m for m in ws.control if m["type"] == "search-result")
+        assert resultado["matches"] >= 1, "encontró la aguja pero dijo que no había"
+
+        # Y algo que no está tiene que decirse.
+        ws.pedir({"type": "search", "text": f"no-existe-{sufijo}", "direction": "up"})
+        await ws.esperar_estado()
+        ultimo = [m for m in ws.control if m["type"] == "search-result"][-1]
+        assert ultimo["matches"] == 0, (
+            "una búsqueda sin resultados no se distingue de una con ellos"
+        )
+
+        ws.colgar()
+        await asyncio.wait_for(puente, timeout=10)
+
+    asyncio.run(_correr())
+
+
+@sin_tmux
+def test_en_pantalla_alternativa_el_scroll_se_deja_al_programa(
+    tmux_aislado: Path,
+) -> None:
+    """Con un programa en su pantalla alternativa, el puente NO scrollea.
+
+    Claude Code, vim o less se repintan en su propia pantalla: tmux no guarda
+    ni una línea de eso, así que meter el panel en copy-mode enseñaría la
+    pantalla del programa y no historial. El cliente necesita saberlo
+    (`alternate`) para dejarle la rueda al programa, que es quien sí puede
+    scrollear. Antes de esto, la rueda dentro de Claude dejó de funcionar.
+    """
+    async def _correr() -> None:
+        nombre = f"alt-{uuid.uuid4().hex[:6]}"
+        crear_sesion(tmux_aislado, nombre)
+        ws = _WebSocketFalso()
+        puente = asyncio.create_task(pty_bridge.bridge(ws, nombre))
+        await asyncio.sleep(0.5)
+
+        sembrar_historial(tmux_aislado, nombre, 300)
+        limite = time.monotonic() + 10
+        while historial_de(tmux_aislado, nombre) < 100 and time.monotonic() < limite:
+            await asyncio.sleep(0.05)
+
+        # `?1049h` es justo lo que emite un programa al tomar la pantalla
+        # alternativa; no hace falta arrastrar un vim al test para reproducir
+        # la condición que importa.
+        subprocess.run(
+            [str(tmux_aislado), "send-keys", "-t", nombre,
+             r"printf '\033[?1049h'", "Enter"],
+            capture_output=True, timeout=10, check=True,
+        )
+        limite = time.monotonic() + 10
+        while time.monotonic() < limite:
+            alterna = subprocess.run(
+                [str(tmux_aislado), "display-message", "-p", "-t", nombre,
+                 "#{alternate_on}"],
+                capture_output=True, text=True, timeout=10,
+            ).stdout.strip()
+            if alterna == "1":
+                break
+            await asyncio.sleep(0.05)
+        assert alterna == "1", "no se pudo poner el panel en pantalla alternativa"
+
+        ws.pedir({"type": "scroll", "lines": 40})
+        estado = await ws.esperar_estado()
+        assert estado["alternate"] == 1, (
+            "el cliente no se entera de que el programa manda en la pantalla, "
+            "así que se quedaría con la rueda en vez de pasársela"
+        )
+        assert estado["position"] == 0, (
+            "el puente metió el panel en copy-mode sobre una pantalla "
+            "alternativa: ahí no hay historial que mirar"
+        )
+
+        ws.colgar()
+        await asyncio.wait_for(puente, timeout=10)
+
+    asyncio.run(_correr())
+
+
+@sin_tmux
+def test_teclear_mientras_se_mira_el_historial_vuelve_al_final(
+    tmux_aislado: Path,
+) -> None:
+    """Escribir cancela el copy-mode, como en cualquier terminal.
+
+    Sin esto las teclas se las come el copy-mode de tmux (y algunas hacen
+    cosas raras, porque ahí son atajos), y el usuario solo ve que "la terminal
+    no escribe".
+    """
+    async def _correr() -> None:
+        nombre = f"scrollkey-{uuid.uuid4().hex[:6]}"
+        crear_sesion(tmux_aislado, nombre)
+        ws = _WebSocketFalso()
+        puente = asyncio.create_task(pty_bridge.bridge(ws, nombre))
+        await asyncio.sleep(0.5)
+
+        sembrar_historial(tmux_aislado, nombre, 300)
+        limite = time.monotonic() + 10
+        while historial_de(tmux_aislado, nombre) < 100 and time.monotonic() < limite:
+            await asyncio.sleep(0.05)
+
+        ws.pedir({"type": "scroll", "lines": 40})
+        estado = await ws.esperar_estado()
+        assert estado["position"] > 0
+
+        ws.teclear(b"x")
+        limite = time.monotonic() + 10
+        en_modo = "1"
+        while time.monotonic() < limite:
+            en_modo = subprocess.run(
+                [str(tmux_aislado), "display-message", "-p", "-t", nombre,
+                 "#{pane_in_mode}"],
+                capture_output=True, text=True, timeout=10,
+            ).stdout.strip()
+            if en_modo == "0":
+                break
+            await asyncio.sleep(0.05)
+        assert en_modo == "0", (
+            "el panel sigue en copy-mode tras teclear: las pulsaciones no "
+            "estarían llegando al programa"
         )
 
         ws.colgar()

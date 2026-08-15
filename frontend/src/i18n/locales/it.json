@@ -5,15 +5,12 @@
   "app.loading": "Caricamento…",
   "app.session_expired": "Sessione scaduta. Accedi di nuovo.",
   "app.server_unreachable": "Impossibile connettersi al server.",
-
   "lang.label": "Lingua",
-
   "login.subtitle": "Inserisci le tue credenziali per continuare.",
   "login.username": "Utente",
   "login.password": "Password",
   "login.submit": "Accedi",
   "login.submitting": "Connessione…",
-
   "grid.empty_title": "Nessun terminale aperto",
   "grid.empty_hint": "Seleziona una sessione nel pannello laterale per visualizzarla qui.",
   "grid.resize_hint": "Trascina per ridimensionare (doppio clic: distribuisci equamente)",
@@ -21,17 +18,26 @@
   "grid.layout_cols": "Una accanto all’altra (colonne)",
   "grid.layout_rows": "Una sopra l’altra (righe)",
   "grid.restore": "Ripristina disposizione",
-
   "tile.drag_hint": "Trascina per riordinare",
   "tile.kill": "Termina la sessione tmux (kill-session)",
   "tile.close": "Chiudi e ferma il terminale",
   "tile.maximize": "Ingrandisci",
   "tile.restore": "Ripristina disposizione",
-  "tile.search_placeholder": "Cerca un comando o scrivi (Enter per inviare)… (Esc per pulire)",
+  "tile.run_command": "Esegui un comando della libreria",
+  "tile.search_terminal": "Cerca nel terminale (Ctrl+F)",
+  "tile.command_filter_placeholder": "Filtra i comandi…",
+  "tile.no_commands": "Nessun comando corrispondente.",
   "tile.confirm_kill": "Terminare la sessione tmux «{name}»?\n\nVerrà eseguito «tmux kill-session» sul server: la sessione e tutto ciò che vi sta girando andranno persi. Questa azione non può essere annullata.",
-
   "term.disconnected": "[disconnesso dal server]",
-
+  "term.search_placeholder": "Cerca nella cronologia…",
+  "term.search_prev": "Corrispondenza precedente (Invio)",
+  "term.search_next": "Corrispondenza successiva (Maiusc+Invio)",
+  "term.search_close": "Chiudi la ricerca (Esc)",
+  "term.search_matches": {
+    "one": "{count} corrispondenza",
+    "other": "{count} corrispondenze"
+  },
+  "term.search_none": "nessun risultato",
   "sidebar.expand": "Espandi pannello",
   "sidebar.collapse": "Nascondi pannello",
   "sidebar.new_session": "Nuova sessione",
@@ -48,7 +54,6 @@
   "sidebar.kill_session": "Termina la sessione tmux (kill-session)",
   "sidebar.hide_tile": "Chiudi la finestra (il terminale resta attivo)",
   "sidebar.logout": "Esci",
-
   "sidebar.commands": "Comandi",
   "sidebar.commands_hint": "Si aprono sempre in una nuova sessione, mai nel terminale attivo.",
   "sidebar.new_command": "Nuovo comando",
@@ -56,7 +61,6 @@
   "sidebar.delete_command": "Elimina comando",
   "sidebar.confirm_delete_command": "Eliminare il comando «{label}» dalla libreria?",
   "sidebar.run_in_new_session": "Apri in una nuova sessione ed esegui",
-
   "sidebar.projects": "Progetti",
   "sidebar.projects_hint": "Aprono una nuova sessione: cd nella cartella + elenco di comandi.",
   "sidebar.new_project": "Nuovo progetto",
@@ -65,7 +69,6 @@
   "sidebar.confirm_delete_project": "Eliminare il progetto «{title}» dalla libreria?",
   "sidebar.run_project": "Apri in una nuova sessione ed esegui la sequenza",
   "sidebar.run_project_new_tab": "Apri il progetto nel suo spazio, in una nuova scheda",
-
   "form.new_session_title": "Nuova sessione",
   "form.session_name_label": "Nome della nuova sessione",
   "form.session_name_hint": "Solo lettere, numeri, trattino (-) e trattino basso (_). La barra «/» viene sostituita da «_».",
@@ -78,7 +81,6 @@
   "form.project_title_default_placeholder": "titolo del progetto (per impostazione predefinita il nome della sessione)",
   "form.create_session": "Crea sessione",
   "form.creating": "Creazione…",
-
   "form.new_command_title": "Nuovo comando",
   "form.edit_command_title": "Modifica comando",
   "form.name_optional_label": "Nome (facoltativo)",
@@ -86,7 +88,6 @@
   "form.command_label": "Comando",
   "form.command_only_placeholder": "comando",
   "form.quick_command_placeholder": "comando (es. {example})",
-
   "form.new_project_title": "Nuovo progetto",
   "form.edit_project_title": "Modifica progetto",
   "form.title_label": "Titolo",
@@ -102,13 +103,11 @@
   "form.save_project": "Salva progetto",
   "form.save": "Salva",
   "form.saving": "Salvataggio…",
-
   "form.need_one_command": "Aggiungi almeno un comando.",
   "form.create_session_failed": "Impossibile creare la sessione.",
   "form.rename_session_failed": "Impossibile rinominare la sessione.",
   "form.save_command_failed": "Impossibile salvare il comando.",
   "form.save_project_failed": "Impossibile salvare il progetto.",
-
   "spaces.title": "Spazi",
   "spaces.unassigned": "Non assegnate",
   "spaces.option": "{title} ({count})",
@@ -128,7 +127,6 @@
     "other": "Eliminare lo spazio «{title}»?\n\nLe sue {count} sessioni NON vengono terminate: tornano in «Non assegnate»."
   },
   "spaces.move": "Sposta in un altro spazio",
-
   "paste.title": "Incolla un'immagine per Claude",
   "paste.uploading": "Caricamento…",
   "paste.placeholder": "Fai clic qui e incolla l'immagine (Ctrl+V)",
@@ -148,7 +146,6 @@
   "paste.copied": "Percorso copiato! Incollalo a Claude:",
   "paste.copy_hint": "Clic sul percorso per copiarlo:",
   "paste.copy_path": "Clic per copiare il percorso",
-
   "upload.title": "Carica file",
   "upload.dest_label": "Cartella di destinazione:",
   "upload.choose_dir": "Scegli cartella",
@@ -173,22 +170,18 @@
   "upload.save_here": "Salva qui",
   "upload.browse_failed": "Impossibile elencare la cartella.",
   "upload.create_failed": "Impossibile creare la cartella.",
-
   "modal.close": "Chiudi",
-
   "err.unknown": "Errore imprevisto.",
   "err.http": "Errore {status}",
   "err.unauthorized": "Non autorizzato.",
   "err.unauthenticated": "Non autenticato.",
   "err.bad_credentials": "Utente o password errati.",
   "err.login_rate_limited": "Troppi tentativi falliti. Aspetta un minuto.",
-
   "err.image_unsupported_format": "Formato non supportato. Incolla un'immagine PNG, JPEG, WebP o GIF.",
   "err.image_missing": "Non è stata ricevuta nessuna immagine.",
   "err.image_too_large": "L'immagine supera il limite di {mb} MB.",
   "err.paste_not_found": "Screenshot non trovato.",
   "err.paste_delete_failed": "Impossibile eliminare lo screenshot.",
-
   "err.upload_missing": "Nessun file ricevuto.",
   "err.upload_too_large": "Il file supera il limite di {mb} MB.",
   "err.upload_name_invalid": "Nome file non valido.",
@@ -198,7 +191,6 @@
   "err.dir_not_found": "Cartella non trovata o fuori dall'area consentita.",
   "err.dir_name_invalid": "Nome cartella non valido.",
   "err.dir_create_failed": "Impossibile creare la cartella.",
-
   "err.session_name_invalid": "Nome non valido. Usa solo lettere, numeri, trattino (-) e trattino basso (_), massimo 64 caratteri.",
   "err.session_exists": "Esiste già una sessione di nome «{name}».",
   "err.session_missing": "La sessione tmux «{name}» non esiste.",
@@ -209,20 +201,30 @@
   "err.session_kill_failed": "Impossibile terminare la sessione.",
   "err.session_detach_failed": "Impossibile scollegare la sessione.",
   "err.send_command_failed": "Impossibile inviare il comando alla sessione «{name}».",
-
   "err.tmux_not_found": "Binario di tmux non trovato («{binary}»).",
   "err.tmux_timeout": "tmux non ha risposto in tempo.",
   "err.tmux_unknown": "Errore sconosciuto in tmux.",
-
+  "err.tmux_session_missing": "La sessione tmux «{name}» non esiste più.",
   "err.command_empty": "Il comando non può essere vuoto.",
   "err.command_not_found": "Comando non trovato.",
   "err.project_not_found": "Progetto non trovato.",
   "err.project_title_required": "Il progetto ha bisogno di un titolo.",
   "err.project_needs_command": "Il progetto ha bisogno di almeno un comando.",
   "err.project_no_commands": "Il progetto non ha comandi da eseguire.",
-
   "err.space_title_empty": "Il titolo dello spazio non può essere vuoto.",
   "err.space_title_too_long": "Il titolo non può superare i {max} caratteri.",
   "err.space_not_found": "Lo spazio «{id}» non esiste.",
-  "err.spaces_save_failed": "Impossibile salvare gli spazi."
+  "err.spaces_save_failed": "Impossibile salvare gli spazi.",
+  "transcript.title": "Conversazione di Claude · {name}",
+  "transcript.search_placeholder": "Cerca nella conversazione…",
+  "transcript.position": "{current} di {total}",
+  "transcript.loading": "Caricamento della conversazione…",
+  "transcript.unavailable": "Nessuna conversazione di Claude trovata per questo pannello.",
+  "transcript.role_user": "Tu",
+  "transcript.role_assistant": "Claude",
+  "transcript.block_thinking": "pensiero",
+  "transcript.block_tool_result": "output",
+  "transcript.block_text": "testo",
+  "transcript.block_tool_use": "strumenti",
+  "transcript.filters": "Mostra:"
 }

@@ -72,10 +72,13 @@ from tmux_service import (
     detach_session,
     kill_session,
     list_sessions,
+    pane_info,
     rename_session,
     send_command,
     session_exists,
 )
+
+import claude_transcript
 
 # Caracteres permitidos en el nombre de una sesión de tmux. Evitamos
 # ':' y '.' (sintaxis de targets de tmux) y espacios para que el nombre
@@ -909,6 +912,29 @@ async def terminal_ws(websocket: WebSocket, name: str) -> None:
     await websocket.accept()
     _prepare_session(name)
     await bridge(websocket, name)
+
+
+@app.get("/api/terminal/{name}/transcript")
+def get_transcript(name: str, user: str = _auth) -> dict:
+    """La conversación de la sesión de Claude que corre en ese panel.
+
+    Es la búsqueda que no puede hacer tmux: un panel con Claude Code ocupa la
+    pantalla alternativa y su historial en tmux es cero, así que lo que se fue
+    de pantalla no está en ningún buffer. Sí está en el `.jsonl` de la
+    sesión, y esto lo sirve para que el panel lo enseñe y se pueda buscar.
+
+    No recibe ninguna ruta del cliente: el directorio sale del panel de tmux,
+    y de él el proyecto. Lo único que viaja es el nombre de la sesión.
+    """
+    if not _SESSION_NAME_RE.match(name):
+        raise http_error(400, "err.session_name_invalid", {"name": name})
+    try:
+        panel = pane_info(name)
+    except TmuxError as exc:
+        raise http_from(404, exc) from exc
+    if not panel["path"]:
+        return {"available": False, "reason": "no_project", "messages": []}
+    return claude_transcript.para_cwd(panel["path"])
 
 
 @app.get("/api/sessions", response_model=list[SessionInfo])

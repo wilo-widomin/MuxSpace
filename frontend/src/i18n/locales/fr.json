@@ -5,15 +5,12 @@
   "app.loading": "Chargement…",
   "app.session_expired": "Session expirée. Reconnecte-toi.",
   "app.server_unreachable": "Impossible de joindre le serveur.",
-
   "lang.label": "Langue",
-
   "login.subtitle": "Saisis tes identifiants pour continuer.",
   "login.username": "Utilisateur",
   "login.password": "Mot de passe",
   "login.submit": "Entrer",
   "login.submitting": "Connexion…",
-
   "grid.empty_title": "Aucun terminal ouvert",
   "grid.empty_hint": "Sélectionne une session dans le panneau latéral pour l’afficher ici.",
   "grid.resize_hint": "Fais glisser pour redimensionner (double clic : répartir à égalité)",
@@ -21,17 +18,26 @@
   "grid.layout_cols": "Côte à côte (colonnes)",
   "grid.layout_rows": "L’une au-dessus de l’autre (lignes)",
   "grid.restore": "Restaurer la disposition",
-
   "tile.drag_hint": "Fais glisser pour réordonner",
   "tile.kill": "Terminer la session tmux (kill-session)",
   "tile.close": "Fermer et arrêter le terminal",
   "tile.maximize": "Agrandir",
   "tile.restore": "Restaurer la disposition",
-  "tile.search_placeholder": "Chercher une commande ou taper (Enter pour envoyer)… (Esc pour effacer)",
+  "tile.run_command": "Lancer une commande de la bibliothèque",
+  "tile.search_terminal": "Chercher dans le terminal (Ctrl+F)",
+  "tile.command_filter_placeholder": "Filtrer les commandes…",
+  "tile.no_commands": "Aucune commande ne correspond.",
   "tile.confirm_kill": "Terminer la session tmux « {name} » ?\n\n« tmux kill-session » sera exécuté sur le serveur : la session et tout ce qui y tourne seront perdus. Cette action est irréversible.",
-
   "term.disconnected": "[déconnecté du serveur]",
-
+  "term.search_placeholder": "Chercher dans l'historique…",
+  "term.search_prev": "Correspondance précédente (Entrée)",
+  "term.search_next": "Correspondance suivante (Maj+Entrée)",
+  "term.search_close": "Fermer la recherche (Échap)",
+  "term.search_matches": {
+    "one": "{count} correspondance",
+    "other": "{count} correspondances"
+  },
+  "term.search_none": "aucun résultat",
   "sidebar.expand": "Déplier le panneau",
   "sidebar.collapse": "Masquer le panneau",
   "sidebar.new_session": "Nouvelle session",
@@ -48,7 +54,6 @@
   "sidebar.kill_session": "Terminer la session tmux (kill-session)",
   "sidebar.hide_tile": "Fermer la fenêtre (le terminal reste actif)",
   "sidebar.logout": "Se déconnecter",
-
   "sidebar.commands": "Commandes",
   "sidebar.commands_hint": "Elles s’ouvrent toujours dans une nouvelle session, jamais dans le terminal actif.",
   "sidebar.new_command": "Nouvelle commande",
@@ -56,7 +61,6 @@
   "sidebar.delete_command": "Supprimer la commande",
   "sidebar.confirm_delete_command": "Supprimer la commande « {label} » de la bibliothèque ?",
   "sidebar.run_in_new_session": "Ouvrir dans une nouvelle session et exécuter",
-
   "sidebar.projects": "Projets",
   "sidebar.projects_hint": "Ils ouvrent une nouvelle session : cd vers le dossier + liste de commandes.",
   "sidebar.new_project": "Nouveau projet",
@@ -65,7 +69,6 @@
   "sidebar.confirm_delete_project": "Supprimer le projet « {title} » de la bibliothèque ?",
   "sidebar.run_project": "Ouvrir dans une nouvelle session et exécuter la séquence",
   "sidebar.run_project_new_tab": "Ouvrir le projet dans son espace, dans un nouvel onglet",
-
   "form.new_session_title": "Nouvelle session",
   "form.session_name_label": "Nom de la nouvelle session",
   "form.session_name_hint": "Uniquement lettres, chiffres, tiret (-) et tiret bas (_). La barre « / » est remplacée par « _ ».",
@@ -78,7 +81,6 @@
   "form.project_title_default_placeholder": "titre du projet (par défaut le nom de la session)",
   "form.create_session": "Créer la session",
   "form.creating": "Création…",
-
   "form.new_command_title": "Nouvelle commande",
   "form.edit_command_title": "Modifier la commande",
   "form.name_optional_label": "Nom (facultatif)",
@@ -86,7 +88,6 @@
   "form.command_label": "Commande",
   "form.command_only_placeholder": "commande",
   "form.quick_command_placeholder": "commande (p. ex. {example})",
-
   "form.new_project_title": "Nouveau projet",
   "form.edit_project_title": "Modifier le projet",
   "form.title_label": "Titre",
@@ -102,13 +103,11 @@
   "form.save_project": "Enregistrer le projet",
   "form.save": "Enregistrer",
   "form.saving": "Enregistrement…",
-
   "form.need_one_command": "Ajoute au moins une commande.",
   "form.create_session_failed": "Impossible de créer la session.",
   "form.rename_session_failed": "Impossible de renommer la session.",
   "form.save_command_failed": "Impossible d’enregistrer la commande.",
   "form.save_project_failed": "Impossible d’enregistrer le projet.",
-
   "spaces.title": "Espaces",
   "spaces.unassigned": "Non assignées",
   "spaces.option": "{title} ({count})",
@@ -128,7 +127,6 @@
     "other": "Supprimer l’espace « {title} » ?\n\nSes {count} sessions ne sont PAS terminées : elles retournent dans « Non assignées »."
   },
   "spaces.move": "Déplacer vers un autre espace",
-
   "paste.title": "Coller une image pour Claude",
   "paste.uploading": "Envoi…",
   "paste.placeholder": "Clique ici et colle l’image (Ctrl+V)",
@@ -148,7 +146,6 @@
   "paste.copied": "Chemin copié ! Colle-le à Claude :",
   "paste.copy_hint": "Clic sur le chemin pour le copier :",
   "paste.copy_path": "Clic pour copier le chemin",
-
   "upload.title": "Téléverser un fichier",
   "upload.dest_label": "Dossier de destination :",
   "upload.choose_dir": "Choisir un dossier",
@@ -173,22 +170,18 @@
   "upload.save_here": "Enregistrer ici",
   "upload.browse_failed": "Impossible de lister le dossier.",
   "upload.create_failed": "Impossible de créer le dossier.",
-
   "modal.close": "Fermer",
-
   "err.unknown": "Erreur inattendue.",
   "err.http": "Erreur {status}",
   "err.unauthorized": "Non autorisé.",
   "err.unauthenticated": "Non authentifié.",
   "err.bad_credentials": "Utilisateur ou mot de passe incorrects.",
   "err.login_rate_limited": "Trop de tentatives échouées. Attends une minute.",
-
   "err.image_unsupported_format": "Format non pris en charge. Colle une image PNG, JPEG, WebP ou GIF.",
   "err.image_missing": "Aucune image reçue.",
   "err.image_too_large": "L’image dépasse la limite de {mb} Mo.",
   "err.paste_not_found": "Capture introuvable.",
   "err.paste_delete_failed": "Impossible de supprimer la capture.",
-
   "err.upload_missing": "Aucun fichier reçu.",
   "err.upload_too_large": "Le fichier dépasse la limite de {mb} Mo.",
   "err.upload_name_invalid": "Nom de fichier invalide.",
@@ -198,7 +191,6 @@
   "err.dir_not_found": "Dossier introuvable ou hors de la zone autorisée.",
   "err.dir_name_invalid": "Nom de dossier invalide.",
   "err.dir_create_failed": "Impossible de créer le dossier.",
-
   "err.session_name_invalid": "Nom invalide. Utilise uniquement lettres, chiffres, tiret (-) et tiret bas (_), 64 caractères maximum.",
   "err.session_exists": "Une session nommée « {name} » existe déjà.",
   "err.session_missing": "La session tmux « {name} » n’existe pas.",
@@ -209,20 +201,30 @@
   "err.session_kill_failed": "Impossible de terminer la session.",
   "err.session_detach_failed": "Impossible de détacher la session.",
   "err.send_command_failed": "Impossible d’envoyer la commande à la session « {name} ».",
-
   "err.tmux_not_found": "Binaire tmux introuvable (« {binary} »).",
   "err.tmux_timeout": "tmux n’a pas répondu à temps.",
   "err.tmux_unknown": "Erreur inconnue dans tmux.",
-
+  "err.tmux_session_missing": "La session tmux « {name} » n'existe plus.",
   "err.command_empty": "La commande ne peut pas être vide.",
   "err.command_not_found": "Commande introuvable.",
   "err.project_not_found": "Projet introuvable.",
   "err.project_title_required": "Le projet a besoin d’un titre.",
   "err.project_needs_command": "Le projet a besoin d’au moins une commande.",
   "err.project_no_commands": "Le projet n’a aucune commande à exécuter.",
-
   "err.space_title_empty": "Le titre de l’espace ne peut pas être vide.",
   "err.space_title_too_long": "Le titre ne peut pas dépasser {max} caractères.",
   "err.space_not_found": "L’espace « {id} » n’existe pas.",
-  "err.spaces_save_failed": "Impossible d’enregistrer les espaces."
+  "err.spaces_save_failed": "Impossible d’enregistrer les espaces.",
+  "transcript.title": "Conversation Claude · {name}",
+  "transcript.search_placeholder": "Chercher dans la conversation…",
+  "transcript.position": "{current} sur {total}",
+  "transcript.loading": "Chargement de la conversation…",
+  "transcript.unavailable": "Aucune conversation Claude trouvée pour ce panneau.",
+  "transcript.role_user": "Toi",
+  "transcript.role_assistant": "Claude",
+  "transcript.block_thinking": "réflexion",
+  "transcript.block_tool_result": "sortie",
+  "transcript.block_text": "texte",
+  "transcript.block_tool_use": "outils",
+  "transcript.filters": "Afficher :"
 }

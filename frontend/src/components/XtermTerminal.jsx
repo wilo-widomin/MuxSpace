@@ -30,6 +30,7 @@ export default function XtermTerminal({
   onFocus,
   focusToken = 0,
   searchToken = 0,
+  pasteRequest = null,
 }) {
   const containerRef = useRef(null)
   // Posición dentro del historial de tmux, tal cual la reporta el backend:
@@ -353,6 +354,21 @@ export default function XtermTerminal({
   useEffect(() => {
     if (focusToken) termRef.current?.focus()
   }, [focusToken])
+
+  // Texto que llega del redactor. Se usa `term.paste()` y no un `write` de los
+  // bytes: paste envuelve el texto en el pegado con corchetes cuando el
+  // programa lo pide, y eso es lo que hace que una TUI trate veinte líneas
+  // como UN pegado en vez de como veinte pulsaciones de Enter.
+  const pasteToken = pasteRequest?.token || 0
+  const pasteTextoRef = useRef('')
+  pasteTextoRef.current = pasteRequest?.text || ''
+  useEffect(() => {
+    if (!pasteToken) return
+    const term = termRef.current
+    if (!term || !pasteTextoRef.current) return
+    term.focus()
+    term.paste(pasteTextoRef.current)
+  }, [pasteToken])
 
   // La lupa del tile: mismo criterio que Ctrl+F (en pantalla alternativa no
   // hay historial de tmux, así que se abre la conversación de Claude), pero

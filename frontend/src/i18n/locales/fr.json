@@ -226,5 +226,16 @@
   "transcript.block_tool_result": "sortie",
   "transcript.block_text": "texte",
   "transcript.block_tool_use": "outils",
-  "transcript.filters": "Afficher :"
+  "transcript.filters": "Afficher :",
+  "tile.compose": "Écrire un texte long (Entrée n'envoie pas)",
+  "compose.title": "Rédiger · {name}",
+  "compose.placeholder": "Écris ici. Entrée fait un saut de ligne ; rien n'est envoyé tant que tu ne le colles pas.",
+  "compose.paste": "Coller dans le terminal",
+  "compose.copy": "Copier",
+  "compose.copied": "Copié !",
+  "compose.close": "Fermer (copie dans le presse-papiers)",
+  "compose.chars": {
+    "one": "{count} caractère",
+    "other": "{count} caractères"
+  }
 }

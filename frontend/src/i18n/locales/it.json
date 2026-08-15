@@ -226,5 +226,16 @@
   "transcript.block_tool_result": "output",
   "transcript.block_text": "testo",
   "transcript.block_tool_use": "strumenti",
-  "transcript.filters": "Mostra:"
+  "transcript.filters": "Mostra:",
+  "tile.compose": "Scrivere un testo lungo (Invio non lo manda)",
+  "compose.title": "Comporre · {name}",
+  "compose.placeholder": "Scrivi qui. Invio va a capo; non si manda niente finché non lo incolli.",
+  "compose.paste": "Incolla nel terminale",
+  "compose.copy": "Copia",
+  "compose.copied": "Copiato!",
+  "compose.close": "Chiudi (copia negli appunti)",
+  "compose.chars": {
+    "one": "{count} carattere",
+    "other": "{count} caratteri"
+  }
 }

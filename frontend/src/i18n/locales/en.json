@@ -226,5 +226,16 @@
   "transcript.block_tool_result": "output",
   "transcript.block_text": "text",
   "transcript.block_tool_use": "tools",
-  "transcript.filters": "Show:"
+  "transcript.filters": "Show:",
+  "tile.compose": "Write a long text (Enter doesn't send)",
+  "compose.title": "Compose · {name}",
+  "compose.placeholder": "Type here. Enter adds a line break; nothing is sent until you paste it.",
+  "compose.paste": "Paste into the terminal",
+  "compose.copy": "Copy",
+  "compose.copied": "Copied!",
+  "compose.close": "Close (copies to clipboard)",
+  "compose.chars": {
+    "one": "{count} character",
+    "other": "{count} characters"
+  }
 }

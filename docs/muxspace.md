@@ -160,9 +160,21 @@ Navegador ──HTTP──────> FastAPI (API + frontend estático)
   **resaltado de coincidencias lo pinta tmux** (`copy-mode-match-style`).
 - En pantalla alternativa **no se intercepta el atajo**: ahí no hay historial
   de tmux, y Ctrl+F es del programa (Claude Code, vim…), no del panel.
-- No debe confundirse con el campo de búsqueda de la cabecera del tile: ese
+- No debe confundirse con el desplegable **▶** de la cabecera del tile: ese
   filtra la **biblioteca de comandos** y ejecuta el que elijas; no mira el
   contenido de la terminal.
+
+### F. Redactar textos largos
+
+- El icono del **lápiz** abre un modal con un área de texto donde **Enter es
+  un salto de línea**. Existe porque en una TUI como Claude Code Enter envía,
+  y un mensaje de varios párrafos no se puede escribir ahí dentro.
+- **«Pegar en la terminal»** usa `term.paste()`, no un `write` de los bytes:
+  paste aplica el **pegado con corchetes** cuando el programa lo pide, y eso
+  es lo que hace que la TUI trate veinte líneas como *un* pegado en vez de
+  como veinte pulsaciones de Enter. Deja el texto en el prompt; no envía.
+- Al cerrar, el texto queda en el portapapeles, y el borrador se guarda **por
+  sesión** en `localStorage` para que cerrar sin querer no cueste el texto.
 
 ## 4. Flujo de Trabajo (Logic Flow)
 

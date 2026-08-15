@@ -226,5 +226,16 @@
   "transcript.block_tool_result": "saída",
   "transcript.block_text": "texto",
   "transcript.block_tool_use": "ferramentas",
-  "transcript.filters": "Mostrar:"
+  "transcript.filters": "Mostrar:",
+  "tile.compose": "Escrever um texto longo (Enter não envia)",
+  "compose.title": "Redigir · {name}",
+  "compose.placeholder": "Escreve aqui. Enter faz uma quebra de linha; nada é enviado até o colares.",
+  "compose.paste": "Colar no terminal",
+  "compose.copy": "Copiar",
+  "compose.copied": "Copiado!",
+  "compose.close": "Fechar (copia para a área de transferência)",
+  "compose.chars": {
+    "one": "{count} carácter",
+    "other": "{count} caracteres"
+  }
 }

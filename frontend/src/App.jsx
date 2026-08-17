@@ -4,6 +4,7 @@ import SessionGrid, { LAYOUTS } from './components/SessionGrid.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
 import { api, ApiError } from './api.js'
 import { initialSpace, UNASSIGNED } from './spaces.js'
+import { porNombre } from './lib/orden.js'
 import { useWorkClock } from './useWorkClock.js'
 import Dashboard from './components/Dashboard.jsx'
 import { useT } from './i18n/index.jsx'
@@ -306,6 +307,11 @@ export default function App() {
     },
     [handleAuthFailure, tError],
   )
+
+  // Todo lo que se lista va ordenado alfabéticamente (ver `porNombre`).
+  const commandsOrdenados = useMemo(() => porNombre(commands, 'label'), [commands])
+  const projectsOrdenados = useMemo(() => porNombre(projects, 'title'), [projects])
+  const spacesOrdenados = useMemo(() => porNombre(spaces, 'title'), [spaces])
 
   // Reloj de trabajo: late al servidor mientras HAYA entrada del usuario y
   // esta pestaña tenga el foco. Cuenta al espacio que se está mirando y anota
@@ -659,7 +665,7 @@ export default function App() {
   // el reloj de trabajo no cuenta: mirar los tiempos no es trabajar en un
   // proyecto.
   if (esDashboard) {
-    return <Dashboard spaces={spaces} />
+    return <Dashboard spaces={spacesOrdenados} />
   }
 
   return (
@@ -670,10 +676,10 @@ export default function App() {
         onToggleCollapse={toggleSidebar}
         width={sidebarWidth}
         sessions={sessions}
-        commands={commands}
-        projects={projects}
+        commands={commandsOrdenados}
+        projects={projectsOrdenados}
         openNames={openSessions.map((s) => s.name)}
-        spaces={spaces}
+        spaces={spacesOrdenados}
         activeSpace={activeSpace}
         onSetActiveSpace={setActiveSpace}
         onCreateSpace={handleCreateSpace}
@@ -710,7 +716,7 @@ export default function App() {
           onClose={handleClose}
           onKill={handleKillSession}
           onReorder={handleReorder}
-          commands={commands}
+          commands={commandsOrdenados}
           layout={layout}
           focusedName={focusedName}
           onSetFocused={(name) => {

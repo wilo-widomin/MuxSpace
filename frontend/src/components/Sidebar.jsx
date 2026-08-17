@@ -553,12 +553,28 @@ export default function Sidebar({
       style={{ width }}
       className="flex h-full shrink-0 flex-col border-r border-panel-border bg-panel-surface text-gray-100"
     >
-      <header className="flex items-center justify-between border-b border-panel-border bg-black px-4 py-3">
-        <h1 className="text-base font-semibold">{t('app.brand')}</h1>
-        {/* `flex-wrap`: son ocho iconos y el sidebar puede estar estrecho. Sin
-            envolver, los últimos se salen de la barra y dejan de poder
-            pulsarse — lo cazaron los E2E al añadir el cronómetro. */}
-        <div className="flex flex-wrap items-center justify-end gap-1">
+      {/* Dos filas FIJAS y no un `flex-wrap` con el título dentro: con el
+          ancho mínimo del sidebar (220 px) los iconos no caben junto al
+          nombre, y dejándolo al azar del wrap la cabecera salía en tres
+          líneas con el título encajado en medio. Arriba el nombre y el
+          plegado —lo que siempre tiene que estar a mano—, abajo las
+          acciones. */}
+      <header className="border-b border-panel-border bg-black px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="truncate text-base font-semibold">{t('app.brand')}</h1>
+          <button
+            onClick={onToggleCollapse}
+            title={t('sidebar.collapse')}
+            className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+          >
+            <ChevronLeftIcon />
+          </button>
+        </div>
+        {/* `flex-wrap` de todos modos: si el usuario baja el sidebar al
+            mínimo con un idioma de nombres largos, es preferible una tercera
+            línea a un botón fuera de la barra que no se puede pulsar — lo
+            cazaron los E2E al añadir el cronómetro. */}
+        <div className="mt-1 flex flex-wrap items-center justify-end gap-0.5">
           {LAYOUTS.map((mode) => (
             <button
               key={mode}
@@ -566,7 +582,7 @@ export default function Sidebar({
               title={t(`grid.layout_${mode}`)}
               aria-label={t(`grid.layout_${mode}`)}
               aria-pressed={layout === mode}
-              className={`rounded p-1.5 transition hover:bg-panel-bg ${
+              className={`rounded p-1 transition hover:bg-panel-bg ${
                 layout === mode
                   ? 'text-panel-accent'
                   : 'text-panel-muted hover:text-gray-100'
@@ -575,7 +591,7 @@ export default function Sidebar({
               <LayoutIcon mode={mode} />
             </button>
           ))}
-          <span className="mx-1 h-4 w-px bg-panel-border" />
+          <span className="mx-0.5 h-4 w-px bg-panel-border" />
           {/* Cronómetro: verde cuando el tiempo se está contando, apagado
               cuando no. Es el mando de "no me fío": si el detector no ve la
               actividad (leer un rato largo sin tocar nada), se pulsa y cuenta
@@ -594,7 +610,7 @@ export default function Sidebar({
             // Ámbar y no verde en modo declarado: el color distingue "lo
             // estoy midiendo" de "me estás diciendo que trabajas", que es la
             // misma distinción que guarda la base y que separa el dashboard.
-            className={`rounded p-1.5 transition hover:bg-panel-bg ${
+            className={`rounded p-1 transition hover:bg-panel-bg ${
               !workClock?.activo
                 ? 'text-panel-muted hover:text-gray-100'
                 : workClock?.manual
@@ -610,31 +626,24 @@ export default function Sidebar({
             rel="noopener noreferrer"
             title={t('dashboard.title')}
             aria-label={t('dashboard.title')}
-            className="rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
           >
             <ChartIcon />
           </a>
-          <span className="mx-1 h-4 w-px bg-panel-border" />
+          <span className="mx-0.5 h-4 w-px bg-panel-border" />
           <button
             onClick={openForm}
             title={t('sidebar.new_session')}
-            className="rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
           >
             <PlusIcon />
           </button>
           <button
             onClick={onRefresh}
             title={t('sidebar.refresh')}
-            className="rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
           >
             <RefreshIcon />
-          </button>
-          <button
-            onClick={onToggleCollapse}
-            title={t('sidebar.collapse')}
-            className="rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
-          >
-            <ChevronLeftIcon />
           </button>
         </div>
       </header>

@@ -51,6 +51,9 @@ backend/data/*
 .claude/*
 !.claude/us-pipeline.config.json
 !.claude/us-worktree.sh
+# Y las skills del proyecto, que valen para cualquier clon (procedimientos
+# de despliegue, altas de dispositivo): el directorio entero, no una a una.
+!.claude/skills/
 
 # Pruebas
 .pytest_cache/

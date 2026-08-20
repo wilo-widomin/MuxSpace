@@ -1,7 +1,7 @@
 // Abrir un proyecto dos veces tiene que dar el mismo grupo, no dos.
 import { describe, expect, it } from 'vitest'
 
-import { groupColor, missingUrls, plannedUrls, sameTabKey } from './group.js'
+import { groupColor, plannedUrls, reconcileGroup, sameTabKey } from './group.js'
 
 const PANEL = 'https://panel.interno'
 
@@ -49,35 +49,74 @@ describe('sameTabKey', () => {
   })
 })
 
-describe('missingUrls', () => {
+describe('reconcileGroup', () => {
   const planned = plannedUrls(PROYECTO, `${PANEL}/?space=sp1`)
+  const pestana = (id, url) => ({ id, url })
 
-  it('con el grupo vacío hay que abrirlo todo', () => {
-    expect(missingUrls(planned, [], PANEL)).toEqual(planned)
+  it('con el grupo vacío hay que abrirlo todo y no hay nada que llevar', () => {
+    expect(reconcileGroup(planned, [], PANEL)).toEqual({
+      navigate: null,
+      open: planned,
+    })
   })
 
-  it('con el grupo completo no se abre nada', () => {
-    expect(missingUrls(planned, planned, PANEL)).toEqual([])
+  it('con el grupo completo no se toca nada', () => {
+    const abiertas = planned.map((url, i) => pestana(i + 1, url))
+    expect(reconcileGroup(planned, abiertas, PANEL)).toEqual({
+      navigate: null,
+      open: [],
+    })
   })
 
   it('solo abre el enlace que falta', () => {
-    const abiertas = [`${PANEL}/?space=sp1`, 'https://github.com/willy/muxspace']
-    expect(missingUrls(planned, abiertas, PANEL)).toEqual([
-      'https://docs.interno/muxspace',
-    ])
+    const abiertas = [
+      pestana(1, `${PANEL}/?space=sp1`),
+      pestana(2, 'https://github.com/willy/muxspace'),
+    ]
+    expect(reconcileGroup(planned, abiertas, PANEL)).toEqual({
+      navigate: null,
+      open: ['https://docs.interno/muxspace'],
+    })
   })
 
-  it('no duplica el panel aunque esté mirando otro espacio', () => {
-    // El usuario cambió de espacio a mano en esa pestaña. Volver a abrir el
-    // proyecto no puede plantarle un segundo panel al lado.
-    const abiertas = [`${PANEL}/?space=OTRO`, 'https://github.com/willy/muxspace']
-    expect(missingUrls(planned, abiertas, PANEL)).toEqual([
-      'https://docs.interno/muxspace',
-    ])
+  it('lleva la pestaña del panel al espacio del proyecto en vez de abrir otra', () => {
+    // El caso real: el grupo se creó cuando los proyectos no tenían espacio,
+    // así que su pestaña del panel se quedó en «Sin asignar». Abrir dos
+    // paneles en el mismo grupo no son dos cosas: es un duplicado.
+    const abiertas = [
+      pestana(7, `${PANEL}/`),
+      pestana(8, 'https://github.com/willy/muxspace'),
+      pestana(9, 'https://docs.interno/muxspace'),
+    ]
+    expect(reconcileGroup(planned, abiertas, PANEL)).toEqual({
+      navigate: { tabId: 7, url: `${PANEL}/?space=sp1` },
+      open: [],
+    })
+  })
+
+  it('la pestaña del panel ya en su sitio no se navega', () => {
+    // El control negativo del anterior: recargar la pestaña de alguien que ya
+    // está donde toca le tiraría lo que estuviera haciendo.
+    const abiertas = [pestana(7, `${PANEL}/?space=sp1`)]
+    expect(reconcileGroup(planned, abiertas, PANEL).navigate).toBe(null)
   })
 
   it('una URL ilegible entre las abiertas no rompe el cálculo', () => {
-    expect(missingUrls(planned, ['about:blank'], PANEL)).toEqual(planned)
+    expect(reconcileGroup(planned, [pestana(1, 'about:blank')], PANEL)).toEqual({
+      navigate: null,
+      open: planned,
+    })
+  })
+
+  it('un proyecto sin espacio deja la pestaña del panel donde está', () => {
+    // Ya no le pasa a ningún proyecto (la migración les dio espacio), pero un
+    // espacio borrado a mano devuelve `space: null` otra vez.
+    const sinEspacio = plannedUrls({ space: null, links: [] }, `${PANEL}/`)
+    const abiertas = [pestana(3, `${PANEL}/`)]
+    expect(reconcileGroup(sinEspacio, abiertas, PANEL)).toEqual({
+      navigate: null,
+      open: [],
+    })
   })
 })
 

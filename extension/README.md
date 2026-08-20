@@ -71,6 +71,10 @@ python extension/icons/generar-iconos.py
 Los números del recorte (centro y radios del aro) están en ese script: el
 emblema no es circular en el JPEG, viene estirado en horizontal.
 
+El script escribe **también** `frontend/src/assets/logo.png`, que es el que
+sale en la cabecera del sidebar del panel. Se genera aquí y no se copia a
+mano para que no acaben siendo dos logos distintos.
+
 ## Desarrollo
 
 ```sh

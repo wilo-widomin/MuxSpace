@@ -71,3 +71,6 @@ frontend/blob-report/
 
 # Documentación con detalles de red reales (IPs, dominios, hosts): nunca al repo
 docs/*.local.md
+
+# La extensión es otro paquete: su propio lockfile y sus propias deps.
+extension/node_modules/

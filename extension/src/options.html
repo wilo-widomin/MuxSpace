@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>MuxSpace · Opciones</title>
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body class="opciones">
+    <h1>Dirección del panel</h1>
+    <p class="ayuda">
+      El host donde tienes MuxSpace. Sin escribir «https://» también vale.
+    </p>
+    <form id="formulario">
+      <input
+        id="origen"
+        type="text"
+        autocomplete="off"
+        placeholder="panel.mired / 10.0.0.2:8000"
+      />
+      <button type="submit">Guardar</button>
+    </form>
+    <p id="aviso" hidden></p>
+    <p class="ayuda">
+      Al guardar, Chrome pedirá permiso para leer esa dirección: es lo que
+      permite a la extensión preguntarle los proyectos a una pestaña del panel.
+      La extensión no habla con el servidor por su cuenta.
+    </p>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

@@ -762,11 +762,16 @@ def test_el_pty_arranca_con_un_tamano_de_verdad_y_no_a_cero(
     `_spawn_attach` en directo y NO por `bridge`, porque `bridge` lo ajusta
     también desde el padre: por ahí no se distinguiría quién de los dos hizo
     el trabajo, y el del padre es una carrera contra el `exec`.
+
+    El tamaño que se espera es el que deja la ventana como está: una sesión
+    recién creada en segundo plano nace con la ventana a 80x24, y el cliente
+    necesita una fila más para la barra de estado.
     """
     nombre = f"winsize-{uuid.uuid4().hex[:6]}"
     crear_sesion(tmux_aislado, nombre)
 
-    pid, fd = pty_bridge._spawn_attach(nombre)
+    pid, fd, tamano = pty_bridge._spawn_attach(nombre)
+    assert tamano == (25, 80), "ventana de 24 filas + la barra de estado"
     try:
         limite = time.monotonic() + 5
         visto = (0, 0)
@@ -775,10 +780,45 @@ def test_el_pty_arranca_con_un_tamano_de_verdad_y_no_a_cero(
             if visto != (0, 0):
                 break
             time.sleep(0.01)
-        assert visto == (24, 80), (
+        assert visto == (25, 80), (
             f"el PTY arrancó a {visto[0]}x{visto[1]}: con 0x0 tmux puede "
             "arrancar sin saber dónde pintar"
         )
+    finally:
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+        os.close(fd)
+
+
+def test_engancharse_no_le_cambia_el_tamano_a_la_ventana(tmux_aislado: Path) -> None:
+    """El PTY nace con el tamaño que la ventana ya tiene, no con 80x24 fijo.
+
+    Con `window-size latest` (el defecto de tmux), un attach a 80x24 encoge la
+    ventana y el resize del navegador la estira otra vez ~300 ms después: dos
+    SIGWINCH seguidos, y el shell reimprime su prompt en cada uno. Eso es lo
+    que llenaba la terminal de prompts repetidos al abrirla.
+    """
+    nombre = f"tamano-{uuid.uuid4().hex[:6]}"
+    subprocess.run(
+        [str(tmux_aislado), "new-session", "-d", "-s", nombre, "-x", "120", "-y", "40"],
+        capture_output=True, timeout=10, check=True,
+    )
+
+    pid, fd, tamano = pty_bridge._spawn_attach(nombre)
+    try:
+        assert tamano == (41, 120), "40 de ventana + la fila de la barra"
+        # Y la ventana sigue como estaba: engancharse no la ha tocado.
+        limite = time.monotonic() + 5
+        while time.monotonic() < limite:
+            visto = subprocess.run(
+                [str(tmux_aislado), "display-message", "-p", "-t", nombre,
+                 "#{window_height} #{window_width}"],
+                capture_output=True, text=True, timeout=10, check=True,
+            ).stdout.split()
+            if visto == ["40", "120"]:
+                break
+            time.sleep(0.05)
+        assert visto == ["40", "120"], f"la ventana pasó a {visto}"
     finally:
         os.kill(pid, signal.SIGKILL)
         os.waitpid(pid, 0)
@@ -799,7 +839,7 @@ def test_si_el_exec_falla_el_hijo_sale_con_127_y_no_sigue_vivo(
     """
     monkeypatch.setattr(config, "TMUX_BINARY", "/no/existe/tmux-de-mentira")
 
-    pid, fd = pty_bridge._spawn_attach("da-igual")
+    pid, fd, _ = pty_bridge._spawn_attach("da-igual")
     assert pid > 0, (
         "`_spawn_attach` ha devuelto pid=0: estamos en el HIJO, o sea que no "
         "murió tras fallar el exec"

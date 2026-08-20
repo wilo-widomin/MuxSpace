@@ -40,6 +40,10 @@ import logs
 
 _log = logs.obtener(__name__)
 
+# Tamaño de un PTY cuando no se puede saber el de la ventana. Es el clásico
+# 80x24: solo se usa si tmux no responde, y el navegador lo corrige enseguida.
+_TAMANO_POR_DEFECTO = (24, 80)
+
 
 def _set_winsize(fd: int, rows: int, cols: int) -> None:
     """Ajusta el tamaño del PTY (filas/columnas) para que tmux redibuje bien."""
@@ -281,8 +285,58 @@ async def _scroll_a(name: str, posicion: int) -> None:
     await _tmux(*ordenes)
 
 
-def _spawn_attach(name: str) -> tuple[int, int]:
-    """Lanza `tmux attach -t <name>` sobre un PTY nuevo. Devuelve `(pid, fd)`.
+def _lineas_de_estado(valor: str) -> int:
+    """Cuántas filas ocupa la barra de estado de tmux. `on` es una."""
+    if valor in ("", "off", "0"):
+        return 0
+    if valor == "on":
+        return 1
+    try:
+        return max(0, min(5, int(valor)))
+    except ValueError:
+        return 1
+
+
+def _tamano_para_engancharse(name: str) -> tuple[int, int]:
+    """Filas y columnas que debe tener el PTY para no cambiarle nada a tmux.
+
+    El PTY del attach arrancaba fijo a 80x24. Con `window-size latest` —el
+    valor por defecto de tmux—, la ventana se encoge a ese tamaño en cuanto el
+    cliente se engancha y se estira otra vez ~300 ms después, cuando llega el
+    tamaño real del navegador. Son dos SIGWINCH seguidos, y el shell reimprime
+    su prompt en cada uno: de ahí las líneas repetidas que aparecen al abrir
+    una terminal (medido en vivo: 80x24 -> 215x63 en 260 ms).
+
+    El tamaño que se busca es el del CLIENTE, que no es el de la ventana: la
+    barra de estado se lleva sus filas, así que un cliente de 63 filas deja una
+    ventana de 62. Si ya hay alguien enganchado se copia su tamaño tal cual; si
+    no, se le suman a la ventana las filas de la barra.
+    """
+    try:
+        salida = subprocess.run(  # noqa: S603 — argv, nunca shell
+            [
+                config.TMUX_BINARY, "display-message", "-p", "-t", name,
+                "#{window_height} #{window_width} #{client_height} #{status}",
+            ],
+            capture_output=True, text=True, timeout=2, check=False,
+        ).stdout.split()
+        alto_ventana, ancho = int(salida[0]), int(salida[1])
+        alto_cliente = int(salida[2]) if salida[2].isdigit() else 0
+        estado = salida[3] if len(salida) > 3 else "on"
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return _TAMANO_POR_DEFECTO
+    filas = alto_cliente or (alto_ventana + _lineas_de_estado(estado))
+    # Una ventana de 0 filas no existe, y un valor absurdo no se propaga.
+    if not (1 <= filas <= 1000 and 1 <= ancho <= 1000):
+        return _TAMANO_POR_DEFECTO
+    return filas, ancho
+
+
+def _spawn_attach(name: str) -> tuple[int, int, tuple[int, int]]:
+    """Lanza `tmux attach -t <name>` sobre un PTY nuevo.
+
+    Devuelve `(pid, fd, (filas, columnas))`: el tamaño va de vuelta para que
+    el padre pueda repetir el ioctl con el MISMO valor que fijó el hijo.
 
     Aquí vivía un `subprocess.Popen(..., preexec_fn=lambda: os.login_tty(slave))`
     (hallazgo S11). El problema: los endpoints síncronos de FastAPI corren en un
@@ -310,8 +364,10 @@ def _spawn_attach(name: str) -> tuple[int, int]:
     binario = shutil.which(config.TMUX_BINARY) or config.TMUX_BINARY
     argv = [binario, "-u", "attach", "-t", name]
     env = {**os.environ, "TERM": "xterm-256color"}
-    # Tamaño de arranque del PTY. El cliente (xterm.js) manda el tamaño real
-    # del tile en cuanto abre el WebSocket; esto es solo el valor inicial.
+    # Tamaño de arranque del PTY: el que deja la ventana como está, para que
+    # engancharse no la encoja y la estire (ver `_tamano_para_engancharse`).
+    # El cliente (xterm.js) manda el tamaño real del tile en cuanto abre el
+    # WebSocket; este es solo el valor inicial.
     #
     # Se fija DESDE EL HIJO y no solo desde el padre porque `os.forkpty()` no
     # acepta un `winsize` (la libc sí, la envoltura de Python no) y deja el PTY
@@ -319,7 +375,8 @@ def _spawn_attach(name: str) -> tuple[int, int]:
     # una carrera con el `exec`: medido, el padre gana siempre, y "siempre" en
     # una carrera medida no es una garantía. Con esta línea, tmux no puede
     # arrancar viendo 0x0 ni aunque el padre llegue tarde.
-    winsize = struct.pack("HHHH", 24, 80, 0, 0)
+    filas, columnas = _tamano_para_engancharse(name)
+    winsize = struct.pack("HHHH", filas, columnas, 0, 0)
 
     pid, fd = os.forkpty()
     if pid == 0:
@@ -339,7 +396,7 @@ def _spawn_attach(name: str) -> tuple[int, int]:
         # "orden no encontrada", y es lo que verá el padre en el waitpid.
         os._exit(127)
     # ---- PADRE ----
-    return pid, fd
+    return pid, fd, (filas, columnas)
 
 
 async def bridge(websocket: WebSocket, name: str) -> None:
@@ -347,7 +404,7 @@ async def bridge(websocket: WebSocket, name: str) -> None:
     loop = asyncio.get_running_loop()
 
     try:
-        pid, master = _spawn_attach(name)
+        pid, master, tamano = _spawn_attach(name)
     except OSError:
         # Ni PTYs libres ni descriptores: no hay terminal que servir.
         await websocket.close(code=1011)
@@ -356,7 +413,7 @@ async def bridge(websocket: WebSocket, name: str) -> None:
     # También desde el padre, para el caso —imposible de descartar del todo—
     # de que el hijo no llegara a ejecutar su ioctl.
     try:
-        _set_winsize(master, 24, 80)
+        _set_winsize(master, *tamano)
     except OSError:  # pragma: no cover — el fd acaba de crearse
         pass
     os.set_blocking(master, False)
@@ -397,6 +454,11 @@ async def bridge(websocket: WebSocket, name: str) -> None:
     # tiene que devolverlo al final. Se guarda aquí para no preguntárselo a
     # tmux en cada pulsación.
     en_historial = False
+    # Por qué acabó el puente. Se registra al salir porque una terminal que se
+    # reconecta sola —visto en vivo: clientes que se van y vuelven 300 ms
+    # después sin que nadie toque nada— se diagnostica distinto según quién
+    # cuelgue: el navegador o el `tmux attach`.
+    motivo = "desconocido"
     try:
         while True:
             recepcion = asyncio.ensure_future(websocket.receive())
@@ -404,9 +466,11 @@ async def bridge(websocket: WebSocket, name: str) -> None:
                 {recepcion, out_task}, return_when=asyncio.FIRST_COMPLETED
             )
             if out_task in terminadas:
+                motivo = "el PTY terminó (tmux se separó o murió)"
                 break
             msg = recepcion.result()
             if msg.get("type") == "websocket.disconnect":
+                motivo = f"el cliente cerró el WebSocket (code={msg.get('code')})"
                 break
             data = msg.get("bytes")
             if data is not None:
@@ -467,7 +531,7 @@ async def bridge(websocket: WebSocket, name: str) -> None:
                         # no tumba la terminal.
                         _log.debug("scroll descartado: %r", text, exc_info=True)
     except WebSocketDisconnect:
-        pass
+        motivo = "el cliente se desconectó (WebSocketDisconnect)"
     except Exception:
         # El puente muere con la conexión: cualquier error aquí significa que
         # el WebSocket o el PTY ya no están, y el `finally` de abajo es quien
@@ -481,6 +545,7 @@ async def bridge(websocket: WebSocket, name: str) -> None:
             # bytes que ya no interesan: sin cancelarlo, asyncio se queja de
             # una tarea destruida y la conexión no se suelta hasta el GC.
             recepcion.cancel()
+        _log.info("puente cerrado para %r: %s", name, motivo)
         out_task.cancel()
         try:
             os.close(master)

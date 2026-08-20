@@ -149,6 +149,22 @@ export default function App() {
   // cierra, el grid vuelve solo a la disposición normal.
   const [focusedName, setFocusedName] = useState(null)
 
+  // Terminales minimizadas: siguen abiertas y conectadas, pero fuera de la
+  // rejilla (se ven como una pestaña en la barra de arriba). Tampoco se
+  // persiste, por el mismo motivo que el modo foco. Minimizar la que está
+  // maximizada sale del modo foco: si no, quedaría maximizada y escondida.
+  const [minimizedNames, setMinimizedNames] = useState(() => new Set())
+  const toggleMinimized = useCallback((name) => {
+    setFocusedName((f) => (f === name ? null : f))
+    setMinimizedNames((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }, [])
+  const restoreAllMinimized = useCallback(() => setMinimizedNames(new Set()), [])
+
   // Nombre de la sesión/tile con foco (la última clicada). Destino de los
   // comandos ejecutados desde el sidebar. null => "abrir en sesión nueva".
   const [activeName, setActiveName] = useState(null)
@@ -723,6 +739,9 @@ export default function App() {
             setFocusedName(name)
             if (name) setActiveName(name)
           }}
+          minimizedNames={minimizedNames}
+          onToggleMinimized={toggleMinimized}
+          onRestoreAllMinimized={restoreAllMinimized}
           focusName={focusReq.name}
           focusToken={focusReq.token}
         />

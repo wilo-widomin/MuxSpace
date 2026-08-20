@@ -44,6 +44,12 @@ async function abrir(projectId, boton) {
     mostrarAviso(respuesta?.error || 'No se pudo abrir el proyecto.', true)
     return
   }
+  if (respuesta.warning) {
+    // El grupo se abrió pero algo no salió: se queda a la vista para que se
+    // pueda leer, en vez de cerrarse y perderlo.
+    mostrarAviso(respuesta.warning, true)
+    return
+  }
   // El grupo ya está delante: el popup no pinta nada más.
   window.close()
 }

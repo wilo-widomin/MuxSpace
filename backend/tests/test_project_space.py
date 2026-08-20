@@ -133,3 +133,81 @@ def test_un_espacio_borrado_deja_el_proyecto_sin_espacio(
     client_no_auth.delete(f"/api/spaces/{proyecto['space']}")
 
     assert client_no_auth.get("/api/projects").json()[0]["space"] is None
+
+
+# ---------------------------------------------------------------------- #
+# Migración de arranque                                                   #
+# ---------------------------------------------------------------------- #
+def test_la_migracion_reutiliza_el_espacio_que_ya_se_llama_igual(
+    data_dir: Path,
+) -> None:
+    """Quien ya tenía un espacio con el nombre del proyecto no quiere dos."""
+    import library_store
+    import space_store
+
+    espacio = space_store.create_space("Panel")
+    proyecto = library_store.add_project("Panel", None, ["bun dev"])
+    assert proyecto.space is None
+
+    assert main._migrar_espacios_de_proyectos() == 1
+
+    assert library_store.get_project(proyecto.id).space == espacio.id
+    assert [s.title for s in space_store.list_spaces()] == ["Panel"]
+
+
+def test_la_migracion_crea_el_espacio_que_falta(data_dir: Path) -> None:
+    import library_store
+    import space_store
+
+    proyecto = library_store.add_project("Panel", None, ["bun dev"])
+
+    assert main._migrar_espacios_de_proyectos() == 1
+
+    espacios = space_store.list_spaces()
+    assert [(e.id, e.title) for e in espacios] == [
+        (library_store.get_project(proyecto.id).space, "Panel")
+    ]
+
+
+def test_la_migracion_no_toca_a_quien_ya_tiene_espacio(data_dir: Path) -> None:
+    """El control negativo: migrar dos veces no reasigna nada."""
+    import library_store
+    import space_store
+
+    elegido = space_store.create_space("Elegido a mano")
+    proyecto = library_store.add_project(
+        "Panel", None, ["bun dev"], space=elegido.id
+    )
+
+    assert main._migrar_espacios_de_proyectos() == 0
+
+    assert library_store.get_project(proyecto.id).space == elegido.id
+
+
+def test_la_migracion_es_idempotente(data_dir: Path) -> None:
+    """Arrancar el panel dos veces no duplica espacios."""
+    import library_store
+    import space_store
+
+    library_store.add_project("Panel", None, ["bun dev"])
+
+    assert main._migrar_espacios_de_proyectos() == 1
+    assert main._migrar_espacios_de_proyectos() == 0
+    assert len(space_store.list_spaces()) == 1
+
+
+def test_la_migracion_conserva_los_enlaces_del_proyecto(data_dir: Path) -> None:
+    """Migrar reescribe el proyecto entero: no puede perderle los enlaces."""
+    import library_store
+
+    proyecto = library_store.add_project(
+        "Panel", "/srv", ["bun dev"], [{"url": "https://ok.example", "title": "Panel"}]
+    )
+
+    main._migrar_espacios_de_proyectos()
+
+    migrado = library_store.get_project(proyecto.id)
+    assert [(link.url, link.title) for link in migrado.links] == [
+        ("https://ok.example", "Panel")
+    ]
+    assert (migrado.cwd, migrado.commands) == ("/srv", ["bun dev"])

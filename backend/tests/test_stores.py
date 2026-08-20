@@ -434,6 +434,7 @@ def test_biblioteca_el_ciclo_completo_de_un_comando(data_dir: Path) -> None:
     assert json.loads(library_store._STORE_PATH.read_text(encoding="utf-8")) == {
         "commands": [],
         "projects": [],
+        "session_projects": {},
     }
 
 
@@ -742,9 +743,143 @@ def test_biblioteca_el_formato_en_disco_es_el_declarado(data_dir: Path) -> None:
                 "title": "Panel",
                 "cwd": "/srv",
                 "commands": ["bun dev"],
+                "links": [],
             }
         ],
+        # Qué sesión de tmux salió de qué proyecto. Vacío mientras no se
+        # lance ninguna: el mapa se llena en `run-project`.
+        "session_projects": {},
     }
+
+
+# ======================================================================
+# library_store · enlaces de un proyecto.
+# ======================================================================
+
+
+def test_biblioteca_un_enlace_sin_esquema_se_guarda_como_https(data_dir: Path) -> None:
+    """Quien escribe "github.com/foo" quiere un enlace, no una ruta relativa.
+
+    Sin el prefijo, el `<a href>` del panel lo resolvería contra la propia
+    URL del panel y el enlace llevaría a ninguna parte.
+    """
+    proyecto = library_store.add_project(
+        "Panel", None, ["bun dev"], [{"url": "github.com/foo", "title": "Repo"}]
+    )
+
+    assert proyecto.links == [
+        library_store.Link(url="https://github.com/foo", title="Repo")
+    ]
+
+
+def test_biblioteca_un_enlace_sin_titulo_se_queda_con_el_host(data_dir: Path) -> None:
+    """El título es opcional a propósito: pegar una URL y guardar ya vale.
+
+    El host es lo que el usuario reconoce de un vistazo en la badge, y es
+    mejor que una badge vacía o que la URL entera.
+    """
+    proyecto = library_store.add_project(
+        "Panel", None, ["bun dev"], [{"url": "https://forgejo.example/x/y"}]
+    )
+
+    assert [(link.url, link.title) for link in proyecto.links] == [
+        ("https://forgejo.example/x/y", "forgejo.example")
+    ]
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["javascript:alert(1)", "data:text/html,<script>x</script>", "file:///etc/passwd"],
+)
+def test_biblioteca_un_enlace_con_esquema_peligroso_se_rechaza(
+    data_dir: Path, url: str
+) -> None:
+    """El enlace acaba en un `<a href>` del panel: `javascript:` es ejecución.
+
+    No basta con que el navegador lo ignore —no siempre lo hace—: no debe
+    poder llegar a guardarse. `javascript:` además no lleva "://", así que
+    sin el control explícito del esquema el prefijo https lo convertía en
+    una URL válida en vez de rechazarlo.
+    """
+    with pytest.raises(library_store.LibraryError) as exc:
+        library_store.add_project("Panel", None, ["bun dev"], [{"url": url}])
+
+    assert exc.value.code == "err.project_link_invalid"
+
+
+def test_biblioteca_un_enlace_invalido_en_disco_no_tumba_la_lectura(
+    data_dir: Path,
+) -> None:
+    """La otra cara: al LEER, lo inválido se descarta y el resto se conserva.
+
+    Es la misma regla que el resto del archivo —leer nunca lanza—, y aquí
+    importa doblemente: un `library.json` editado a mano no debe dejar al
+    usuario sin biblioteca.
+    """
+    library_store._STORE_PATH.write_text(
+        json.dumps(
+            {
+                "projects": [
+                    {
+                        "id": "p1",
+                        "title": "Panel",
+                        "commands": ["bun dev"],
+                        "links": [
+                            {"url": "javascript:alert(1)", "title": "Malo"},
+                            {"url": "https://ok.example", "title": "Bueno"},
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    proyectos = library_store.list_projects()
+
+    assert [link.title for link in proyectos[0].links] == ["Bueno"]
+
+
+# ======================================================================
+# library_store · qué sesión salió de qué proyecto.
+# ======================================================================
+
+
+def test_biblioteca_el_vinculo_de_sesion_sobrevive_al_renombrado(
+    data_dir: Path,
+) -> None:
+    """Por esto el vínculo no se deduce del nombre de la sesión.
+
+    El panel deja renombrar sesiones (`/api/rename-session`), y el título
+    del proyecto también se puede cambiar: casar por texto perdía los
+    enlaces de la cabecera en cuanto se tocaba cualquiera de los dos.
+    """
+    proyecto = library_store.add_project("Panel", None, ["bun dev"])
+    library_store.link_session("Panel", proyecto.id)
+
+    library_store.rename_session("Panel", "Panel de verdad")
+
+    assert library_store.session_projects() == {"Panel de verdad": proyecto.id}
+
+
+def test_biblioteca_borrar_el_proyecto_se_lleva_sus_vinculos(data_dir: Path) -> None:
+    """Un vínculo huérfano reaparecería si otro proyecto heredara ese id."""
+    proyecto = library_store.add_project("Panel", None, ["bun dev"])
+    library_store.link_session("Panel", proyecto.id)
+
+    library_store.delete_project(proyecto.id)
+
+    assert library_store.session_projects() == {}
+
+
+def test_biblioteca_matar_la_sesion_olvida_su_vinculo(data_dir: Path) -> None:
+    """Si alguien crea otra sesión con el mismo nombre, no hereda el proyecto."""
+    proyecto = library_store.add_project("Panel", None, ["bun dev"])
+    library_store.link_session("Panel", proyecto.id)
+
+    library_store.forget_session("Panel")
+
+    assert library_store.session_projects() == {}
 
 
 # ======================================================================
@@ -914,6 +1049,7 @@ def test_biblioteca_escribir_sobre_un_json_roto_lo_deja_consistente(
     assert json.loads(library_store._STORE_PATH.read_text(encoding="utf-8")) == {
         "commands": [creado.to_dict()],
         "projects": [],
+        "session_projects": {},
     }
 
 

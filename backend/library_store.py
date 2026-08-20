@@ -3,7 +3,13 @@
 - **Comando**: una sola línea de shell (sin directorio). Se envía a la
   terminal con foco, o se lanza en una sesión nueva si no hay foco.
 - **Proyecto**: un título, un directorio (cwd) y una lista de comandos que
-  se ejecutan secuencialmente en una sesión nueva.
+  se ejecutan secuencialmente en una sesión nueva. Puede llevar además una
+  lista de **enlaces** (URL + título) que el panel pinta como badges en la
+  cabecera de las terminales de ese proyecto.
+
+El mismo JSON guarda qué sesión de tmux salió de qué proyecto
+(`session_projects`), que es lo que permite saber qué enlaces tocan en cada
+terminal.
 
 Ambos se persisten en un único JSON (`data/library.json`) para que la
 biblioteca sobreviva a reinicios del backend. El almacenamiento es
@@ -21,11 +27,13 @@ sobreescribe con la copia que leyó antes. Por eso el panel arranca con
 from __future__ import annotations
 
 import json
+import re
 import secrets
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from threading import Lock
 from typing import Optional
+from urllib.parse import urlparse
 
 from datafiles import write_private
 from errors import AppError
@@ -34,6 +42,20 @@ from errors import AppError
 _STORE_PATH = Path(__file__).resolve().parent / "data" / "library.json"
 
 _lock = Lock()
+
+# Límites de los enlaces de un proyecto. No hay razón técnica para estos
+# números: son los que hacen que la fila de badges de la cabecera siga
+# siendo legible en un tile estrecho.
+_MAX_LINKS = 12
+_MAX_LINK_TITLE = 40
+
+# Únicos esquemas admitidos. El enlace acaba en un `<a href>` del panel, así
+# que `javascript:` y `data:` son ejecución de código en la página: no basta
+# con que el navegador los ignore, no deben poder guardarse.
+_ALLOWED_SCHEMES = ("http", "https")
+
+# `esquema:` al principio de la cadena, tal como lo define el RFC 3986.
+_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*:")
 
 
 class LibraryError(AppError):
@@ -52,12 +74,25 @@ class Command:
 
 
 @dataclass
+class Link:
+    """Un enlace del proyecto: la URL y el texto que se ve en la badge."""
+    url: str
+    title: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
 class Project:
-    """Un proyecto: directorio + secuencia de comandos."""
+    """Un proyecto: directorio + secuencia de comandos + enlaces."""
     id: str
     title: str
     cwd: Optional[str] = None
     commands: list[str] = field(default_factory=list)
+    # Enlaces asociados (repositorio, panel de despliegue, documentación...).
+    # Se pintan como badges en la cabecera de la terminal del proyecto.
+    links: list[Link] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -69,6 +104,11 @@ class _Library:
     def __init__(self) -> None:
         self.commands: list[Command] = []
         self.projects: list[Project] = []
+        # `nombre de sesión -> id de proyecto`. Vive aquí y no en el nombre
+        # de la sesión porque el nombre se puede cambiar (`rename-session`)
+        # y el título del proyecto también: casar por texto perdía el
+        # vínculo en cuanto se tocaba cualquiera de los dos.
+        self.session_projects: dict[str, str] = {}
 
 
 def _load_raw() -> _Library:
@@ -115,8 +155,20 @@ def _load_raw() -> _Library:
                 title=title,
                 cwd=item.get("cwd") or None,
                 commands=cmds,
+                # Al LEER se descartan en silencio los enlaces inválidos, en
+                # vez de rechazar el proyecto entero: leer nunca lanza.
+                links=_normalize_links(item.get("links"), strict=False),
             )
         )
+
+    raw_links = data.get("session_projects")
+    if isinstance(raw_links, dict):
+        known = {p.id for p in lib.projects}
+        for name, project_id in raw_links.items():
+            # Un vínculo a un proyecto ya borrado no sirve para nada y se
+            # limpia solo en la siguiente escritura.
+            if isinstance(name, str) and project_id in known:
+                lib.session_projects[name] = str(project_id)
     return lib
 
 
@@ -124,6 +176,7 @@ def _persist(lib: _Library) -> None:
     payload = {
         "commands": [c.to_dict() for c in lib.commands],
         "projects": [p.to_dict() for p in lib.projects],
+        "session_projects": lib.session_projects,
     }
     # `write_private` hace el tmp + replace y deja el fichero a 0600: son
     # los comandos que el panel ejecuta, no algo que deba poder leer
@@ -147,6 +200,58 @@ def _normalize_commands(raw) -> list[str]:
     return out
 
 
+def _normalize_link(raw: dict) -> Optional[Link]:
+    """Limpia un enlace suelto. Devuelve None si no hay URL utilizable."""
+    url = str(raw.get("url", "")).strip()
+    if not url:
+        return None
+    # Sin esquema se asume https: quien escribe "github.com/foo" quiere un
+    # enlace, no una ruta relativa al propio panel (que es como lo leería
+    # el navegador). Pero "javascript:alert(1)" SÍ trae esquema, y prefijarle
+    # https:// lo convertía en una URL válida en vez de rechazarlo: por eso
+    # se mira si hay `esquema:` antes de decidir.
+    if "://" not in url:
+        if _SCHEME_RE.match(url):
+            raise LibraryError("err.project_link_invalid", {"url": url})
+        url = f"https://{url}"
+    parsed = urlparse(url)
+    if parsed.scheme not in _ALLOWED_SCHEMES or not parsed.netloc:
+        raise LibraryError("err.project_link_invalid", {"url": url})
+    title = str(raw.get("title", "")).strip()
+    # Sin título, el host: es lo que el usuario reconocería de un vistazo.
+    if not title:
+        title = parsed.netloc
+    if len(title) > _MAX_LINK_TITLE:
+        title = title[: _MAX_LINK_TITLE - 1] + "…"
+    return Link(url=url, title=title)
+
+
+def _normalize_links(raw, *, strict: bool = True) -> list[Link]:
+    """Limpia una lista de enlaces; descarta los que no tienen URL.
+
+    Con `strict=False` (lectura de disco) una URL inválida se descarta en
+    silencio; con `strict=True` (lo que manda el usuario) se rechaza, para
+    que quien escribe `javascript:...` en el modal se entere.
+    """
+    if not isinstance(raw, list):
+        return []
+    out: list[Link] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            link = _normalize_link(entry)
+        except LibraryError:
+            if strict:
+                raise
+            continue
+        if link is not None:
+            out.append(link)
+    if strict and len(out) > _MAX_LINKS:
+        raise LibraryError("err.project_too_many_links", {"max": _MAX_LINKS})
+    return out[:_MAX_LINKS]
+
+
 def _validate_command(label: str, command: str) -> tuple[str, str]:
     label = (label or "").strip()
     command = (command or "").strip()
@@ -158,8 +263,8 @@ def _validate_command(label: str, command: str) -> tuple[str, str]:
 
 
 def _validate_project(
-    title: str, cwd: Optional[str], commands: list[str]
-) -> tuple[str, Optional[str], list[str]]:
+    title: str, cwd: Optional[str], commands: list[str], links=None
+) -> tuple[str, Optional[str], list[str], list[Link]]:
     title = (title or "").strip()
     if not title:
         raise LibraryError("err.project_title_required")
@@ -167,7 +272,7 @@ def _validate_project(
     cmds = _normalize_commands(commands)
     if not cmds:
         raise LibraryError("err.project_needs_command")
-    return title, cwd, cmds
+    return title, cwd, cmds, _normalize_links(links)
 
 
 # ---------------------------------------------------------------------- #
@@ -247,12 +352,16 @@ def get_project(project_id: str) -> Optional[Project]:
     return None
 
 
-def add_project(title: str, cwd: Optional[str], commands: list[str]) -> Project:
+def add_project(
+    title: str, cwd: Optional[str], commands: list[str], links=None
+) -> Project:
     """Crea y persiste un proyecto nuevo. Devuelve el proyecto creado."""
-    title, cwd, cmds = _validate_project(title, cwd, commands)
+    title, cwd, cmds, lnks = _validate_project(title, cwd, commands, links)
     with _lock:
         lib = _load_raw()
-        created = Project(id=secrets.token_hex(4), title=title, cwd=cwd, commands=cmds)
+        created = Project(
+            id=secrets.token_hex(4), title=title, cwd=cwd, commands=cmds, links=lnks
+        )
         lib.projects.append(created)
         _persist(lib)
         return created
@@ -263,9 +372,10 @@ def update_project(
     title: str,
     cwd: Optional[str],
     commands: list[str],
+    links=None,
 ) -> Optional[Project]:
     """Actualiza un proyecto existente. Devuelve el proyecto o None si no existe."""
-    title, cwd, cmds = _validate_project(title, cwd, commands)
+    title, cwd, cmds, lnks = _validate_project(title, cwd, commands, links)
     with _lock:
         lib = _load_raw()
         for p in lib.projects:
@@ -273,6 +383,7 @@ def update_project(
                 p.title = title
                 p.cwd = cwd
                 p.commands = cmds
+                p.links = lnks
                 _persist(lib)
                 return p
         return None
@@ -286,5 +397,47 @@ def delete_project(project_id: str) -> bool:
         if len(remaining) == len(lib.projects):
             return False
         lib.projects = remaining
+        lib.session_projects = {
+            name: pid
+            for name, pid in lib.session_projects.items()
+            if pid != project_id
+        }
         _persist(lib)
         return True
+
+
+# ---------------------------------------------------------------------- #
+# Vínculo sesión -> proyecto                                              #
+# ---------------------------------------------------------------------- #
+def session_projects() -> dict[str, str]:
+    """Mapa `nombre de sesión -> id de proyecto` de las sesiones lanzadas."""
+    with _lock:
+        return dict(_load_raw().session_projects)
+
+
+def link_session(session_name: str, project_id: str) -> None:
+    """Anota que esta sesión de tmux salió de este proyecto."""
+    with _lock:
+        lib = _load_raw()
+        lib.session_projects[session_name] = project_id
+        _persist(lib)
+
+
+def rename_session(old: str, new: str) -> None:
+    """Arrastra el vínculo al nuevo nombre tras renombrar en tmux."""
+    if old == new:
+        return
+    with _lock:
+        lib = _load_raw()
+        project_id = lib.session_projects.pop(old, None)
+        if project_id is not None:
+            lib.session_projects[new] = project_id
+            _persist(lib)
+
+
+def forget_session(session_name: str) -> None:
+    """Olvida el vínculo de una sesión destruida (kill-session)."""
+    with _lock:
+        lib = _load_raw()
+        if lib.session_projects.pop(session_name, None) is not None:
+            _persist(lib)

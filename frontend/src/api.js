@@ -175,17 +175,22 @@ export const api = {
     }),
   // ---- Biblioteca: proyectos (dir + secuencia de comandos) ----
   listProjects: () => request('/api/projects'),
-  createProject: (title, cwd, commands) =>
+  createProject: (title, cwd, commands, links) =>
     request('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, cwd: cwd || null, commands: commands || [] }),
+      body: JSON.stringify({
+        title,
+        cwd: cwd || null,
+        commands: commands || [],
+        links: links || [],
+      }),
     }),
-  updateProject: (id, title, cwd, commands) =>
+  updateProject: (id, title, cwd, commands, links) =>
     request(`/api/projects/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, cwd: cwd || null, commands }),
+      body: JSON.stringify({ title, cwd: cwd || null, commands, links: links || [] }),
     }),
   runProject: (id) =>
     request(`/api/projects/${encodeURIComponent(id)}/run`, {

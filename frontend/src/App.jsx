@@ -519,14 +519,14 @@ export default function App() {
   }
 
   // ---- Guardar / editar / eliminar un Proyecto ----
-  const handleSaveProject = async (title, cwd, commands) => {
-    const created = await api.createProject(title, cwd, commands)
+  const handleSaveProject = async (title, cwd, commands, links) => {
+    const created = await api.createProject(title, cwd, commands, links)
     await loadCommands()
     return created
   }
 
-  const handleUpdateProject = async (id, title, cwd, commands) => {
-    const updated = await api.updateProject(id, title, cwd, commands)
+  const handleUpdateProject = async (id, title, cwd, commands, links) => {
+    const updated = await api.updateProject(id, title, cwd, commands, links)
     await loadCommands()
     return updated
   }
@@ -733,6 +733,7 @@ export default function App() {
           onKill={handleKillSession}
           onReorder={handleReorder}
           commands={commandsOrdenados}
+          projects={projects}
           layout={layout}
           focusedName={focusedName}
           onSetFocused={(name) => {

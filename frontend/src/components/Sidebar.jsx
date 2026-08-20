@@ -131,6 +131,9 @@ export default function Sidebar({
   const [projTitle, setProjTitle] = useState('')
   const [projCwd, setProjCwd] = useState('')
   const [projCommands, setProjCommands] = useState([''])
+  // Enlaces del proyecto: [{ url, title }]. Se editan aquí y se ven como
+  // badges en la cabecera de la terminal que lanza el proyecto.
+  const [projLinks, setProjLinks] = useState([])
   const [projError, setProjError] = useState(null)
   const [projSubmitting, setProjSubmitting] = useState(false)
 
@@ -139,6 +142,7 @@ export default function Sidebar({
   const [projEditTitle, setProjEditTitle] = useState('')
   const [projEditCwd, setProjEditCwd] = useState('')
   const [projEditCommands, setProjEditCommands] = useState([''])
+  const [projEditLinks, setProjEditLinks] = useState([])
   const [projEditError, setProjEditError] = useState(null)
   const [projSavingEdit, setProjSavingEdit] = useState(false)
 
@@ -384,6 +388,7 @@ export default function Sidebar({
     setProjTitle('')
     setProjCwd('')
     setProjCommands([''])
+    setProjLinks([])
     setProjError(null)
     setProjCreating(true)
   }
@@ -413,7 +418,7 @@ export default function Sidebar({
     setProjSubmitting(true)
     setProjError(null)
     try {
-      await onSaveProject(title, projCwd.trim() || null, cmds)
+      await onSaveProject(title, projCwd.trim() || null, cmds, cleanLinks(projLinks))
       setProjCreating(false)
     } catch (err) {
       setProjError(
@@ -430,6 +435,7 @@ export default function Sidebar({
     setProjEditTitle(p.title)
     setProjEditCwd(p.cwd || '')
     setProjEditCommands(p.commands.length ? [...p.commands] : [''])
+    setProjEditLinks((p.links || []).map((l) => ({ ...l })))
     setProjEditError(null)
   }
 
@@ -457,7 +463,13 @@ export default function Sidebar({
     setProjSavingEdit(true)
     setProjEditError(null)
     try {
-      await onUpdateProject(id, title, projEditCwd.trim() || null, cmds)
+      await onUpdateProject(
+        id,
+        title,
+        projEditCwd.trim() || null,
+        cmds,
+        cleanLinks(projEditLinks),
+      )
       setProjEditingId(null)
     } catch (err) {
       setProjEditError(
@@ -1215,10 +1227,11 @@ export default function Sidebar({
             <button
               type="button"
               onClick={addProjCommand}
-              className="mb-3 text-xs text-panel-muted transition hover:text-panel-accent"
+              className="mb-3 block text-xs text-panel-muted transition hover:text-panel-accent"
             >
               {t('form.add_command')}
             </button>
+            <LinksFields links={projLinks} onChange={setProjLinks} />
             <button
               type="submit"
               disabled={projSubmitting}
@@ -1297,10 +1310,11 @@ export default function Sidebar({
             <button
               type="button"
               onClick={addProjEditCommand}
-              className="mb-3 text-xs text-panel-muted transition hover:text-panel-accent"
+              className="mb-3 block text-xs text-panel-muted transition hover:text-panel-accent"
             >
               {t('form.add_command')}
             </button>
+            <LinksFields links={projEditLinks} onChange={setProjEditLinks} />
             <button
               type="submit"
               disabled={projSavingEdit}
@@ -1367,6 +1381,65 @@ function MoveToSpace({ session, spaces, onAssign }) {
         ))}
       </select>
     </span>
+  )
+}
+
+// Deja solo los enlaces con URL. Un título sin URL no es un enlace, y una
+// fila vacía es lo normal mientras se edita: filtrar aquí evita que el
+// backend rechace el proyecto entero por una fila a medio escribir.
+function cleanLinks(links) {
+  return links
+    .map((l) => ({ url: (l.url || '').trim(), title: (l.title || '').trim() }))
+    .filter((l) => l.url)
+}
+
+// Editor de los enlaces de un proyecto: una fila por enlace con la URL y el
+// texto de la badge. El título es opcional a propósito —el backend cae al
+// host de la URL—, así que pegar una URL y darle a guardar ya vale.
+function LinksFields({ links, onChange }) {
+  const { t } = useT()
+  const setAt = (i, patch) =>
+    onChange(links.map((l, idx) => (idx === i ? { ...l, ...patch } : l)))
+
+  return (
+    <>
+      <p className="mb-1 text-xs uppercase tracking-wide text-panel-muted">
+        {t('form.links_label')}
+      </p>
+      {links.map((link, i) => (
+        <div key={i} className="mb-1 flex items-center gap-1">
+          <input
+            value={link.url || ''}
+            onChange={(e) => setAt(i, { url: e.target.value })}
+            placeholder={t('form.link_url_placeholder')}
+            aria-label={t('form.link_url_placeholder')}
+            className="min-w-0 flex-1 rounded border border-panel-border bg-panel-bg px-2 py-1.5 text-sm outline-none focus:border-panel-accent"
+          />
+          <input
+            value={link.title || ''}
+            onChange={(e) => setAt(i, { title: e.target.value })}
+            placeholder={t('form.link_title_placeholder')}
+            aria-label={t('form.link_title_placeholder')}
+            className="w-28 shrink-0 rounded border border-panel-border bg-panel-bg px-2 py-1.5 text-sm outline-none focus:border-panel-accent"
+          />
+          <button
+            type="button"
+            onClick={() => onChange(links.filter((_, idx) => idx !== i))}
+            title={t('form.remove')}
+            className="shrink-0 rounded p-0.5 text-panel-muted transition hover:text-red-400"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...links, { url: '', title: '' }])}
+        className="mb-3 block text-xs text-panel-muted transition hover:text-panel-accent"
+      >
+        {t('form.add_link')}
+      </button>
+    </>
   )
 }
 

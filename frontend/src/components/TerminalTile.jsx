@@ -13,7 +13,20 @@ import { useT } from '../i18n/index.jsx'
 // transparente sobre el iframe: de lo contrario, el iframe captura los
 // eventos del ratón y no se dispararían los `dragover`/`drop`.
 //
-// Junto al título hay dos acciones:
+// La cabecera tiene tres zonas, y cada una significa una cosa:
+//
+//   - IZQUIERDA, la identidad: el punto de estado y el nombre de la sesión,
+//     y nada más. Los iconos que antes iban aquí le comían el ancho al
+//     nombre en cuanto había cuatro terminales en pantalla.
+//   - CENTRO, los enlaces del proyecto (si la sesión salió de uno): badges
+//     con el título que el usuario le puso a cada URL. Si no caben, la zona
+//     desliza en horizontal; nunca empuja al nombre ni a las acciones.
+//   - DERECHA, las acciones, en dos grupos separados por una línea fina:
+//     las que actúan DENTRO de la terminal (ejecutar, buscar, redactar) y
+//     las que actúan SOBRE la ventana (minimizar, maximizar, matar, cerrar).
+//     Antes estaban repartidas a los dos lados por ese mismo criterio, pero
+//     sin nada que lo hiciera visible: parecía un grupo partido por el
+//     título.
 //
 //   - ▶ abre la biblioteca de comandos (un desplegable con su filtro) para
 //     lanzar uno en esta sesión. Antes esto era un input a lo ancho de todo
@@ -34,6 +47,7 @@ export default function TerminalTile({
   onDragEnd,
   onDrop,
   commands = [],
+  links = [],
   isFocused,
   onToggleFocus,
   onMinimize,
@@ -135,42 +149,70 @@ export default function TerminalTile({
         <span className="flex min-w-0 items-center gap-2 truncate text-sm font-medium text-gray-100">
           <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" />
           <span className="truncate">{session.name}</span>
-          {/* `relative` para que el desplegable cuelgue del botón. Y el
-              `onMouseDown` con stopPropagation en ambos: la cabecera es el asa
-              de arrastre, y sin esto pulsar un icono empieza un arrastre. */}
-          <span className="relative flex shrink-0 items-center gap-0.5">
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => setShowDropdown((abierto) => !abierto)}
-              title={t('tile.run_command')}
-              aria-label={t('tile.run_command')}
-              aria-expanded={showDropdown}
-              className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-green-400"
-            >
-              <PlayIcon />
-            </button>
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => setSearchToken((n) => n + 1)}
-              title={t('tile.search_terminal')}
-              aria-label={t('tile.search_terminal')}
-              className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
-            >
-              <SearchIcon />
-            </button>
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => setComposing((abierto) => !abierto)}
-              title={t('tile.compose')}
-              aria-label={t('tile.compose')}
-              aria-pressed={composing}
-              className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
-            >
-              <PencilIcon />
-            </button>
-          </span>
         </span>
-        <span className="flex items-center gap-0.5">
+
+        {/* Enlaces del proyecto. `overflow-x-auto` sin barra visible: en un
+            tile estrecho se deslizan con el dedo o con la rueda, que es
+            mejor que recortarlos sin avisar. Y `draggable={false}` en cada
+            uno porque un <a> se arrastra solo, y aquí arrastrar significa
+            reordenar la ventana. */}
+        {links.length > 0 && (
+          <span className="mx-2 flex min-w-0 flex-1 justify-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <span className="flex shrink-0 items-center gap-1">
+              {links.map((link) => (
+                <a
+                  key={link.url}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  draggable={false}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                  title={link.url}
+                  className="shrink-0 cursor-pointer rounded-full border border-panel-border px-2 py-0.5 text-[11px] leading-none text-panel-muted transition hover:border-panel-accent hover:text-panel-accent"
+                >
+                  {link.title}
+                </a>
+              ))}
+            </span>
+          </span>
+        )}
+
+        {/* `relative` para que el desplegable de comandos cuelgue de su
+            botón. Y el `onMouseDown` con stopPropagation en los tres
+            primeros: la cabecera es el asa de arrastre, y sin esto pulsar un
+            icono empieza un arrastre. */}
+        <span className="relative flex shrink-0 items-center gap-0.5">
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => setShowDropdown((abierto) => !abierto)}
+            title={t('tile.run_command')}
+            aria-label={t('tile.run_command')}
+            aria-expanded={showDropdown}
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-green-400"
+          >
+            <PlayIcon />
+          </button>
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => setSearchToken((n) => n + 1)}
+            title={t('tile.search_terminal')}
+            aria-label={t('tile.search_terminal')}
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+          >
+            <SearchIcon />
+          </button>
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => setComposing((abierto) => !abierto)}
+            title={t('tile.compose')}
+            aria-label={t('tile.compose')}
+            aria-pressed={composing}
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+          >
+            <PencilIcon />
+          </button>
+          <span className="mx-1 h-4 w-px shrink-0 bg-panel-border" />
           <button
             onClick={onMinimize}
             title={t('tile.minimize')}

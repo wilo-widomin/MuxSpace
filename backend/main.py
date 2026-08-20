@@ -28,6 +28,7 @@ from pydantic import BaseModel
 import audit
 import claude_transcript
 import config
+import library_store
 import logs
 import space_store
 import upload_store
@@ -158,6 +159,9 @@ class SessionInfo(BaseModel):
     # ven en el grid lo decide el cliente a partir de esto; el backend ya no
     # guarda ningún estado de "abierta en el grid".
     space: str | None = None
+    # Proyecto del que salió la sesión, o None si se creó a mano. El cliente
+    # lo usa para pintar los enlaces del proyecto en la cabecera del tile.
+    project: str | None = None
 
 
 class SpaceInfo(BaseModel):
@@ -219,23 +223,32 @@ class CommandUpdateBody(BaseModel):
     command: str
 
 
+class ProjectLink(BaseModel):
+    url: str
+    # Texto de la badge. Vacío => el backend usa el host de la URL.
+    title: str = ""
+
+
 class ProjectInfo(BaseModel):
     id: str
     title: str
     cwd: str | None = None
     commands: list[str]
+    links: list[ProjectLink] = []
 
 
 class ProjectCreateBody(BaseModel):
     title: str
     cwd: str | None = None
     commands: list[str] = []
+    links: list[ProjectLink] = []
 
 
 class ProjectUpdateBody(BaseModel):
     title: str
     cwd: str | None = None
     commands: list[str]
+    links: list[ProjectLink] = []
 
 
 # Cuerpo opcional al crear una sesión de tmux: permite ejecutar un comando
@@ -1020,6 +1033,7 @@ def get_sessions(user: str = _auth) -> list[SessionInfo]:
         raise http_from(500, exc) from exc
 
     by_name = space_store.assignments()
+    by_project = library_store.session_projects()
     return [
         SessionInfo(
             name=s.name,
@@ -1027,6 +1041,7 @@ def get_sessions(user: str = _auth) -> list[SessionInfo]:
             attached=s.attached,
             created=s.created,
             space=by_name.get(s.name),
+            project=by_project.get(s.name),
         )
         for s in sessions
     ]
@@ -1083,6 +1098,7 @@ def kill_session_endpoint(
     # La sesión ya no existe: su asignación de espacio sobra y, si alguien
     # crea otra con el mismo nombre, no debe heredar el espacio de la vieja.
     space_store.forget_session(name)
+    library_store.forget_session(name)
     audit.record(
         "kill-session", request=request, user=user, target=name,
         detail={"killed": killed},
@@ -1149,6 +1165,7 @@ def rename_session_endpoint(
         raise http_from(500, exc) from exc
 
     space_store.rename_session(name, new_name)
+    library_store.rename_session(name, new_name)
     audit.record(
         "rename-session", request=request, user=user, target=name,
         detail={"new_name": new_name},
@@ -1317,7 +1334,10 @@ def create_project(
     # que normalizamos las barras aquí también (ver `_slug_session_name`).
     title = _slug_session_name(body.title)
     try:
-        created = add_project(title, body.cwd, body.commands)
+        created = add_project(
+            title, body.cwd, body.commands,
+            [link.model_dump() for link in body.links],
+        )
     except LibraryError as exc:
         raise http_from(400, exc) from exc
     return ProjectInfo(**created.to_dict())
@@ -1332,7 +1352,10 @@ def update_project_endpoint(
     """Actualiza un proyecto existente."""
     title = _slug_session_name(body.title)
     try:
-        updated = update_project(project_id, title, body.cwd, body.commands)
+        updated = update_project(
+            project_id, title, body.cwd, body.commands,
+            [link.model_dump() for link in body.links],
+        )
     except LibraryError as exc:
         raise http_from(400, exc) from exc
     if updated is None:
@@ -1399,6 +1422,10 @@ def run_project_endpoint(
             send_command(name, cmd)
         except TmuxError as exc:
             raise http_from(500, exc) from exc
+
+    # El vínculo se guarda para que la cabecera del tile sepa qué enlaces
+    # tocan. Sobrevive a renombrar la sesión (ver `rename-session`).
+    library_store.link_session(name, project_id)
 
     audit.record(
         "run-project", request=request, user=user, target=name,

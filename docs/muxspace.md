@@ -254,7 +254,9 @@ usuario trabaja en otro.
 6. **Biblioteca:** un comando o proyecto puede lanzarse en una sesión nueva
    (`/api/commands/{id}/launch`, `/api/projects/{id}/run`); el backend crea
    la sesión con `tmux new-session -d` e inyecta el comando vía
-   `send-keys`.
+   `send-keys`. Al lanzar un proyecto se anota de qué proyecto salió la
+   sesión (campo `project` en `/api/sessions`), que es lo que permite pintar
+   los **enlaces** del proyecto como badges en la cabecera de su terminal.
 
 ## 5. Ventajas de esta Estructura
 

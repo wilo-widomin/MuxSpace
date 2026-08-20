@@ -180,7 +180,9 @@ export const api = {
     }),
   // ---- Biblioteca: proyectos (dir + secuencia de comandos) ----
   listProjects: () => request('/api/projects'),
-  createProject: (title, cwd, commands, links) =>
+  // `space` null al crear => el backend crea un espacio con el título del
+  // proyecto. Al actualizar, null significa literalmente "sin espacio".
+  createProject: (title, cwd, commands, links, space) =>
     request('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -189,13 +191,20 @@ export const api = {
         cwd: cwd || null,
         commands: commands || [],
         links: links || [],
+        space: space || null,
       }),
     }),
-  updateProject: (id, title, cwd, commands, links) =>
+  updateProject: (id, title, cwd, commands, links, space) =>
     request(`/api/projects/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, cwd: cwd || null, commands, links: links || [] }),
+      body: JSON.stringify({
+        title,
+        cwd: cwd || null,
+        commands,
+        links: links || [],
+        space: space || null,
+      }),
     }),
   runProject: (id) =>
     request(`/api/projects/${encodeURIComponent(id)}/run`, {

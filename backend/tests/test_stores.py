@@ -744,6 +744,11 @@ def test_biblioteca_el_formato_en_disco_es_el_declarado(data_dir: Path) -> None:
                 "cwd": "/srv",
                 "commands": ["bun dev"],
                 "links": [],
+                # El espacio al que van sus sesiones. `null` = ninguno: quien
+                # crea el proyecto por la API lo recibe siempre relleno (ver
+                # `test_project_space.py`), pero la biblioteca por sí sola no
+                # inventa espacios.
+                "space": None,
             }
         ],
         # Qué sesión de tmux salió de qué proyecto. Vacío mientras no se

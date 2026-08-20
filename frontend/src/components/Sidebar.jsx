@@ -134,6 +134,10 @@ export default function Sidebar({
   // Enlaces del proyecto: [{ url, title }]. Se editan aquí y se ven como
   // badges en la cabecera de la terminal que lanza el proyecto.
   const [projLinks, setProjLinks] = useState([])
+  // Espacio al que irán las sesiones del proyecto. En el ALTA, '' no
+  // significa "ninguno" sino "créame uno con el nombre del proyecto": es lo
+  // que hace el backend y lo que anuncia el texto de debajo del selector.
+  const [projSpace, setProjSpace] = useState('')
   const [projError, setProjError] = useState(null)
   const [projSubmitting, setProjSubmitting] = useState(false)
 
@@ -143,6 +147,8 @@ export default function Sidebar({
   const [projEditCwd, setProjEditCwd] = useState('')
   const [projEditCommands, setProjEditCommands] = useState([''])
   const [projEditLinks, setProjEditLinks] = useState([])
+  // Aquí sí: '' es "ninguno". Editar no inventa espacios.
+  const [projEditSpace, setProjEditSpace] = useState('')
   const [projEditError, setProjEditError] = useState(null)
   const [projSavingEdit, setProjSavingEdit] = useState(false)
 
@@ -389,6 +395,7 @@ export default function Sidebar({
     setProjCwd('')
     setProjCommands([''])
     setProjLinks([])
+    setProjSpace('')
     setProjError(null)
     setProjCreating(true)
   }
@@ -418,7 +425,13 @@ export default function Sidebar({
     setProjSubmitting(true)
     setProjError(null)
     try {
-      await onSaveProject(title, projCwd.trim() || null, cmds, cleanLinks(projLinks))
+      await onSaveProject(
+        title,
+        projCwd.trim() || null,
+        cmds,
+        cleanLinks(projLinks),
+        projSpace || null,
+      )
       setProjCreating(false)
     } catch (err) {
       setProjError(
@@ -436,6 +449,7 @@ export default function Sidebar({
     setProjEditCwd(p.cwd || '')
     setProjEditCommands(p.commands.length ? [...p.commands] : [''])
     setProjEditLinks((p.links || []).map((l) => ({ ...l })))
+    setProjEditSpace(p.space || '')
     setProjEditError(null)
   }
 
@@ -469,6 +483,7 @@ export default function Sidebar({
         projEditCwd.trim() || null,
         cmds,
         cleanLinks(projEditLinks),
+        projEditSpace || null,
       )
       setProjEditingId(null)
     } catch (err) {
@@ -1232,6 +1247,28 @@ export default function Sidebar({
               {t('form.add_command')}
             </button>
             <LinksFields links={projLinks} onChange={setProjLinks} />
+            <label
+              htmlFor={`${uid}-proyecto-espacio`}
+              className="mb-1 block text-xs uppercase tracking-wide text-panel-muted"
+            >
+              {t('form.project_space_label')}
+            </label>
+            <select
+              id={`${uid}-proyecto-espacio`}
+              value={projSpace}
+              onChange={(e) => setProjSpace(e.target.value)}
+              className="mb-1 w-full rounded border border-panel-border bg-panel-bg px-2 py-1.5 text-sm outline-none focus:border-panel-accent"
+            >
+              <option value="">{t('form.project_space_new')}</option>
+              {spaces.map((sp) => (
+                <option key={sp.id} value={sp.id}>
+                  {sp.title}
+                </option>
+              ))}
+            </select>
+            <p className="mb-3 text-xs text-panel-muted">
+              {t('form.project_space_hint_new')}
+            </p>
             <button
               type="submit"
               disabled={projSubmitting}
@@ -1315,6 +1352,25 @@ export default function Sidebar({
               {t('form.add_command')}
             </button>
             <LinksFields links={projEditLinks} onChange={setProjEditLinks} />
+            <label
+              htmlFor={`${uid}-editar-proyecto-espacio`}
+              className="mb-1 block text-xs uppercase tracking-wide text-panel-muted"
+            >
+              {t('form.project_space_label')}
+            </label>
+            <select
+              id={`${uid}-editar-proyecto-espacio`}
+              value={projEditSpace}
+              onChange={(e) => setProjEditSpace(e.target.value)}
+              className="mb-3 w-full rounded border border-panel-border bg-panel-bg px-2 py-1.5 text-sm outline-none focus:border-panel-accent"
+            >
+              <option value="">{t('form.project_space_none')}</option>
+              {spaces.map((sp) => (
+                <option key={sp.id} value={sp.id}>
+                  {sp.title}
+                </option>
+              ))}
+            </select>
             <button
               type="submit"
               disabled={projSavingEdit}

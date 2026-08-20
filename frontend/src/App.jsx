@@ -523,14 +523,17 @@ export default function App() {
   }
 
   // ---- Guardar / editar / eliminar un Proyecto ----
-  const handleSaveProject = async (title, cwd, commands, links) => {
-    const created = await api.createProject(title, cwd, commands, links)
+  const handleSaveProject = async (title, cwd, commands, links, space) => {
+    const created = await api.createProject(title, cwd, commands, links, space)
     await loadCommands()
+    // Sin espacio elegido, el backend acaba de crear uno: si no se recarga
+    // la lista, el selector del formulario siguiente no lo enseña.
+    await loadSpaces()
     return created
   }
 
-  const handleUpdateProject = async (id, title, cwd, commands, links) => {
-    const updated = await api.updateProject(id, title, cwd, commands, links)
+  const handleUpdateProject = async (id, title, cwd, commands, links, space) => {
+    const updated = await api.updateProject(id, title, cwd, commands, links, space)
     await loadCommands()
     return updated
   }

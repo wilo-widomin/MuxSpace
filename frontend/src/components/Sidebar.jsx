@@ -7,6 +7,7 @@ import { PasteForClaude } from './sidebar/PasteForClaude.jsx'
 import { UploadFiles } from './sidebar/UploadFiles.jsx'
 import { SectionCaret } from './sidebar/SectionCaret.jsx'
 import { UNASSIGNED, spaceKeyOf } from '../spaces.js'
+import logo from '../assets/logo.png'
 import {
   ChartIcon,
   CheckIcon,
@@ -588,7 +589,19 @@ export default function Sidebar({
           acciones. */}
       <header className="border-b border-panel-border bg-black px-3 py-2">
         <div className="flex items-center justify-between gap-2">
-          <h1 className="truncate text-base font-semibold">{t('app.brand')}</h1>
+          {/* El logo ES el nombre: lleva las siglas dentro. El `alt` mantiene
+              el nombre para quien no ve la imagen (lector de pantalla, o el
+              PNG que no carga), y el `h1` sigue ahí porque el encabezado de
+              la página no puede depender de que una imagen cargue. */}
+          <h1 className="flex min-w-0 items-center">
+            <img
+              src={logo}
+              alt={t('app.brand')}
+              width="26"
+              height="26"
+              className="shrink-0"
+            />
+          </h1>
           <button
             onClick={onToggleCollapse}
             title={t('sidebar.collapse')}

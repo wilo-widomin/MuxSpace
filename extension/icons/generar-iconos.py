@@ -20,6 +20,9 @@ from PIL import Image, ImageDraw
 
 RAIZ = Path(__file__).resolve().parent
 ORIGEN = RAIZ.parent / "logo.jpeg"
+# El panel usa el mismo logo en la cabecera de su sidebar. Se genera desde
+# aquí y no se copia a mano para que no acaben siendo dos logos distintos.
+PANEL = RAIZ.parent.parent / "frontend" / "src" / "assets" / "logo.png"
 
 # Centro y radios del aro dorado, medidos sobre el JPEG original.
 CX, CY = 1411.5, 732.5
@@ -63,6 +66,12 @@ def main() -> None:
     for tam in TAMANOS:
         logo.resize((tam, tam), Image.LANCZOS).save(RAIZ / f"icon-{tam}.png")
     print(f"Iconos generados en {RAIZ}")
+
+    if PANEL.parent.is_dir():
+        # 128 px: la cabecera lo pinta a 26, y el doble sobra para pantallas
+        # de densidad alta sin cargar medio mega en cada visita al panel.
+        logo.resize((128, 128), Image.LANCZOS).save(PANEL)
+        print(f"Logo del panel en {PANEL}")
 
 
 if __name__ == "__main__":

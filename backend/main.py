@@ -235,6 +235,8 @@ class ProjectInfo(BaseModel):
     cwd: str | None = None
     commands: list[str]
     links: list[ProjectLink] = []
+    # Id del espacio al que van las sesiones del proyecto (null = ninguno).
+    space: str | None = None
 
 
 class ProjectCreateBody(BaseModel):
@@ -242,6 +244,8 @@ class ProjectCreateBody(BaseModel):
     cwd: str | None = None
     commands: list[str] = []
     links: list[ProjectLink] = []
+    # Vacío al crear => se crea un espacio con el título del proyecto.
+    space: str | None = None
 
 
 class ProjectUpdateBody(BaseModel):
@@ -249,6 +253,7 @@ class ProjectUpdateBody(BaseModel):
     cwd: str | None = None
     commands: list[str]
     links: list[ProjectLink] = []
+    space: str | None = None
 
 
 # Cuerpo opcional al crear una sesión de tmux: permite ejecutar un comando
@@ -1360,10 +1365,27 @@ def delete_command_endpoint(
 # ---------------------------------------------------------------------- #
 # Biblioteca de proyectos (CRUD + ejecución)                              #
 # ---------------------------------------------------------------------- #
+def _project_info(proj, known_spaces: set[str] | None = None) -> ProjectInfo:
+    """Convierte un proyecto de la biblioteca en su respuesta HTTP.
+
+    Un espacio se puede borrar sin que la biblioteca se entere, así que aquí
+    se comprueba que el que guarda el proyecto siga existiendo; si no, se
+    devuelve `null` en vez de un id muerto que abriría un espacio fantasma.
+    """
+    data = proj.to_dict()
+    if data.get("space"):
+        if known_spaces is None:
+            known_spaces = {s.id for s in space_store.list_spaces()}
+        if data["space"] not in known_spaces:
+            data["space"] = None
+    return ProjectInfo(**data)
+
+
 @app.get("/api/projects", response_model=list[ProjectInfo])
 def get_projects(user: str = _auth) -> list[ProjectInfo]:
     """Devuelve todos los proyectos guardados en la biblioteca."""
-    return [ProjectInfo(**p.to_dict()) for p in list_projects()]
+    known = {s.id for s in space_store.list_spaces()}
+    return [_project_info(p, known) for p in list_projects()]
 
 
 @app.post("/api/projects", response_model=ProjectInfo, status_code=201)
@@ -1375,14 +1397,33 @@ def create_project(
     # El título se usa como nombre de la sesión al ejecutar el proyecto, así
     # que normalizamos las barras aquí también (ver `_slug_session_name`).
     title = _slug_session_name(body.title)
+    # Sin espacio elegido se crea uno con el título del proyecto: es lo que
+    # el formulario de alta anuncia, y evita que la extensión de navegador
+    # tenga que abrir un proyecto que no lleva a ninguna parte.
+    space_id = (body.space or "").strip() or None
+    created_space: str | None = None
+    if space_id is None:
+        try:
+            created_space = space_store.create_space(title).id
+        except SpaceError as exc:
+            raise http_from(400, exc) from exc
+        space_id = created_space
     try:
         created = add_project(
             title, body.cwd, body.commands,
             [link.model_dump() for link in body.links],
+            space=space_id,
         )
     except LibraryError as exc:
+        # El espacio recién creado se queda huérfano si el proyecto no llega
+        # a existir, así que se deshace antes de propagar el error.
+        if created_space is not None:
+            try:
+                space_store.delete_space(created_space)
+            except SpaceError:
+                pass
         raise http_from(400, exc) from exc
-    return ProjectInfo(**created.to_dict())
+    return _project_info(created)
 
 
 @app.put("/api/projects/{project_id}", response_model=ProjectInfo)
@@ -1397,12 +1438,13 @@ def update_project_endpoint(
         updated = update_project(
             project_id, title, body.cwd, body.commands,
             [link.model_dump() for link in body.links],
+            space=(body.space or "").strip() or None,
         )
     except LibraryError as exc:
         raise http_from(400, exc) from exc
     if updated is None:
         raise http_error(404, "err.project_not_found")
-    return ProjectInfo(**updated.to_dict())
+    return _project_info(updated)
 
 
 @app.delete("/api/projects/{project_id}", response_model=MessageResponse)
@@ -1464,6 +1506,15 @@ def run_project_endpoint(
             send_command(name, cmd)
         except TmuxError as exc:
             raise http_from(500, exc) from exc
+
+    # La sesión nace en el espacio del proyecto: es lo que hace que abrir
+    # `?space=<id>` enseñe algo. Un espacio borrado a mano deja de existir
+    # sin que la biblioteca se entere, y eso no puede tumbar el lanzamiento.
+    if proj.space:
+        try:
+            space_store.assign(name, proj.space)
+        except SpaceError:
+            pass
 
     # El vínculo se guarda para que la cabecera del tile sepa qué enlaces
     # tocan. Sobrevive a renombrar la sesión (ver `rename-session`).

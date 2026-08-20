@@ -93,6 +93,11 @@ class Project:
     # Enlaces asociados (repositorio, panel de despliegue, documentación...).
     # Se pintan como badges en la cabecera de la terminal del proyecto.
     links: list[Link] = field(default_factory=list)
+    # Espacio al que van las sesiones de este proyecto. Es el `id` de un
+    # espacio de `space_store`; `None` = sin espacio. La biblioteca NO valida
+    # que exista: quien lo comprueba es la capa HTTP, que sí ve los dos
+    # almacenes (ver `_project_info` en `main.py`).
+    space: Optional[str] = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -158,6 +163,7 @@ def _load_raw() -> _Library:
                 # Al LEER se descartan en silencio los enlaces inválidos, en
                 # vez de rechazar el proyecto entero: leer nunca lanza.
                 links=_normalize_links(item.get("links"), strict=False),
+                space=str(item.get("space") or "").strip() or None,
             )
         )
 
@@ -263,8 +269,8 @@ def _validate_command(label: str, command: str) -> tuple[str, str]:
 
 
 def _validate_project(
-    title: str, cwd: Optional[str], commands: list[str], links=None
-) -> tuple[str, Optional[str], list[str], list[Link]]:
+    title: str, cwd: Optional[str], commands: list[str], links=None, space=None
+) -> tuple[str, Optional[str], list[str], list[Link], Optional[str]]:
     title = (title or "").strip()
     if not title:
         raise LibraryError("err.project_title_required")
@@ -272,7 +278,8 @@ def _validate_project(
     cmds = _normalize_commands(commands)
     if not cmds:
         raise LibraryError("err.project_needs_command")
-    return title, cwd, cmds, _normalize_links(links)
+    space_id = (str(space) if space is not None else "").strip() or None
+    return title, cwd, cmds, _normalize_links(links), space_id
 
 
 # ---------------------------------------------------------------------- #
@@ -353,14 +360,17 @@ def get_project(project_id: str) -> Optional[Project]:
 
 
 def add_project(
-    title: str, cwd: Optional[str], commands: list[str], links=None
+    title: str, cwd: Optional[str], commands: list[str], links=None, space=None
 ) -> Project:
     """Crea y persiste un proyecto nuevo. Devuelve el proyecto creado."""
-    title, cwd, cmds, lnks = _validate_project(title, cwd, commands, links)
+    title, cwd, cmds, lnks, space_id = _validate_project(
+        title, cwd, commands, links, space
+    )
     with _lock:
         lib = _load_raw()
         created = Project(
-            id=secrets.token_hex(4), title=title, cwd=cwd, commands=cmds, links=lnks
+            id=secrets.token_hex(4), title=title, cwd=cwd, commands=cmds,
+            links=lnks, space=space_id,
         )
         lib.projects.append(created)
         _persist(lib)
@@ -373,9 +383,12 @@ def update_project(
     cwd: Optional[str],
     commands: list[str],
     links=None,
+    space=None,
 ) -> Optional[Project]:
     """Actualiza un proyecto existente. Devuelve el proyecto o None si no existe."""
-    title, cwd, cmds, lnks = _validate_project(title, cwd, commands, links)
+    title, cwd, cmds, lnks, space_id = _validate_project(
+        title, cwd, commands, links, space
+    )
     with _lock:
         lib = _load_raw()
         for p in lib.projects:
@@ -384,6 +397,7 @@ def update_project(
                 p.cwd = cwd
                 p.commands = cmds
                 p.links = lnks
+                p.space = space_id
                 _persist(lib)
                 return p
         return None

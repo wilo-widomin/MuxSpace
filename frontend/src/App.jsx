@@ -228,7 +228,11 @@ export default function App() {
         if (ra !== rb) return ra - rb
         return a.name.localeCompare(b.name)
       })
-      .map((s) => ({ name: s.name }))
+      // Se recorta a lo que el grid necesita, y `project` es parte de eso:
+      // es lo que le dice a la cabecera de cada terminal qué enlaces del
+      // proyecto tiene que pintar. Cuando aquí solo iba el nombre, las badges
+      // no aparecían nunca y el tile no tenía forma de saber por qué.
+      .map((s) => ({ name: s.name, project: s.project ?? null }))
   }, [sessions, activeSpace, hidden, order])
 
   // ---- Sesión caducada ----

@@ -5,7 +5,7 @@
 // tiene que buscar los enlaces de ESE proyecto y dárselos a su tile. Con
 // forma y datos reales (`/api/sessions` + `/api/projects`).
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 
 import { LangProvider } from '../i18n/index.jsx'
 import SessionGrid from './SessionGrid.jsx'

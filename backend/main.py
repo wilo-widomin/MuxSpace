@@ -379,6 +379,53 @@ def _workers_configurados(argv: list[str] | None = None,
         return 1
 
 
+def _migrar_espacios_de_proyectos() -> int:
+    """Da un espacio a los proyectos que se crearon antes de que existiera.
+
+    El campo `space` nació con el selector del formulario, así que todo lo que
+    ya había en la biblioteca se quedó sin él — y sin espacio, la extensión de
+    navegador abre el panel donde le toque en vez de en el del proyecto.
+
+    Se casa POR TÍTULO antes de crear nada: quien ya tenía un espacio llamado
+    como su proyecto no quiere un segundo igual al lado. Solo se crean los que
+    de verdad faltan.
+
+    Es idempotente: en el segundo arranque no hay ningún proyecto sin espacio
+    y no toca nada.
+
+    @returns Cuántos proyectos se han migrado.
+    """
+    proyectos = [p for p in library_store.list_projects() if not p.space]
+    if not proyectos:
+        return 0
+
+    por_titulo = {s.title: s.id for s in space_store.list_spaces()}
+    migrados = 0
+    for proj in proyectos:
+        space_id = por_titulo.get(proj.title)
+        if space_id is None:
+            try:
+                space_id = space_store.create_space(proj.title).id
+            except SpaceError as exc:
+                # Un título que el store rechaza (vacío, larguísimo) no puede
+                # tumbar el arranque del panel entero.
+                _log.warning(
+                    "No se pudo crear el espacio de «%s»: %s", proj.title, exc
+                )
+                continue
+            por_titulo[proj.title] = space_id
+        try:
+            library_store.update_project(
+                proj.id, proj.title, proj.cwd, proj.commands,
+                [link.to_dict() for link in proj.links], space=space_id,
+            )
+        except LibraryError as exc:
+            _log.warning("No se pudo migrar el proyecto «%s»: %s", proj.title, exc)
+            continue
+        migrados += 1
+    return migrados
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Lo primero de todo: sin esto, cualquier mensaje que se emita más abajo
@@ -391,6 +438,9 @@ async def lifespan(app: FastAPI):
     # en una máquina donde el panel ya da una shell. Las escrituras nuevas
     # ya salen a 0600 (`datafiles`); esto cierra las que quedaron de antes.
     harden_tree(_DATA_DIR)
+    migrados = _migrar_espacios_de_proyectos()
+    if migrados:
+        _log.info("Espacio asignado a %d proyectos que no tenían", migrados)
     workers = _workers_configurados()
     if workers > 1:
         # Se emite una vez por worker, y eso es deliberado: N copias del

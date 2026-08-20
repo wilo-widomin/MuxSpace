@@ -117,6 +117,49 @@ def test_una_sesion_creada_a_mano_no_tiene_proyecto(
     assert [(s["name"], s["project"]) for s in sesiones] == [("suelta", None)]
 
 
+def test_una_sesion_vieja_se_reconoce_por_el_nombre(
+    client_no_auth, data_dir: Path, tmux_falso: set[str]
+) -> None:
+    """El plan B: sin vínculo guardado, se casa el nombre con el título.
+
+    Las sesiones que ya existían antes de esta función no tienen entrada en
+    `session_projects`, y sin este apaño sus terminales no enseñarían nunca
+    los enlaces de su proyecto. El sufijo ` (N)` de las repetidas se ignora,
+    que es justo lo que las hace del mismo proyecto.
+    """
+    project_id = crear_proyecto(client_no_auth, [{"url": "https://ok.example"}])
+    tmux_falso.update({"Panel", "Panel (2)", "Otra cosa"})
+
+    sesiones = client_no_auth.get("/api/sessions").json()
+
+    assert {s["name"]: s["project"] for s in sesiones} == {
+        "Panel": project_id,
+        "Panel (2)": project_id,
+        "Otra cosa": None,
+    }
+
+
+def test_el_vinculo_guardado_manda_sobre_el_nombre(
+    client_no_auth, data_dir: Path, tmux_falso: set[str]
+) -> None:
+    """Si no, renombrar una sesión lanzada la devolvería al proyecto viejo.
+
+    `Panel` renombrada a `Otro nombre` conserva su proyecto por el vínculo,
+    y la `Panel` nueva que alguien cree a mano no lo hereda por el nombre...
+    salvo que el plan B diga lo contrario, que es exactamente lo que aquí se
+    fija: el vínculo explícito se consulta primero.
+    """
+    project_id = crear_proyecto(client_no_auth, [{"url": "https://ok.example"}])
+    nombre = client_no_auth.post(f"/api/projects/{project_id}/run").json()["name"]
+    client_no_auth.post(
+        f"/api/rename-session/{nombre}", json={"new_name": "otro-nombre"}
+    )
+
+    sesiones = {s["name"]: s["project"] for s in client_no_auth.get("/api/sessions").json()}
+
+    assert sesiones == {"otro-nombre": project_id}
+
+
 def test_renombrar_la_sesion_no_le_quita_los_enlaces(
     client_no_auth, data_dir: Path, tmux_falso: set[str]
 ) -> None:

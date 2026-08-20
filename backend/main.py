@@ -1024,6 +1024,24 @@ def get_transcript(name: str, user: str = _auth) -> dict:
     return claude_transcript.para_cwd(panel["path"])
 
 
+# Sufijo ` (N)` que `_next_label_name` le pone a la segunda sesión de un
+# mismo título en adelante. Se quita para casar por nombre (ver abajo).
+_SUFIJO_REPETIDA = re.compile(r" \(\d+\)$")
+
+
+def _project_by_name() -> dict[str, str]:
+    """`nombre de sesión que produciría cada proyecto -> id del proyecto`.
+
+    Es el plan B del vínculo explícito: las sesiones que ya existían antes
+    de que el panel anotara de qué proyecto salía cada una no tienen entrada
+    en `session_projects`, y sin esto sus terminales no enseñarían nunca los
+    enlaces del proyecto. Casar por nombre es frágil —renombrar cualquiera
+    de los dos lo rompe—, y por eso es solo el plan B: en cuanto la sesión
+    se lanza desde el panel, manda el vínculo guardado.
+    """
+    return {_tmux_safe_label(p.title): p.id for p in list_projects()}
+
+
 @app.get("/api/sessions", response_model=list[SessionInfo])
 def get_sessions(user: str = _auth) -> list[SessionInfo]:
     """Devuelve el catálogo de sesiones de tmux y el espacio de cada una."""
@@ -1034,6 +1052,14 @@ def get_sessions(user: str = _auth) -> list[SessionInfo]:
 
     by_name = space_store.assignments()
     by_project = library_store.session_projects()
+    por_titulo = _project_by_name()
+
+    def proyecto_de(nombre: str) -> str | None:
+        explicito = by_project.get(nombre)
+        if explicito is not None:
+            return explicito
+        return por_titulo.get(_SUFIJO_REPETIDA.sub("", nombre))
+
     return [
         SessionInfo(
             name=s.name,
@@ -1041,7 +1067,7 @@ def get_sessions(user: str = _auth) -> list[SessionInfo]:
             attached=s.attached,
             created=s.created,
             space=by_name.get(s.name),
-            project=by_project.get(s.name),
+            project=proyecto_de(s.name),
         )
         for s in sessions
     ]

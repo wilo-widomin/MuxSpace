@@ -3,15 +3,35 @@
   "name": "MuxSpace",
   "description": "Abre un proyecto de MuxSpace como grupo de pestañas: el panel en su espacio y los enlaces del proyecto.",
   "version": "0.1.0",
-  "permissions": ["tabs", "tabGroups", "storage", "scripting"],
-  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "storage",
+    "scripting"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
   "background": {
     "service_worker": "src/background.js",
     "type": "module"
   },
   "action": {
     "default_title": "MuxSpace",
-    "default_popup": "src/popup.html"
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   },
   "options_page": "src/options.html"
 }

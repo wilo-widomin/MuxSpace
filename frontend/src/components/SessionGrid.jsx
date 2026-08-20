@@ -76,6 +76,9 @@ export default function SessionGrid({
   layout,
   focusedName,
   onSetFocused,
+  minimizedNames = new Set(),
+  onToggleMinimized = () => {},
+  onRestoreAllMinimized = () => {},
   focusName = null,
   focusToken = 0,
 }) {
@@ -84,7 +87,14 @@ export default function SessionGrid({
   const [dragName, setDragName] = useState(null)
   const [overName, setOverName] = useState(null)
 
-  const { cols, rows } = computeGrid(openSessions.length, layout)
+  // Las minimizadas siguen abiertas y montadas, pero no cuentan para el
+  // reparto del espacio: la rejilla se calcula solo con las visibles. Los
+  // pesos de los separadores ya se guardan por forma (2x1, 2x2...), así que
+  // minimizar recuerda los tamaños de esa forma y restaurar, los de la otra.
+  const visibleSessions = openSessions.filter((s) => !minimizedNames.has(s.name))
+  const minimizedSessions = openSessions.filter((s) => minimizedNames.has(s.name))
+
+  const { cols, rows } = computeGrid(visibleSessions.length, layout)
   const gridRef = useRef(null)
   const [sizes, setSizes] = useState(() => loadSizes(cols, rows))
 
@@ -199,41 +209,72 @@ export default function SessionGrid({
   // Modo foco: una terminal ocupa todo el grid y las demás se esconden con
   // CSS. Se ocultan, no se desmontan: al desmontarlas se cerraría su
   // WebSocket y perderían el scrollback de xterm.
-  const isFocus = openSessions.some((s) => s.name === focusedName)
+  const isFocus = visibleSessions.some((s) => s.name === focusedName)
+
+  // La barra de arriba lista lo que NO está repartiéndose el espacio abajo:
+  // en modo foco, todas las terminales (para saltar entre ellas); fuera de
+  // él, solo las minimizadas (para devolverlas a la rejilla).
+  const tabs = isFocus ? visibleSessions : minimizedSessions
+  const showTabs = isFocus || minimizedSessions.length > 0
 
   return (
     <div className="flex h-full w-full flex-col">
-      {isFocus && (
+      {showTabs && (
         <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-panel-border bg-panel-surface px-3 py-1">
-          {openSessions.map((session) => (
-            <button
-              key={session.name}
-              onClick={() => onSetFocused(session.name)}
-              title={session.name}
-              aria-pressed={session.name === focusedName}
-              className={`flex shrink-0 items-center gap-1.5 rounded px-2 py-1 text-xs transition ${
-                session.name === focusedName
-                  ? 'bg-panel-bg text-gray-100'
-                  : 'text-panel-muted hover:bg-panel-bg hover:text-gray-100'
-              }`}
-            >
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" />
-              <span className="max-w-[14ch] truncate">{session.name}</span>
-            </button>
-          ))}
-          <button
-            onClick={() => onSetFocused(null)}
-            title={t('grid.restore')}
-            aria-label={t('grid.restore')}
-            className="ml-auto shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
-          >
-            <RestoreIcon />
-          </button>
+          {tabs.map((session) => {
+            const isMinimized = minimizedNames.has(session.name)
+            return (
+              <button
+                key={session.name}
+                onClick={() =>
+                  isMinimized
+                    ? onToggleMinimized(session.name)
+                    : onSetFocused(session.name)
+                }
+                title={isMinimized ? t('grid.restore_one') : session.name}
+                aria-pressed={session.name === focusedName}
+                className={`flex shrink-0 items-center gap-1.5 rounded px-2 py-1 text-xs transition ${
+                  session.name === focusedName
+                    ? 'bg-panel-bg text-gray-100'
+                    : 'text-panel-muted hover:bg-panel-bg hover:text-gray-100'
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                    isMinimized ? 'bg-panel-muted' : 'bg-green-400'
+                  }`}
+                />
+                <span className="max-w-[14ch] truncate">{session.name}</span>
+              </button>
+            )
+          })}
+          <span className="ml-auto flex shrink-0 items-center gap-0.5">
+            {minimizedSessions.length > 1 && (
+              <button
+                onClick={onRestoreAllMinimized}
+                title={t('grid.restore_all')}
+                aria-label={t('grid.restore_all')}
+                className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+              >
+                <RestoreIcon />
+              </button>
+            )}
+            {isFocus && (
+              <button
+                onClick={() => onSetFocused(null)}
+                title={t('grid.restore')}
+                aria-label={t('grid.restore')}
+                className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+              >
+                <RestoreIcon />
+              </button>
+            )}
+          </span>
         </div>
       )}
       <div
         ref={gridRef}
-        className="grid min-h-0 w-full flex-1 p-3"
+        className="relative grid min-h-0 w-full flex-1 p-3"
         style={
           isFocus
             ? { gridTemplateColumns: '1fr', gridTemplateRows: '1fr' }
@@ -243,19 +284,31 @@ export default function SessionGrid({
               }
         }
       >
-        {openSessions.map((session, i) => {
-          const col = i % cols
-          const row = Math.floor(i / cols)
+        {/* Todas las terminales se renderizan siempre, también las que están
+            escondidas: al desmontarlas se cerraría su WebSocket y perderían
+            el scrollback de xterm. Su sitio en la rejilla se calcula con el
+            índice entre las VISIBLES, no entre todas. */}
+        {visibleSessions.length === 0 && (
+          <p className="absolute inset-0 flex items-center justify-center text-center text-sm text-panel-muted">
+            {t('grid.all_minimized')}
+          </p>
+        )}
+        {openSessions.map((session) => {
+          const visibleIndex = visibleSessions.indexOf(session)
+          const col = visibleIndex % cols
+          const row = Math.floor(visibleIndex / cols)
+          const hidden =
+            visibleIndex === -1 || (isFocus && session.name !== focusedName)
           return (
             <div
               key={session.name}
               className="flex min-h-0 min-w-0"
               style={
-                isFocus
-                  ? session.name === focusedName
+                hidden
+                  ? { display: 'none' }
+                  : isFocus
                     ? { gridColumn: 1, gridRow: 1 }
-                    : { display: 'none' }
-                  : { gridColumn: trackLine(col), gridRow: trackLine(row) }
+                    : { gridColumn: trackLine(col), gridRow: trackLine(row) }
               }
             >
               <TerminalTile
@@ -275,6 +328,7 @@ export default function SessionGrid({
                   setOverName(null)
                 }}
                 onDrop={() => finishDrag(session.name)}
+                onMinimize={() => onToggleMinimized(session.name)}
                 isFocused={session.name === focusedName}
                 onToggleFocus={() =>
                   onSetFocused(session.name === focusedName ? null : session.name)

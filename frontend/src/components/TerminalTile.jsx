@@ -36,6 +36,7 @@ export default function TerminalTile({
   commands = [],
   isFocused,
   onToggleFocus,
+  onMinimize,
   focusToken = 0,
 }) {
   const { t, tError } = useT()
@@ -170,6 +171,14 @@ export default function TerminalTile({
           </span>
         </span>
         <span className="flex items-center gap-0.5">
+          <button
+            onClick={onMinimize}
+            title={t('tile.minimize')}
+            aria-label={t('tile.minimize')}
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+          >
+            <MinimizeIcon />
+          </button>
           <button
             onClick={onToggleFocus}
             title={isFocused ? t('tile.restore') : t('tile.maximize')}
@@ -337,6 +346,25 @@ function CloseIcon() {
 }
 
 // Flechas hacia fuera (estilo lucide "maximize"): maximizar esta terminal.
+// Una raya abajo: la terminal sale de la rejilla y queda como pestaña.
+function MinimizeIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 18h14" />
+    </svg>
+  )
+}
+
 function MaximizeIcon() {
   return (
     <svg

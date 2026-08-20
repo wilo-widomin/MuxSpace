@@ -445,6 +445,22 @@ _ALLOWED_ORIGINS = {o.strip().rstrip("/") for o in config.CORS_ORIGINS if o.stri
 
 
 @app.middleware("http")
+async def _no_cache_api(request: Request, call_next):
+    """`Cache-Control: no-store` en todo lo que cuelgue de /api.
+
+    Estas respuestas no llevaban ninguna cabecera de caché, y sin ellas el
+    navegador puede cachearlas por su cuenta (caché heurística). Visto en
+    vivo: el panel se quedó sirviendo un `/api/sessions` y un `/api/projects`
+    congelados —el listado no se refrescaba y los campos nuevos de un
+    despliegue reciente no aparecían— por más veces que se recargara.
+    """
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.middleware("http")
 async def _csrf_origin_guard(request: Request, call_next):
     """403 a toda petición mutadora cuyo Origin no sea uno de los nuestros.
 

@@ -27,7 +27,12 @@ export class ApiError extends Error {
 }
 
 async function request(path, options = {}) {
-  const res = await fetch(path, options)
+  // `no-store` en TODAS las peticiones: las respuestas de esta API no llevan
+  // cabeceras de caché, y sin ellas el navegador puede cachear un GET por su
+  // cuenta (caché heurística). Cuando eso pasa, el panel se queda mirando una
+  // foto: el listado de sesiones deja de refrescarse y los campos nuevos de
+  // un despliegue reciente no aparecen por más veces que se recargue.
+  const res = await fetch(path, { cache: 'no-store', ...options })
 
   if (!res.ok) {
     // Un 401 se sigue leyendo como cualquier otro error: el login devuelve

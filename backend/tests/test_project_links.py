@@ -155,7 +155,8 @@ def test_el_vinculo_guardado_manda_sobre_el_nombre(
         f"/api/rename-session/{nombre}", json={"new_name": "otro-nombre"}
     )
 
-    sesiones = {s["name"]: s["project"] for s in client_no_auth.get("/api/sessions").json()}
+    listado = client_no_auth.get("/api/sessions").json()
+    sesiones = {s["name"]: s["project"] for s in listado}
 
     assert sesiones == {"otro-nombre": project_id}
 

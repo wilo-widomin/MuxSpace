@@ -23,6 +23,8 @@ const SERIE_AGENTE = '#3987e5'
 const SERIE_RESTO = '#d95926'
 
 const RANGOS = [
+  // «Hoy» es un rango de un día: desde las 00:00 locales de hoy.
+  { id: 'today', dias: 1 },
   { id: '7d', dias: 7 },
   { id: '30d', dias: 30 },
   { id: '90d', dias: 90 },

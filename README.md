@@ -138,10 +138,10 @@ está activada. El WebSocket valida el mismo token vía `?token=` (base64 de
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | `GET` | `/api/projects` | Lista los proyectos guardados |
-| `POST` | `/api/projects` | Crea un proyecto (`body: {title, cwd?, commands: []}`) |
+| `POST` | `/api/projects` | Crea un proyecto (`body: {title, cwd?, commands: [], links?: [{url, title?}]}`) |
 | `PUT` | `/api/projects/{id}` | Actualiza un proyecto |
 | `DELETE` | `/api/projects/{id}` | Elimina un proyecto |
-| `POST` | `/api/projects/{id}/run` | Ejecuta el proyecto: crea una sesión, `cd <cwd>` y lanza los comandos en orden |
+| `POST` | `/api/projects/{id}/run` | Ejecuta el proyecto: crea una sesión, `cd <cwd>` y lanza los comandos en orden. La sesión queda vinculada al proyecto (`project` en `/api/sessions`) para pintar sus enlaces en la cabecera |
 
 ### Capturas y archivos
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import TerminalTile from './TerminalTile.jsx'
 import { useT } from '../i18n/index.jsx'
 
@@ -73,6 +73,7 @@ export default function SessionGrid({
   onKill,
   onReorder,
   commands,
+  projects = [],
   layout,
   focusedName,
   onSetFocused,
@@ -83,6 +84,14 @@ export default function SessionGrid({
   focusToken = 0,
 }) {
   const { t } = useT()
+  // Enlaces por id de proyecto, para dárselos a la cabecera de cada tile.
+  // La sesión trae el id (`session.project`), no los enlaces: así renombrar
+  // el proyecto o cambiarle los enlaces se ve sin tocar la sesión.
+  const linksByProject = useMemo(() => {
+    const map = new Map()
+    for (const p of projects) map.set(p.id, p.links || [])
+    return map
+  }, [projects])
   // Nombre de la ventana que se arrastra y sobre cuál se está soltando.
   const [dragName, setDragName] = useState(null)
   const [overName, setOverName] = useState(null)
@@ -318,6 +327,7 @@ export default function SessionGrid({
                 onClose={onClose}
                 onKill={onKill}
                 commands={commands}
+                links={linksByProject.get(session.project) || []}
                 dragging={dragName !== null}
                 isDragSource={dragName === session.name}
                 isOver={overName === session.name && dragName !== session.name}

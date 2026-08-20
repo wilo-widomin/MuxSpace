@@ -228,7 +228,11 @@ export default function App() {
         if (ra !== rb) return ra - rb
         return a.name.localeCompare(b.name)
       })
-      .map((s) => ({ name: s.name }))
+      // Se recorta a lo que el grid necesita, y `project` es parte de eso:
+      // es lo que le dice a la cabecera de cada terminal qué enlaces del
+      // proyecto tiene que pintar. Cuando aquí solo iba el nombre, las badges
+      // no aparecían nunca y el tile no tenía forma de saber por qué.
+      .map((s) => ({ name: s.name, project: s.project ?? null }))
   }, [sessions, activeSpace, hidden, order])
 
   // ---- Sesión caducada ----
@@ -519,14 +523,14 @@ export default function App() {
   }
 
   // ---- Guardar / editar / eliminar un Proyecto ----
-  const handleSaveProject = async (title, cwd, commands) => {
-    const created = await api.createProject(title, cwd, commands)
+  const handleSaveProject = async (title, cwd, commands, links) => {
+    const created = await api.createProject(title, cwd, commands, links)
     await loadCommands()
     return created
   }
 
-  const handleUpdateProject = async (id, title, cwd, commands) => {
-    const updated = await api.updateProject(id, title, cwd, commands)
+  const handleUpdateProject = async (id, title, cwd, commands, links) => {
+    const updated = await api.updateProject(id, title, cwd, commands, links)
     await loadCommands()
     return updated
   }
@@ -733,6 +737,7 @@ export default function App() {
           onKill={handleKillSession}
           onReorder={handleReorder}
           commands={commandsOrdenados}
+          projects={projects}
           layout={layout}
           focusedName={focusedName}
           onSetFocused={(name) => {

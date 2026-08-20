@@ -6,9 +6,9 @@
 // SIEMPRE una pestaña del panel, y la extensión solo lee lo que esa pestaña
 // le devuelve. Así no hay que tocar ni el CORS ni la cookie del backend.
 
-import { groupColor, missingUrls, plannedUrls } from './lib/group.js'
+import { groupColor, plannedUrls, reconcileGroup } from './lib/group.js'
 import { isPanelUrl, originPattern, panelSpaceUrl } from './lib/panel.js'
-import { needsLaunch } from './lib/sessions.js'
+import { needsLaunch, sessionsToAdopt } from './lib/sessions.js'
 import {
   readPanelOrigin,
   readProjectGroups,
@@ -35,9 +35,38 @@ function getInPage(path) {
     .catch((e) => ({ __error: String(e) }))
 }
 
+/**
+ * Espacio que está mirando esta pestaña del panel.
+ *
+ * Hace falta preguntárselo porque el panel **borra el `?space=` de la URL** en
+ * cuanto lo obedece (es una orden de apertura, no el estado de la pestaña;
+ * ver `frontend/src/App.jsx`). Mirando solo la URL, una pestaña que ya está
+ * en el espacio correcto parece estar en otro, y se la recargaría en cada
+ * apertura del proyecto tirándole al usuario lo que estuviera haciendo.
+ */
+function readActiveSpaceInPage() {
+  try {
+    return { space: sessionStorage.getItem('muxspace:active-space') }
+  } catch (e) {
+    return { __error: String(e) }
+  }
+}
+
 /** POST sin cuerpo a una ruta de la API del panel. */
 function postInPage(path) {
   return fetch(path, { method: 'POST', credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : { __error: `HTTP ${r.status}` }))
+    .catch((e) => ({ __error: String(e) }))
+}
+
+/** PUT con cuerpo JSON a una ruta de la API del panel. */
+function putInPage(path, body) {
+  return fetch(path, {
+    method: 'PUT',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
     .then((r) => (r.ok ? r.json() : { __error: `HTTP ${r.status}` }))
     .catch((e) => ({ __error: String(e) }))
 }
@@ -81,14 +110,14 @@ async function panelBridge(origin) {
  * @param {string} path - Ruta de la API.
  * @returns {Promise<any>} Lo que devuelva la API.
  */
-async function askPanel(tabId, func, path) {
+async function askPanel(tabId, func, path, body) {
   let resultados
   try {
     resultados = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
       func,
-      args: [path],
+      args: body === undefined ? [path] : [path, body],
     })
   } catch (err) {
     throw new ExtensionError(`No se pudo hablar con el panel: ${err.message}`)
@@ -122,20 +151,36 @@ async function loadProjects(origin) {
 }
 
 /**
- * Se asegura de que el proyecto tenga una terminal viva.
+ * Deja el espacio del proyecto con sus terminales dentro.
  *
- * Abrir un proyecto y encontrarse el espacio vacío no es abrir el proyecto:
- * el panel enseña por sí solo cualquier sesión de su espacio, así que lo
- * único que falta es que exista. Si el proyecto no se puede lanzar —no tiene
- * comandos, por ejemplo— NO se aborta la apertura del grupo: se devuelve el
- * aviso y las pestañas se abren igual.
+ * Son dos cosas, y las dos hacen falta para que abrir el proyecto no lleve a
+ * un espacio vacío:
+ *
+ *  1. **Traer las suyas que estén fuera.** Las lanzadas antes de que el
+ *     proyecto tuviera espacio se quedaron en «Sin asignar», y ahí nadie las
+ *     ve al abrir el proyecto.
+ *  2. **Lanzarlo si no tiene ninguna.** El panel enseña por sí solo cualquier
+ *     sesión de su espacio, así que con que exista, aparece.
+ *
+ * Nada de esto aborta la apertura del grupo: si falla, se devuelve el aviso y
+ * las pestañas se abren igual.
  *
  * @param {number} tabId - Pestaña puente.
- * @param {{id: string}} project
+ * @param {{id: string, space: string|null}} project
  * @returns {Promise<string|null>} Aviso para el usuario, o null si todo fue bien.
  */
-async function ensureRunning(tabId, project) {
+async function ensureProjectReady(tabId, project) {
   const sesiones = await askPanel(tabId, getInPage, '/api/sessions')
+
+  for (const nombre of sessionsToAdopt(sesiones, project.id, project.space)) {
+    const ruta = `/api/sessions/${encodeURIComponent(nombre)}/space`
+    try {
+      await askPanel(tabId, putInPage, ruta, { space: project.space })
+    } catch (err) {
+      return `El grupo se abrió, pero «${nombre}» no se pudo mover a su espacio: ${err.message}`
+    }
+  }
+
   if (!needsLaunch(sesiones, project.id)) return null
 
   const ruta = `/api/projects/${encodeURIComponent(project.id)}/run`
@@ -144,6 +189,36 @@ async function ensureRunning(tabId, project) {
     return null
   } catch (err) {
     return `El grupo se abrió, pero no se pudo lanzar la terminal: ${err.message}`
+  }
+}
+
+/**
+ * URL que representa lo que una pestaña del grupo está enseñando de verdad.
+ *
+ * Para las del panel es la de su espacio actual, no la que se ve en la barra
+ * de direcciones. Para el resto, la suya. Si la pestaña no contesta, se usa
+ * su URL: el peor caso es una recarga de más, no un fallo.
+ *
+ * @param {{id: number, url?: string, pendingUrl?: string}} tab
+ * @param {string} origin
+ * @returns {Promise<{id: number, url: string}>}
+ */
+async function effectiveTabUrl(tab, origin) {
+  const url = tab.url || tab.pendingUrl || ''
+  if (!isPanelUrl(url, origin)) return { id: tab.id, url }
+  try {
+    const resultados = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      func: readActiveSpaceInPage,
+    })
+    const salida = resultados?.[0]?.result
+    if (!salida || salida.__error) return { id: tab.id, url }
+    // `unassigned` no es un espacio: es no tener ninguno (ver `spaces.js`).
+    const space = salida.space && salida.space !== 'unassigned' ? salida.space : null
+    return { id: tab.id, url: panelSpaceUrl(origin, space) }
+  } catch {
+    return { id: tab.id, url }
   }
 }
 
@@ -193,7 +268,7 @@ async function openProject(projectId) {
   // Antes de tocar la pestaña puente: si es la que la extensión abrió, luego
   // se la lleva el grupo y ya no serviría para preguntar.
   const avisos = []
-  const avisoTerminal = await ensureRunning(bridgeTabId, project)
+  const avisoTerminal = await ensureProjectReady(bridgeTabId, project)
   if (avisoTerminal) avisos.push(avisoTerminal)
   // Los proyectos creados antes de que existiera el campo no tienen espacio,
   // y entonces el panel se abre donde le toque en vez de en el del proyecto.
@@ -211,17 +286,24 @@ async function openProject(projectId) {
 
   const abiertasEnGrupo =
     existente === null ? [] : await chrome.tabs.query({ groupId: existente })
-  const faltan = missingUrls(
+  const { navigate, open } = reconcileGroup(
     planned,
-    abiertasEnGrupo.map((t) => t.url || t.pendingUrl || ''),
+    await Promise.all(abiertasEnGrupo.map((t) => effectiveTabUrl(t, origin))),
     origin,
   )
+
+  // La pestaña del panel que ya estaba en el grupo se lleva al espacio del
+  // proyecto. Es lo que arregla los grupos creados cuando los proyectos no
+  // tenían espacio, y lo que evita dos paneles en el mismo grupo.
+  if (navigate) {
+    await chrome.tabs.update(navigate.tabId, { url: navigate.url })
+  }
 
   // La pestaña puente, si la abrió la extensión, se convierte en la del panel
   // del grupo en vez de crear otra y dejar una en blanco por ahí.
   const nuevas = []
   let puenteUsado = false
-  for (const url of faltan) {
+  for (const url of open) {
     if (opened && !puenteUsado && isPanelUrl(url, origin)) {
       await chrome.tabs.update(bridgeTabId, { url })
       nuevas.push(bridgeTabId)
@@ -266,10 +348,26 @@ async function openProject(projectId) {
   return { groupId, opened: nuevas.length, warning: avisos.join(' ') || null }
 }
 
+// Aperturas en curso, por proyecto.
+//
+// Abrir un proyecto son varias esperas seguidas (preguntar al panel, lanzar
+// la terminal, crear pestañas). Sin esto, un doble clic en el popup arranca
+// dos aperturas que ven las dos el mismo "no hay grupo" y crean dos grupos
+// iguales. La segunda se engancha a la primera en vez de competir con ella.
+const enCurso = new Map()
+
+function openProjectOnce(projectId) {
+  const yaVa = enCurso.get(projectId)
+  if (yaVa) return yaVa
+  const promesa = openProject(projectId).finally(() => enCurso.delete(projectId))
+  enCurso.set(projectId, promesa)
+  return promesa
+}
+
 // El popup no hace nada por su cuenta: pide y enseña el resultado.
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const acciones = {
-    openProject: () => openProject(message.projectId),
+    openProject: () => openProjectOnce(message.projectId),
     refreshProjects: async () => {
       const origin = await readPanelOrigin()
       if (!origin) {

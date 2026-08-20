@@ -5,9 +5,16 @@ espacio del proyecto a la izquierda del todo, y detrás los enlaces que ese
 proyecto tenga guardados. Si el grupo ya existe, no crea otro: te lleva a él
 y abre solo lo que falte.
 
-Además **lanza el proyecto** si no tiene ninguna terminal viva, para que el
-espacio no se abra vacío. Si ya la tiene, no lanza otra: reabrir el grupo
-cinco veces dejaría cinco terminales iguales.
+Además deja el espacio del proyecto con sus terminales dentro: **trae las
+suyas que se quedaran en otro espacio** y **lanza el proyecto** si no tiene
+ninguna viva. Si ya la tiene, no lanza otra — reabrir el grupo cinco veces
+dejaría cinco terminales iguales.
+
+Al reabrir un grupo no cierra ni reordena nada de lo que tengas puesto ahí:
+solo añade lo que falte. La única pestaña que sí mueve es la del panel, que
+la lleva al espacio del proyecto en vez de abrir una segunda al lado. Para
+saber si de verdad hace falta moverla le pregunta a la pestaña en qué espacio
+está, porque el panel borra el `?space=` de la URL en cuanto lo obedece.
 
 ## Cómo llega a los proyectos
 

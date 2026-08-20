@@ -74,38 +74,47 @@ export function sameTabKey(url) {
 }
 
 /**
- * Qué falta por abrir en un grupo que ya existe.
+ * Qué hacer con un grupo que ya existe para dejarlo como toca.
  *
- * Reabrir un proyecto NO reordena ni cierra nada de lo que el usuario tenga
- * en su grupo: solo añade lo que no está. Cerrar una pestaña que él abrió a
- * mano sería perderle trabajo, y reordenar, moverle el sitio.
+ * Reabrir un proyecto NO cierra ni reordena nada de lo que el usuario tenga
+ * puesto ahí: cerrarle una pestaña sería perderle trabajo, y reordenarlas,
+ * moverle el sitio. Solo se añade lo que falta.
  *
- * La pestaña del panel es la excepción que NO se compara con `?space=`: si ya
- * hay una pestaña del panel en el grupo, vale, aunque mire otro espacio. Si
- * no, se abriría una segunda cada vez que se cambia de espacio a mano.
+ * La pestaña del panel es la excepción, y por eso este cálculo devuelve dos
+ * cosas en vez de una lista: si el grupo ya tiene una pestaña del panel
+ * mirando otro espacio —o ninguno, como las que quedaron de antes de que los
+ * proyectos tuvieran espacio—, se la **lleva** al del proyecto en vez de
+ * abrir una segunda al lado. Abrir el proyecto es ir a su sitio, y dos
+ * paneles en el mismo grupo no son dos cosas distintas: son un duplicado.
  *
- * @param {string[]} planned - Lo que le toca al grupo (ver `plannedUrls`).
- * @param {string[]} existing - URLs de las pestañas que ya tiene.
+ * @param {string[]} planned - Lo que le toca al grupo; el panel es el primero.
+ * @param {Array<{id: number, url: string}>} existing - Pestañas que ya tiene.
  * @param {string} panelOrigin - Origen del panel, para reconocer su pestaña.
- * @returns {string[]} Las que hay que abrir, en orden.
+ * @returns {{navigate: {tabId: number, url: string}|null, open: string[]}}
  */
-export function missingUrls(planned, existing, panelOrigin) {
-  const abiertas = new Set(existing.map(sameTabKey))
-  const hayPanel = existing.some((url) => {
+export function reconcileGroup(planned, existing, panelOrigin) {
+  const [panelUrl, ...links] = planned
+  const abiertas = Array.isArray(existing) ? existing : []
+
+  const esDelPanel = (url) => {
     try {
       return new URL(url).origin === panelOrigin
     } catch {
       return false
     }
-  })
-  return planned.filter((url) => {
-    let esPanel = false
-    try {
-      esPanel = new URL(url).origin === panelOrigin
-    } catch {
-      esPanel = false
-    }
-    if (esPanel) return !hayPanel
-    return !abiertas.has(sameTabKey(url))
-  })
+  }
+
+  const pestanaPanel = abiertas.find((t) => esDelPanel(t?.url || ''))
+  const navigate =
+    pestanaPanel && sameTabKey(pestanaPanel.url) !== sameTabKey(panelUrl)
+      ? { tabId: pestanaPanel.id, url: panelUrl }
+      : null
+
+  const yaAbiertas = new Set(abiertas.map((t) => sameTabKey(t?.url || '')))
+  const open = []
+  if (!pestanaPanel) open.push(panelUrl)
+  for (const link of links) {
+    if (!yaAbiertas.has(sameTabKey(link))) open.push(link)
+  }
+  return { navigate, open }
 }

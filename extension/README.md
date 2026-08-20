@@ -5,6 +5,10 @@ espacio del proyecto a la izquierda del todo, y detrás los enlaces que ese
 proyecto tenga guardados. Si el grupo ya existe, no crea otro: te lleva a él
 y abre solo lo que falte.
 
+Además **lanza el proyecto** si no tiene ninguna terminal viva, para que el
+espacio no se abra vacío. Si ya la tiene, no lanza otra: reabrir el grupo
+cinco veces dejaría cinco terminales iguales.
+
 ## Cómo llega a los proyectos
 
 **La extensión nunca habla con el backend.** El panel está detrás de un

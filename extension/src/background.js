@@ -8,6 +8,7 @@
 
 import { groupColor, missingUrls, plannedUrls } from './lib/group.js'
 import { isPanelUrl, originPattern, panelSpaceUrl } from './lib/panel.js'
+import { needsLaunch } from './lib/sessions.js'
 import {
   readPanelOrigin,
   readProjectGroups,
@@ -19,14 +20,24 @@ import {
 /** Error con mensaje ya listo para enseñar en el popup. */
 class ExtensionError extends Error {}
 
-/**
- * Función que se ejecuta DENTRO de la pestaña del panel para pedir los
- * proyectos. Se inyecta en el mundo principal (`MAIN`), o sea que la
- * petición sale exactamente igual que si la hiciera el propio panel: con su
- * cookie y su certificado.
- */
-function fetchProjectsInPage() {
-  return fetch('/api/projects', { credentials: 'same-origin' })
+// Las dos funciones siguientes se ejecutan DENTRO de la pestaña del panel,
+// inyectadas en su mundo principal (`MAIN`): las peticiones salen exactamente
+// igual que si las hiciera el propio panel, con su cookie y su certificado.
+//
+// No pueden importar nada ni cerrar sobre variables de aquí —se serializan
+// para inyectarlas—, así que son deliberadamente tontas: piden una ruta y
+// devuelven lo que venga. Quién decide qué pedir es `openProject`.
+
+/** GET a una ruta de la API del panel. */
+function getInPage(path) {
+  return fetch(path, { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : { __error: `HTTP ${r.status}` }))
+    .catch((e) => ({ __error: String(e) }))
+}
+
+/** POST sin cuerpo a una ruta de la API del panel. */
+function postInPage(path) {
+  return fetch(path, { method: 'POST', credentials: 'same-origin' })
     .then((r) => (r.ok ? r.json() : { __error: `HTTP ${r.status}` }))
     .catch((e) => ({ __error: String(e) }))
 }
@@ -63,19 +74,21 @@ async function panelBridge(origin) {
 }
 
 /**
- * Pide los proyectos al panel a través de una de sus pestañas.
+ * Ejecuta una petición a la API desde una pestaña del panel.
  *
- * @param {string} origin
- * @returns {Promise<{projects: Array, bridgeTabId: number, opened: boolean}>}
+ * @param {number} tabId - Pestaña del panel que hace de puente.
+ * @param {Function} func - `getInPage` o `postInPage`.
+ * @param {string} path - Ruta de la API.
+ * @returns {Promise<any>} Lo que devuelva la API.
  */
-async function loadProjects(origin) {
-  const { tabId, opened } = await panelBridge(origin)
+async function askPanel(tabId, func, path) {
   let resultados
   try {
     resultados = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      func: fetchProjectsInPage,
+      func,
+      args: [path],
     })
   } catch (err) {
     throw new ExtensionError(`No se pudo hablar con el panel: ${err.message}`)
@@ -85,15 +98,53 @@ async function loadProjects(origin) {
     // Lo más probable con diferencia: la sesión del panel caducó y la API
     // responde 401. Se dice así y no "error desconocido".
     throw new ExtensionError(
-      `El panel no devolvió los proyectos (${salida?.__error || 'sin respuesta'}). ` +
+      `El panel no respondió a ${path} (${salida?.__error || 'sin respuesta'}). ` +
         'Comprueba que has iniciado sesión en el panel.',
     )
   }
+  return salida
+}
+
+/**
+ * Pide los proyectos al panel a través de una de sus pestañas.
+ *
+ * @param {string} origin
+ * @returns {Promise<{projects: Array, bridgeTabId: number, opened: boolean}>}
+ */
+async function loadProjects(origin) {
+  const { tabId, opened } = await panelBridge(origin)
+  const salida = await askPanel(tabId, getInPage, '/api/projects')
   if (!Array.isArray(salida)) {
     throw new ExtensionError('El panel devolvió algo que no es una lista de proyectos.')
   }
   await writeProjects(salida)
   return { projects: salida, bridgeTabId: tabId, opened }
+}
+
+/**
+ * Se asegura de que el proyecto tenga una terminal viva.
+ *
+ * Abrir un proyecto y encontrarse el espacio vacío no es abrir el proyecto:
+ * el panel enseña por sí solo cualquier sesión de su espacio, así que lo
+ * único que falta es que exista. Si el proyecto no se puede lanzar —no tiene
+ * comandos, por ejemplo— NO se aborta la apertura del grupo: se devuelve el
+ * aviso y las pestañas se abren igual.
+ *
+ * @param {number} tabId - Pestaña puente.
+ * @param {{id: string}} project
+ * @returns {Promise<string|null>} Aviso para el usuario, o null si todo fue bien.
+ */
+async function ensureRunning(tabId, project) {
+  const sesiones = await askPanel(tabId, getInPage, '/api/sessions')
+  if (!needsLaunch(sesiones, project.id)) return null
+
+  const ruta = `/api/projects/${encodeURIComponent(project.id)}/run`
+  try {
+    await askPanel(tabId, postInPage, ruta)
+    return null
+  } catch (err) {
+    return `El grupo se abrió, pero no se pudo lanzar la terminal: ${err.message}`
+  }
 }
 
 /**
@@ -137,6 +188,21 @@ async function openProject(projectId) {
   const project = projects.find((p) => p.id === projectId)
   if (!project) {
     throw new ExtensionError('Ese proyecto ya no existe en el panel.')
+  }
+
+  // Antes de tocar la pestaña puente: si es la que la extensión abrió, luego
+  // se la lleva el grupo y ya no serviría para preguntar.
+  const avisos = []
+  const avisoTerminal = await ensureRunning(bridgeTabId, project)
+  if (avisoTerminal) avisos.push(avisoTerminal)
+  // Los proyectos creados antes de que existiera el campo no tienen espacio,
+  // y entonces el panel se abre donde le toque en vez de en el del proyecto.
+  // Callárselo hace parecer que la extensión no funciona.
+  if (!project.space) {
+    avisos.push(
+      `«${project.title}» no tiene espacio asignado, así que el panel se abre ` +
+        'sin espacio. Asígnaselo editando el proyecto en el panel.',
+    )
   }
 
   const urlPanel = panelSpaceUrl(origin, project.space)
@@ -197,7 +263,7 @@ async function openProject(projectId) {
     await chrome.windows.update(primera.windowId, { focused: true })
   }
 
-  return { groupId, opened: nuevas.length }
+  return { groupId, opened: nuevas.length, warning: avisos.join(' ') || null }
 }
 
 // El popup no hace nada por su cuenta: pide y enseña el resultado.

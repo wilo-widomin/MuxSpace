@@ -133,6 +133,28 @@ jobs:
         working-directory: frontend
         run: bun run check-i18n
 
+  # La extensión de navegador va aparte porque es otro paquete: tiene su
+  # propio `package.json` y su propio lockfile. Solo se prueba la lógica que
+  # no necesita navegador (qué pestañas le tocan a un grupo, cómo se
+  # normaliza la dirección del panel); lo que llama a las APIs de Chrome se
+  # prueba a mano, cargando la extensión.
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Instalar dependencias
+        working-directory: extension
+        run: bun install --frozen-lockfile
+
+      - name: vitest
+        working-directory: extension
+        run: bun run test
+
   # Los E2E van en su propio job y no dentro de `frontend` por dos motivos:
   # necesitan `tmux` y un navegador de ~120 MB (el job de frontend no quiere
   # ninguno de los dos), y así un fallo dice "se rompió el recorrido", no "se

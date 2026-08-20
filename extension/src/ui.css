@@ -1,0 +1,130 @@
+/* Lo justo para que el popup y las opciones se lean. La extensión no
+   pretende parecerse al panel: es un lanzador. */
+:root {
+  color-scheme: light dark;
+  --fondo: #ffffff;
+  --texto: #1f2328;
+  --tenue: #6b7280;
+  --borde: #d1d5db;
+  --acento: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #111318;
+    --texto: #e5e7eb;
+    --tenue: #9ca3af;
+    --borde: #2d323b;
+    --acento: #3b82f6;
+  }
+}
+
+body {
+  width: 300px;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--fondo);
+  color: var(--texto);
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+body.opciones {
+  width: 380px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+li + li {
+  margin-top: 4px;
+}
+
+li button {
+  display: block;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+li button:hover {
+  border-color: var(--acento);
+}
+
+li .enlaces {
+  display: block;
+  color: var(--tenue);
+  font-size: 11px;
+}
+
+header button,
+footer button,
+form button {
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--tenue);
+  font: inherit;
+  cursor: pointer;
+}
+
+footer {
+  margin-top: 10px;
+  text-align: right;
+}
+
+form {
+  display: flex;
+  gap: 6px;
+}
+
+input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.ayuda {
+  color: var(--tenue);
+  font-size: 12px;
+}
+
+#aviso {
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--acento) 12%, transparent);
+  font-size: 12px;
+}
+
+#aviso.error {
+  background: color-mix(in srgb, #ef4444 15%, transparent);
+}

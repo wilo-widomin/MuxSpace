@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "MuxSpace",
+  "description": "Abre un proyecto de MuxSpace como grupo de pestañas: el panel en su espacio y los enlaces del proyecto.",
+  "version": "0.1.0",
+  "permissions": ["tabs", "tabGroups", "storage", "scripting"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "MuxSpace",
+    "default_popup": "src/popup.html"
+  },
+  "options_page": "src/options.html"
+}

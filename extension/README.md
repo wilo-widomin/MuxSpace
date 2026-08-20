@@ -57,6 +57,20 @@ fue cada uno— vive en el almacenamiento de la extensión y se va con ella.
 Chrome y Edge. Es Manifest V3, así que Brave debería ir igual, y Firefox
 necesitaría un manifiesto propio.
 
+## El icono
+
+`icons/logo.png` es el emblema de `logo.jpeg` recortado en redondo, con fondo
+transparente y un margen exterior. De ahí salen los cuatro tamaños que pide
+Chrome. Para rehacerlos tras cambiar el original:
+
+```sh
+python -m pip install pillow
+python extension/icons/generar-iconos.py
+```
+
+Los números del recorte (centro y radios del aro) están en ese script: el
+emblema no es circular en el JPEG, viene estirado en horizontal.
+
 ## Desarrollo
 
 ```sh

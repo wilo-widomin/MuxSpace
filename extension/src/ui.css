@@ -44,6 +44,20 @@ h1 {
   font-size: 15px;
 }
 
+/* El logo va al lado del título, no de fondo: es una marca, no decoración. */
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.marca img {
+  flex: none;
+  /* El PNG ya es circular y transparente; el radio es solo por si algún día
+     se cambia por uno cuadrado. */
+  border-radius: 50%;
+}
+
 ul {
   margin: 0;
   padding: 0;

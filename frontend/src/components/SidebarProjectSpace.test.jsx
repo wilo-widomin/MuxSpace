@@ -107,9 +107,7 @@ function selectorDeComandos() {
   const encontrado = screen
     .getAllByRole('combobox')
     .find((el) =>
-      Array.from(el.querySelectorAll('option')).some(
-        (o) => o.value === 'bun dev',
-      ),
+      Array.from(el.querySelectorAll('option')).some((o) => o.value === 'bun dev'),
     )
   expect(encontrado).toBeTruthy()
   return encontrado
@@ -140,13 +138,7 @@ describe('espacio del proyecto', () => {
     rellenarAlta()
     fireEvent.click(screen.getByText('Guardar proyecto'))
 
-    expect(onSaveProject).toHaveBeenCalledWith(
-      'Panel',
-      null,
-      ['bun dev'],
-      [],
-      'sp1',
-    )
+    expect(onSaveProject).toHaveBeenCalledWith('Panel', null, ['bun dev'], [], 'sp1')
   })
 
   it('el alta sin elegir espacio manda null: el backend crea uno', () => {

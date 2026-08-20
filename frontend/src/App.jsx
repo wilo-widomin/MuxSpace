@@ -220,19 +220,21 @@ export default function App() {
     // Orden manual primero; las que no aparecen en él (sesiones nuevas) van
     // al final, alfabéticamente, en vez de en un orden arbitrario.
     const rank = new Map(order.map((name, i) => [name, i]))
-    return visible
-      .slice()
-      .sort((a, b) => {
-        const ra = rank.has(a.name) ? rank.get(a.name) : Infinity
-        const rb = rank.has(b.name) ? rank.get(b.name) : Infinity
-        if (ra !== rb) return ra - rb
-        return a.name.localeCompare(b.name)
-      })
-      // Se recorta a lo que el grid necesita, y `project` es parte de eso:
-      // es lo que le dice a la cabecera de cada terminal qué enlaces del
-      // proyecto tiene que pintar. Cuando aquí solo iba el nombre, las badges
-      // no aparecían nunca y el tile no tenía forma de saber por qué.
-      .map((s) => ({ name: s.name, project: s.project ?? null }))
+    return (
+      visible
+        .slice()
+        .sort((a, b) => {
+          const ra = rank.has(a.name) ? rank.get(a.name) : Infinity
+          const rb = rank.has(b.name) ? rank.get(b.name) : Infinity
+          if (ra !== rb) return ra - rb
+          return a.name.localeCompare(b.name)
+        })
+        // Se recorta a lo que el grid necesita, y `project` es parte de eso:
+        // es lo que le dice a la cabecera de cada terminal qué enlaces del
+        // proyecto tiene que pintar. Cuando aquí solo iba el nombre, las badges
+        // no aparecían nunca y el tile no tenía forma de saber por qué.
+        .map((s) => ({ name: s.name, project: s.project ?? null }))
+    )
   }, [sessions, activeSpace, hidden, order])
 
   // ---- Sesión caducada ----

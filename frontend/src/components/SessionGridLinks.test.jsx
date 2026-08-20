@@ -13,9 +13,12 @@ import SessionGrid from './SessionGrid.jsx'
 vi.mock('./XtermTerminal.jsx', () => ({ default: () => <div /> }))
 
 const projects = [
-  { id: '5a3497aa', title: 'MVP-LAB', commands: ['bun dev'], links: [
-    { url: 'https://ejemplo.test/browse/mvp-lab/', title: 'Browse' },
-  ] },
+  {
+    id: '5a3497aa',
+    title: 'MVP-LAB',
+    commands: ['bun dev'],
+    links: [{ url: 'https://ejemplo.test/browse/mvp-lab/', title: 'Browse' }],
+  },
   { id: '0c5f90e3', title: 'MUXSPACE', commands: ['bun dev'], links: [] },
 ]
 

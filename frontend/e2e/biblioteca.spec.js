@@ -180,7 +180,9 @@ test('un proyecto creado en el panel se ejecuta y crea su sesión', async ({
   await page.getByRole('button', { name: T['sidebar.new_project'] }).click()
   await page.getByLabel(T['form.title_label']).fill(titulo)
   await page.getByLabel(T['form.directory_label']).fill(leerEntorno().raizSubidas)
-  await page.locator('form select').last().selectOption('pwd')
+  // El primero, no el último: el formulario tiene dos <select> y el segundo
+  // es el del espacio del proyecto.
+  await page.locator('form select').first().selectOption('pwd')
   await page.getByRole('button', { name: T['form.save_project'] }).click()
 
   // `.first()`: el título del proyecto sale dos veces en el sidebar (la fila

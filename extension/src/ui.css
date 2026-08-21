@@ -126,6 +126,11 @@ input {
   font: inherit;
 }
 
+#buscar {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
 .ayuda {
   color: var(--tenue);
   font-size: 12px;

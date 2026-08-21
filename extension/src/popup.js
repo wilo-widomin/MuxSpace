@@ -1,7 +1,14 @@
 // El popup no sabe nada del panel: pide al service worker y pinta.
 
+import { filterProjects } from './lib/projects.js'
+
 const lista = document.getElementById('proyectos')
 const aviso = document.getElementById('aviso')
+const buscar = document.getElementById('buscar')
+
+// Última lista conocida, sin filtrar. El buscador filtra sobre esto en vez de
+// volver a preguntar al panel: escribir tiene que responder al instante.
+let proyectos = []
 
 function mostrarAviso(texto, esError = false) {
   aviso.textContent = texto
@@ -9,14 +16,20 @@ function mostrarAviso(texto, esError = false) {
   aviso.hidden = !texto
 }
 
-/** @param {Array} proyectos */
-function pintar(proyectos) {
+/** Repinta la lista con el filtro que haya escrito ahora mismo. */
+function pintar() {
+  const visibles = filterProjects(proyectos, buscar.value)
   lista.replaceChildren()
   if (proyectos.length === 0) {
     mostrarAviso('No hay proyectos. Créalos en el panel.')
     return
   }
-  for (const proyecto of proyectos) {
+  if (visibles.length === 0) {
+    mostrarAviso(`Ningún proyecto contiene «${buscar.value.trim()}».`)
+    return
+  }
+  mostrarAviso('')
+  for (const proyecto of visibles) {
     const item = document.createElement('li')
     const boton = document.createElement('button')
     boton.type = 'button'
@@ -61,8 +74,8 @@ async function refrescar() {
     mostrarAviso(respuesta?.error || 'No se pudo leer el panel.', true)
     return
   }
-  mostrarAviso('')
-  pintar(respuesta.projects)
+  proyectos = respuesta.projects
+  pintar()
 }
 
 document.getElementById('refrescar').addEventListener('click', refrescar)
@@ -70,9 +83,22 @@ document.getElementById('opciones').addEventListener('click', () => {
   chrome.runtime.openOptionsPage()
 })
 
+buscar.addEventListener('input', pintar)
+
+// Enter abre el primero de la lista filtrada. Con el buscador enfocado al
+// abrir el popup, un proyecto son tres letras y un Enter sin tocar el ratón.
+buscar.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return
+  const primero = lista.querySelector('button')
+  if (primero) primero.click()
+})
+
 // Al abrir se pinta la copia guardada —es instantáneo— y en paralelo se pide
 // la lista de verdad. Si no hay copia, solo queda esperar al panel.
 chrome.runtime.sendMessage({ type: 'cachedProjects' }).then((respuesta) => {
-  if (respuesta?.ok && respuesta.projects.length > 0) pintar(respuesta.projects)
+  if (respuesta?.ok && respuesta.projects.length > 0) {
+    proyectos = respuesta.projects
+    pintar()
+  }
   refrescar()
 })

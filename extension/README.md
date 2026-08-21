@@ -43,6 +43,11 @@ quien usa el panel. Se escribe en las opciones y se guarda en el navegador.
 
 Pinchar el icono y elegir un proyecto. Se abre su grupo.
 
+La lista va ordenada por nombre y arriba hay un buscador, enfocado al abrir
+el popup. Filtra según se escribe, **busca en cualquier parte del nombre** (no
+solo al principio) y no le importan las tildes ni las mayúsculas. Enter abre
+el primero de la lista, así que un proyecto son tres letras y un Enter.
+
 El popup pinta la lista guardada de la última vez y en paralelo se la vuelve
 a pedir al panel, así que la primera vez tarda lo que tarde en responder.
 

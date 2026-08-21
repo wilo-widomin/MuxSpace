@@ -75,3 +75,17 @@ describe('TerminalTile: otra terminal en el mismo directorio', () => {
     expect(onSpawn).toHaveBeenCalledWith('muxspace')
   })
 })
+
+describe('TerminalTile: el desplegable de comandos', () => {
+  it('Escape lo cierra aunque el foco esté fuera del filtro', () => {
+    renderTile({ commands: [{ id: '1', label: 'build', command: 'bun run build' }] })
+    fireEvent.click(screen.getByRole('button', { name: 'Run a command from the library' }))
+    expect(screen.getByPlaceholderText('Filter commands…')).toBeInTheDocument()
+
+    // El foco se va del filtro en cuanto se pincha la lista o la terminal:
+    // por eso el Escape se prueba sobre `window`, no sobre el input.
+    fireEvent.keyDown(window, { key: 'Escape' })
+
+    expect(screen.queryByPlaceholderText('Filter commands…')).not.toBeInTheDocument()
+  })
+})

@@ -112,6 +112,7 @@ está activada. El WebSocket valida el mismo token vía `?token=` (base64 de
 |--------|------|-------------|
 | `GET` | `/api/sessions` | Lista las sesiones de tmux y su estado de apertura en el grid |
 | `POST` | `/api/create-session/{name}` | Crea una sesión nueva (`new-session -d`); body opcional `{command, cwd}` |
+| `POST` | `/api/sessions/{name}/spawn` | Crea otra sesión (`Terminal`, `Terminal (2)`…) en el **mismo directorio** que `{name}`: el `cwd` lo lee el servidor del panel de tmux, no viaja desde el cliente |
 | `POST` | `/api/start-session/{name}` | Marca la sesión como abierta en el grid |
 | `POST` | `/api/stop-session/{name}` | Oculta la sesión del grid (no la destruye) |
 | `POST` | `/api/kill-session/{name}` | Destruye la sesión de tmux y la retira del grid |
@@ -481,7 +482,7 @@ Campos de cada línea:
 | `ts` | Marca de tiempo ISO 8601 **con zona** (UTC). Nunca epoch pelado |
 | `ip` | IP del cliente (respetando `X-Forwarded-For` de proxies de confianza) |
 | `user` | Usuario autenticado que lanzó la acción |
-| `action` | El verbo: `login`, `login-failed`, `create-session`, `kill-session`, `rename-session`, `send-command`, `launch`, `run-project`, `upload` |
+| `action` | El verbo: `login`, `login-failed`, `create-session`, `kill-session`, `rename-session`, `send-command`, `spawn-terminal`, `launch`, `run-project`, `upload` |
 | `target` | El objeto sobre el que se actúa (normalmente el nombre de la sesión, o la ruta en `upload`) |
 | `detail` | Lo necesario para reconstruir qué pasó: el comando enviado, la ruta subida, el nombre nuevo al renombrar… |
 

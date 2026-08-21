@@ -106,6 +106,13 @@ export const api = {
   // terminal (ocupa la pantalla alternativa), pero sí en su transcript.
   getTranscript: (name) =>
     request(`/api/terminal/${encodeURIComponent(name)}/transcript`),
+  // Otra terminal en el mismo directorio que la sesión `name`. El
+  // directorio no viaja: lo lee el servidor del panel de tmux. Devuelve el
+  // nombre que le tocó a la nueva ("Terminal", "Terminal (2)"…).
+  spawnTerminal: (name) =>
+    request(`/api/sessions/${encodeURIComponent(name)}/spawn`, {
+      method: 'POST',
+    }),
   createSession: (name, body) =>
     request(`/api/create-session/${encodeURIComponent(name)}`, {
       method: 'POST',

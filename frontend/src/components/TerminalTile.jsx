@@ -31,6 +31,9 @@ import { useT } from '../i18n/index.jsx'
 //   - ▶ abre la biblioteca de comandos (un desplegable con su filtro) para
 //     lanzar uno en esta sesión. Antes esto era un input a lo ancho de todo
 //     el tile, una línea permanente para algo que se usa de tarde en tarde.
+//   - El icono de terminal abre OTRA sesión en el mismo directorio que
+//     esta: el caso de "necesito una shell aquí al lado" sin tener que
+//     mirar en qué carpeta estaba ni teclear un nombre.
 //   - 🔍 abre la búsqueda de la terminal, lo mismo que Ctrl+F. Existe porque
 //     en una tableta no hay Ctrl.
 export default function TerminalTile({
@@ -51,6 +54,7 @@ export default function TerminalTile({
   isFocused,
   onToggleFocus,
   onMinimize,
+  onSpawn = () => {},
   focusToken = 0,
 }) {
   const { t, tError } = useT()
@@ -214,6 +218,14 @@ export default function TerminalTile({
           </button>
           <span className="mx-1 h-4 w-px shrink-0 bg-panel-border" />
           <button
+            onClick={() => onSpawn(session.name)}
+            title={t('tile.new_terminal')}
+            aria-label={t('tile.new_terminal')}
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-green-400"
+          >
+            <TerminalIcon />
+          </button>
+          <button
             onClick={onMinimize}
             title={t('tile.minimize')}
             aria-label={t('tile.minimize')}
@@ -344,6 +356,29 @@ function PencilIcon() {
     >
       <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
       <path d="M18.375 2.625a1.768 1.768 0 0 1 2.5 2.5L12 14l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
+// Ventana de terminal con un prompt (estilo lucide "square-terminal"): abre
+// OTRA terminal en el mismo directorio que esta. El icono dice "terminal", y
+// el sitio donde está —el grupo que actúa sobre la ventana— dice "otra".
+function TerminalIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m7 11 2-2-2-2" />
+      <path d="M11 13h4" />
+      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
     </svg>
   )
 }

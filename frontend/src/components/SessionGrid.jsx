@@ -71,6 +71,7 @@ export default function SessionGrid({
   onSetActive,
   onClose,
   onKill,
+  onSpawn = () => {},
   onReorder,
   commands,
   projects = [],
@@ -326,6 +327,7 @@ export default function SessionGrid({
                 onFocus={() => onSetActive(session.name)}
                 onClose={onClose}
                 onKill={onKill}
+                onSpawn={onSpawn}
                 commands={commands}
                 links={linksByProject.get(session.project) || []}
                 dragging={dragName !== null}

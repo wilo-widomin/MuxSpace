@@ -26,6 +26,7 @@
   "tile.close": "Fermer et arrêter le terminal",
   "tile.maximize": "Agrandir",
   "tile.minimize": "Réduire",
+  "tile.new_terminal": "Ouvrir un autre terminal dans ce même répertoire",
   "tile.restore": "Restaurer la disposition",
   "tile.run_command": "Lancer une commande de la bibliothèque",
   "tile.search_terminal": "Chercher dans le terminal (Ctrl+F)",

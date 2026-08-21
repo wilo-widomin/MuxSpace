@@ -1179,6 +1179,56 @@ def create_session_endpoint(
     return CreateSessionResponse(name=name, created=True)
 
 
+# Nombre base de las terminales que nace de un tile. Va en inglés como el
+# resto del código, y el sufijo " (N)" se lo pone `_next_label_name`.
+_TERMINAL_BASE = "Terminal"
+
+
+@app.post("/api/sessions/{name}/spawn", response_model=CreateSessionResponse)
+def spawn_terminal_endpoint(
+    request: Request, name: str, user: str = _auth
+) -> CreateSessionResponse:
+    """Crea otra sesión de tmux en el mismo directorio que `name`.
+
+    Es el icono de terminal de la cabecera de cada tile: "otra terminal
+    aquí mismo". El directorio NO viaja desde el cliente —lo lee el
+    servidor del panel activo de la sesión (`pane_current_path`)—, así que
+    el navegador no puede pedir una sesión en un directorio arbitrario.
+
+    Si tmux no sabe decir el directorio (sesión recién muerta, panel raro),
+    la sesión se crea igual en el directorio por defecto: quedarse sin
+    terminal es peor que quedarse sin el `cd`.
+    """
+    try:
+        panel = tmux_pane_info(name)
+    except TmuxError as exc:
+        raise http_from(404, exc) from exc
+
+    cwd = panel["path"] or None
+    new_name = _next_label_name(_TERMINAL_BASE)
+    try:
+        created = create_session(new_name, cwd=cwd)
+        if not created:
+            # Carrera muy improbable: el nombre libre dejó de estarlo entre
+            # el cálculo y la creación. Se reintenta una vez, igual que en
+            # `launch`.
+            new_name = _next_label_name(_TERMINAL_BASE)
+            created = create_session(new_name, cwd=cwd)
+    except TmuxError as exc:
+        raise http_from(500, exc) from exc
+    if not created:
+        raise http_error(409, "err.session_exists", name=new_name)
+
+    audit.record(
+        "spawn-terminal",
+        request=request,
+        user=user,
+        target=new_name,
+        detail={"from": name, "cwd": cwd},
+    )
+    return CreateSessionResponse(name=new_name, created=True)
+
+
 @app.post("/api/kill-session/{name}", response_model=KillSessionResponse)
 def kill_session_endpoint(
     request: Request, name: str, user: str = _auth

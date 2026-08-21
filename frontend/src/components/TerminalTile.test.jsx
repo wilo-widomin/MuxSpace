@@ -4,7 +4,7 @@
 // un ENLACE utilizable: con su URL, que se abre fuera del panel y sin darle
 // a la pestaña destino control sobre esta (`rel="noopener"`). Y que una
 // sesión sin proyecto no gana ningún adorno.
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { LangProvider } from '../i18n/index.jsx'
@@ -56,5 +56,22 @@ describe('TerminalTile: enlaces del proyecto', () => {
 
     expect(screen.queryAllByRole('link')).toHaveLength(0)
     expect(screen.getByText('panel')).toBeInTheDocument()
+  })
+})
+
+describe('TerminalTile: otra terminal en el mismo directorio', () => {
+  it('el icono de terminal pide una nueva para ESTA sesión', () => {
+    const onSpawn = vi.fn()
+    renderTile({ session: { name: 'muxspace' }, onSpawn })
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Open another terminal in this same directory',
+      }),
+    )
+
+    // El nombre es lo único que viaja: el directorio lo resuelve el backend
+    // leyendo el panel de tmux de esa sesión.
+    expect(onSpawn).toHaveBeenCalledWith('muxspace')
   })
 })

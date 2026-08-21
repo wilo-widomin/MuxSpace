@@ -438,6 +438,22 @@ export default function App() {
     await handleSelect(name)
   }
 
+  // ---- Otra terminal en el mismo directorio (icono del tile) ----
+  // El directorio no se calcula aquí: el backend lo lee del panel de tmux de
+  // la sesión de origen y devuelve el nombre que le tocó a la nueva
+  // ("Terminal", "Terminal (2)"…). Lo demás es lo mismo que crear una
+  // sesión desde el sidebar: al espacio activo, refrescar y abrirla.
+  const handleSpawnTerminal = async (name) => {
+    try {
+      const { name: nueva } = await api.spawnTerminal(name)
+      await assignToActiveSpace(nueva)
+      await loadSessions()
+      await handleSelect(nueva)
+    } catch (err) {
+      setError(tError(err))
+    }
+  }
+
   // Asigna una sesión recién creada al espacio que mira esta pestaña. En
   // "Sin asignar" no hay a dónde asignar, así que se queda suelta.
   const assignToActiveSpace = async (name) => {
@@ -740,6 +756,7 @@ export default function App() {
           onSetActive={setActiveName}
           onClose={handleClose}
           onKill={handleKillSession}
+          onSpawn={handleSpawnTerminal}
           onReorder={handleReorder}
           commands={commandsOrdenados}
           projects={projects}

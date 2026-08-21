@@ -112,6 +112,11 @@ Navegador ──HTTP──────> FastAPI (API + frontend estático)
 - Cada *tile* tiene una cabecera con el nombre de la sesión y un control de
   cierre (**X**) que retira la vista del grid (no destruye la sesión de
   tmux).
+- El icono de **terminal** de la cabecera abre otra sesión en el **mismo
+  directorio** que esa terminal, con nombre automático (`Terminal`,
+  `Terminal (2)`…). El directorio lo resuelve el backend leyendo
+  `pane_current_path` del panel de tmux: el cliente solo manda el nombre de
+  la sesión de origen.
 - El cliente envía el tamaño real del tile al backend, que ajusta el PTY
   (`TIOCSWINSZ`) para que tmux redibuje en ese tamaño.
 

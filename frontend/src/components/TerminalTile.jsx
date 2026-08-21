@@ -33,7 +33,9 @@ import { useT } from '../i18n/index.jsx'
 //     el tile, una línea permanente para algo que se usa de tarde en tarde.
 //   - El icono de terminal abre OTRA sesión en el mismo directorio que
 //     esta: el caso de "necesito una shell aquí al lado" sin tener que
-//     mirar en qué carpeta estaba ni teclear un nombre.
+//     mirar en qué carpeta estaba ni teclear un nombre. Va con los que
+//     actúan DENTRO de la terminal —y el primero de todos— porque lo que
+//     produce es otra terminal, no un cambio en esta ventana.
 //   - 🔍 abre la búsqueda de la terminal, lo mismo que Ctrl+F. Existe porque
 //     en una tableta no hay Ctrl.
 export default function TerminalTile({
@@ -94,6 +96,27 @@ export default function TerminalTile({
     if (showDropdown) inputRef.current?.focus()
   }, [showDropdown])
 
+  // Escape cierra el desplegable de comandos, esté donde esté el foco. El
+  // `keydown` del filtro no basta: en cuanto se pincha la lista, la terminal
+  // o cualquier otra cosa, el foco se va del input y Escape dejaba de cerrar
+  // nada; el único camino de vuelta era volver a pulsar el mismo botón.
+  //
+  // Va en fase de captura y sobre `window` porque xterm.js se come las
+  // teclas que llegan a la terminal: si el foco está ahí, un listener en
+  // burbuja no vería este Escape.
+  useEffect(() => {
+    if (!showDropdown) return
+    const alPulsar = (e) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setShowDropdown(false)
+      setSearch('')
+      setInputError(null)
+    }
+    window.addEventListener('keydown', alPulsar, true)
+    return () => window.removeEventListener('keydown', alPulsar, true)
+  }, [showDropdown])
+
   const handleKill = () => {
     // Texto completo en una sola clave (saltos de línea incluidos): partirlo
     // en trozos concatenados obligaría a traducir frases sueltas sin contexto.
@@ -121,9 +144,6 @@ export default function TerminalTile({
       if (filteredCommands.length > 0) {
         await handleSendCommand(filteredCommands[0].command)
       }
-    } else if (e.key === 'Escape') {
-      setSearch('')
-      setShowDropdown(false)
     }
   }
 
@@ -183,10 +203,19 @@ export default function TerminalTile({
         )}
 
         {/* `relative` para que el desplegable de comandos cuelgue de su
-            botón. Y el `onMouseDown` con stopPropagation en los tres
-            primeros: la cabecera es el asa de arrastre, y sin esto pulsar un
-            icono empieza un arrastre. */}
+            botón. Y el `onMouseDown` con stopPropagation en los del grupo
+            izquierdo: la cabecera es el asa de arrastre, y sin esto pulsar
+            un icono empieza un arrastre. */}
         <span className="relative flex shrink-0 items-center gap-0.5">
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => onSpawn(session.name)}
+            title={t('tile.new_terminal')}
+            aria-label={t('tile.new_terminal')}
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-green-400"
+          >
+            <TerminalIcon />
+          </button>
           <button
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => setShowDropdown((abierto) => !abierto)}
@@ -217,14 +246,6 @@ export default function TerminalTile({
             <PencilIcon />
           </button>
           <span className="mx-1 h-4 w-px shrink-0 bg-panel-border" />
-          <button
-            onClick={() => onSpawn(session.name)}
-            title={t('tile.new_terminal')}
-            aria-label={t('tile.new_terminal')}
-            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-green-400"
-          >
-            <TerminalIcon />
-          </button>
           <button
             onClick={onMinimize}
             title={t('tile.minimize')}

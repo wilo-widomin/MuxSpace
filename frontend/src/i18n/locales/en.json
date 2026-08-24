@@ -295,5 +295,11 @@
   "dashboard.declared": "declared",
   "dashboard.declared_hint": "Part of this stretch was declared by hand, not measured.",
   "dashboard.declared_note": "Of that total, {time} is time declared by hand (work outside the panel), not measured.",
+  "dashboard.bridge": "Continuity",
+  "dashboard.bridge_off": "Measured only",
+  "dashboard.bridge_hint": "Longest gap counted as work when you are in another window without leaving the project. It only changes how the data reads: it does not modify it.",
+  "dashboard.bridge_note": "Of that total, {time} are gaps of up to {min} min between two stretches on the same project: inferred time, not measured.",
+  "dashboard.inferred": "inferred",
+  "dashboard.inferred_hint": "Of this stretch, {time} is a gap filled in by continuity: it was not measured.",
   "dashboard.program": "Program"
 }

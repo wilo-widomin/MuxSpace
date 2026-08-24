@@ -295,5 +295,11 @@
   "dashboard.declared": "dichiarato",
   "dashboard.declared_hint": "Parte di questo tratto è stata dichiarata a mano, non misurata.",
   "dashboard.declared_note": "Di quel totale, {time} è tempo dichiarato a mano (lavoro fuori dal pannello), non misurato.",
+  "dashboard.bridge": "Continuità",
+  "dashboard.bridge_off": "Solo misurato",
+  "dashboard.bridge_hint": "Intervallo massimo contato come lavoro quando sei in un'altra finestra senza lasciare il progetto. Cambia solo la lettura dei dati: non li modifica.",
+  "dashboard.bridge_note": "Di quel totale, {time} sono intervalli fino a {min} min tra due momenti sullo stesso progetto: tempo dedotto, non misurato.",
+  "dashboard.inferred": "dedotto",
+  "dashboard.inferred_hint": "Di questo periodo, {time} sono un intervallo colmato per continuità: non è stato misurato.",
   "dashboard.program": "Programma"
 }

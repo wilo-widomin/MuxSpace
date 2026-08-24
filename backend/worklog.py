@@ -33,6 +33,23 @@ Eso resuelve tres problemas de golpe:
   ranuras al leer; un contador que hay que mantener a mano se desincroniza y
   nadie se entera.
 
+## El puente de continuidad
+
+Medir solo con el foco del panel deja fuera el trabajo que se hace en OTRA
+ventana sin dejar el proyecto: mirar un token en el servidor, tocar los
+secretos del repositorio, leer una documentación. En cuanto el panel pierde
+el foco deja de latir, así que ese rato desaparece entero.
+
+Por eso, **al leer**, se rellenan los huecos cortos entre dos ranuras del
+mismo espacio: si a las 16:00 y a las 16:08 estabas en el mismo proyecto y en
+medio ningún otro espacio reclamó nada, esos ocho minutos fueron ese
+proyecto. La vuelta es la prueba — sin ranura posterior no hay puente, así
+que irse y no volver no puede inflar nada.
+
+Se hace derivando y no escribiendo ranuras a propósito: cambiar el tope
+recalcula todo el histórico al instante, y una ranura de puente escrita en la
+base ya no se distinguiría de una medida.
+
 ## Precisión
 
 El objetivo es ±15 %: distinguir un proyecto de 40 h de uno de 100 h, no saber
@@ -50,6 +67,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
+import config
 import datafiles
 import logs
 
@@ -83,10 +101,21 @@ CREATE INDEX IF NOT EXISTS idx_work_slots_space ON work_slots(space);
 #   'auto'   — medido: el panel tenía el foco y hubo entrada del usuario.
 #   'manual' — declarado: el usuario encendió el cronómetro para trabajar
 #              FUERA del panel (probar la app que construye, por ejemplo).
+#   'bridge' — inferido: nadie lo latió, lo rellena el puente de continuidad
+#              al leer (ver el docstring del módulo). NUNCA se guarda en la
+#              base; solo existe en la salida de `bloques()` y `resumen()`.
 # Se guardan juntos pero se pueden mirar por separado, y eso no es un adorno:
 # si algún día el total no cuadra con lo que uno recuerda, lo primero que hay
-# que poder saber es qué parte se midió y qué parte se declaró.
+# que poder saber es qué parte se midió, qué parte se declaró y qué parte se
+# dedujo.
 FUENTES = ("auto", "manual")
+
+# Tope por defecto del puente, en minutos. Sale de la distribución real de
+# huecos: por debajo de 10 min son saltos de ventana encadenados dentro de una
+# misma sesión de trabajo, y los huecos que de verdad son ausencias (comer,
+# irse) están todos por encima de la media hora. Entre 10 y 20 el total apenas
+# se mueve, así que el valor no es delicado.
+PUENTE_MINUTOS = config.WORKLOG_BRIDGE_MIN
 
 
 def _ruta() -> Path:
@@ -169,12 +198,6 @@ def _rango(desde: float | None, hasta: float | None) -> tuple[int, int]:
     return inicio, fin
 
 
-# Expresión SQL que convierte una ranura UTC en su día LOCAL. El desfase llega
-# en minutos desde el cliente porque el servidor no tiene por qué correr en la
-# zona del usuario, y agrupar por UTC partiría la jornada a las 02:00.
-_DIA_LOCAL = "date((slot_start + ? * 60), 'unixepoch')"
-
-
 # Hueco máximo, en ranuras, que NO parte un bloque de trabajo. Uno de más
 # porque un latido puede perderse (pestaña que tarda, red que falla) y eso no
 # significa que el usuario se levantara: partir el bloque ahí llenaría la
@@ -182,10 +205,65 @@ _DIA_LOCAL = "date((slot_start + ? * 60), 'unixepoch')"
 _TOLERANCIA_RANURAS = 2
 
 
+def _puente_segundos(minutos: int | None) -> int:
+    """Tope del puente en segundos, acotado. `None` = el de la configuración."""
+    if minutos is None:
+        minutos = PUENTE_MINUTOS
+    return max(0, min(int(minutos), 60)) * 60
+
+
+def _ranuras(
+    desde: float | None,
+    hasta: float | None,
+    puente_min: int | None,
+) -> list[tuple[int, str, str | None, str | None, str]]:
+    """Ranuras del periodo, ya con los huecos cortos rellenados.
+
+    Es el único sitio donde se aplica el puente: `bloques()` y `resumen()`
+    parten de aquí, así que no pueden dar totales distintos por descuido.
+
+    El recorrido es GLOBAL, sin filtrar por espacio, y de ahí sale gratis la
+    condición que hace honesto el puente: como `slot_start` es clave primaria,
+    dos ranuras consecutivas de esta lista no pueden tener nada en medio. Si
+    entre las dos hubo otro espacio, ya no son consecutivas y no se puentea.
+    Filtrar en SQL por espacio rompería justo eso.
+
+    Las ranuras inferidas heredan sesión y comando de la anterior: es la mejor
+    prueba que hay de qué se estaba mirando, y sin ella el tiempo "con agente
+    delante" encogería como fracción del total cada vez que se subiera el
+    puente.
+    """
+    inicio, fin = _rango(desde, hasta)
+    with _conexion() as con:
+        filas = list(
+            con.execute(
+                "SELECT slot_start, space, session, command, source FROM work_slots"
+                " WHERE slot_start >= ? AND slot_start < ? ORDER BY slot_start",
+                (inicio, fin),
+            )
+        )
+
+    tope = _puente_segundos(puente_min)
+    if not tope:
+        return filas
+
+    salida: list[tuple] = []
+    for fila in filas:
+        if salida:
+            slot_previo, espacio_previo, sesion, comando, _ = salida[-1]
+            hueco = fila[0] - (slot_previo + SLOT_SECONDS)
+            if espacio_previo == fila[1] and 0 < hueco <= tope:
+                for slot in range(slot_previo + SLOT_SECONDS, fila[0], SLOT_SECONDS):
+                    salida.append((slot, espacio_previo, sesion, comando, "bridge"))
+        salida.append(fila)
+    return salida
+
+
 def bloques(
     desde: float | None = None,
     hasta: float | None = None,
     space: str | None = None,
+    puente_min: int | None = None,
 ) -> list[dict]:
     """Tramos de trabajo continuos: cuándo empezó y cuándo acabó cada uno.
 
@@ -194,26 +272,17 @@ def bloques(
     que los tramos se **derivan** al leer: ranuras consecutivas del mismo
     espacio, permitiendo un hueco de `_TOLERANCIA_RANURAS`.
 
+    El filtro por espacio se aplica DESPUÉS del puente, no en la consulta: un
+    espacio filtrado en SQL parecería tener ranuras contiguas donde en realidad
+    hubo otro proyecto en medio (ver `_ranuras`).
+
     El fin de un bloque es el fin de su última ranura, no su principio: una
     ranura representa el tiempo que cubre.
     """
-    inicio, fin = _rango(desde, hasta)
-    condicion = "slot_start >= ? AND slot_start < ?"
-    parametros: list = [inicio, fin]
-    if space:
-        condicion += " AND space = ?"
-        parametros.append(space)
-
-    with _conexion() as con:
-        filas = list(
-            con.execute(
-                # noqa S608: `condicion` la construye esta función con literales;
-                # los valores viajan como parámetros (`?`), incluido el espacio.
-                "SELECT slot_start, space, session, command, source FROM work_slots"  # noqa: S608
-                f" WHERE {condicion} ORDER BY slot_start",
-                parametros,
-            )
-        )
+    filas = [
+        fila for fila in _ranuras(desde, hasta, puente_min)
+        if not space or fila[1] == space
+    ]
 
     salida: list[dict] = []
     actual: dict | None = None
@@ -232,6 +301,10 @@ def bloques(
                 "claude_seconds": 0,
                 # Cuánto del tramo es tiempo declarado a mano (ver FUENTES).
                 "manual_seconds": 0,
+                # Y cuánto lo puso el puente de continuidad: tiempo inferido,
+                # no medido. Separado para que se pueda auditar de un vistazo
+                # cuánto del tramo es deducción.
+                "bridge_seconds": 0,
                 # Qué se estuvo mirando en el tramo, en orden de aparición.
                 "sessions": [],
                 # Y con qué se estuvo trabajando ('claude', 'zsh', 'vim'…).
@@ -249,6 +322,8 @@ def bloques(
             actual["claude_seconds"] += SLOT_SECONDS
         if fuente == "manual":
             actual["manual_seconds"] += SLOT_SECONDS
+        if fuente == "bridge":
+            actual["bridge_seconds"] += SLOT_SECONDS
         if sesion and sesion not in actual["sessions"]:
             actual["sessions"].append(sesion)
         if comando and comando not in actual["commands"]:
@@ -259,72 +334,91 @@ def bloques(
     return salida
 
 
+def _dia_local(slot: int, tz_offset_min: int) -> str:
+    """Día LOCAL (aaaa-mm-dd) al que pertenece una ranura UTC.
+
+    El desfase llega en minutos desde el cliente porque el servidor no tiene
+    por qué correr en la zona del usuario, y agrupar por UTC partiría la
+    jornada a las 02:00.
+    """
+    return time.strftime("%Y-%m-%d", time.gmtime(slot + tz_offset_min * 60))
+
+
 def resumen(
     desde: float | None = None,
     hasta: float | None = None,
     tz_offset_min: int = 0,
+    puente_min: int | None = None,
 ) -> dict:
     """Totales del periodo: general, por espacio y por día local.
 
     Todo sale de contar ranuras y multiplicar por su duración. No hay ningún
     acumulado que mantener.
+
+    Se agrega en Python y no en SQL porque las ranuras del puente no existen
+    en la base: un `GROUP BY` sobre la tabla y un puente aplicado aparte darían
+    dos totales distintos para la misma pregunta.
     """
-    inicio, fin = _rango(desde, hasta)
-    with _conexion() as con:
-        por_espacio = [
+    filas = _ranuras(desde, hasta, puente_min)
+
+    por_espacio: dict[str, dict] = {}
+    por_dia: dict[str, int] = {}
+    por_dia_espacio: dict[tuple[str, str], int] = {}
+    total = manual = puenteado = 0
+
+    for slot, espacio, _sesion, comando, fuente in filas:
+        acumulado = por_espacio.setdefault(
+            espacio,
             {
-                "space": fila[0],
-                "seconds": fila[1] * SLOT_SECONDS,
+                "space": espacio,
+                "seconds": 0,
                 # Horas con un agente delante, dentro del total del espacio.
-                "claude_seconds": fila[2] * SLOT_SECONDS,
-                # Y cuánto de ese total es tiempo declarado, no medido.
-                "manual_seconds": fila[3] * SLOT_SECONDS,
-            }
-            for fila in con.execute(
-                "SELECT space, COUNT(*),"
-                "       SUM(CASE WHEN command = 'claude' THEN 1 ELSE 0 END),"
-                "       SUM(CASE WHEN source = 'manual' THEN 1 ELSE 0 END)"
-                "  FROM work_slots WHERE slot_start >= ? AND slot_start < ?"
-                " GROUP BY space ORDER BY COUNT(*) DESC",
-                (inicio, fin),
-            )
-        ]
-        por_dia = [
-            {"day": fila[0], "seconds": fila[1] * SLOT_SECONDS}
-            for fila in con.execute(
-                # noqa S608: no hay interpolación de datos. `_DIA_LOCAL` es una
-                # constante de este módulo y el desfase viaja como parámetro
-                # (`?`), igual que el resto.
-                f"SELECT {_DIA_LOCAL} AS dia, COUNT(*)"  # noqa: S608
-                "  FROM work_slots WHERE slot_start >= ? AND slot_start < ?"
-                " GROUP BY dia ORDER BY dia",
-                (tz_offset_min, inicio, fin),
-            )
-        ]
-        por_dia_espacio = [
-            {"day": fila[0], "space": fila[1], "seconds": fila[2] * SLOT_SECONDS}
-            for fila in con.execute(
-                f"SELECT {_DIA_LOCAL} AS dia, space, COUNT(*)"  # noqa: S608
-                "  FROM work_slots WHERE slot_start >= ? AND slot_start < ?"
-                " GROUP BY dia, space ORDER BY dia",
-                (tz_offset_min, inicio, fin),
-            )
-        ]
-        total, total_manual = con.execute(
-            "SELECT COUNT(*), SUM(CASE WHEN source = 'manual' THEN 1 ELSE 0 END)"
-            " FROM work_slots WHERE slot_start >= ? AND slot_start < ?",
-            (inicio, fin),
-        ).fetchone()
+                "claude_seconds": 0,
+                # Y cuánto de ese total es tiempo declarado, no medido...
+                "manual_seconds": 0,
+                # ...o inferido por el puente de continuidad.
+                "bridge_seconds": 0,
+            },
+        )
+        acumulado["seconds"] += SLOT_SECONDS
+        if comando == "claude":
+            acumulado["claude_seconds"] += SLOT_SECONDS
+        if fuente == "manual":
+            acumulado["manual_seconds"] += SLOT_SECONDS
+            manual += SLOT_SECONDS
+        if fuente == "bridge":
+            acumulado["bridge_seconds"] += SLOT_SECONDS
+            puenteado += SLOT_SECONDS
+        dia = _dia_local(slot, tz_offset_min)
+        por_dia[dia] = por_dia.get(dia, 0) + SLOT_SECONDS
+        clave = (dia, espacio)
+        por_dia_espacio[clave] = por_dia_espacio.get(clave, 0) + SLOT_SECONDS
+        total += SLOT_SECONDS
+
+    with _conexion() as con:
         primera = con.execute("SELECT MIN(slot_start) FROM work_slots").fetchone()[0]
 
     return {
         "slot_seconds": SLOT_SECONDS,
-        "total_seconds": total * SLOT_SECONDS,
-        # Del total, cuánto se declaró a mano en vez de medirse.
-        "manual_seconds": (total_manual or 0) * SLOT_SECONDS,
-        "by_space": por_espacio,
-        "by_day": por_dia,
-        "by_day_space": por_dia_espacio,
+        "total_seconds": total,
+        # Del total, cuánto se declaró a mano en vez de medirse...
+        "manual_seconds": manual,
+        # ...y cuánto lo rellenó el puente de continuidad, con el tope que se
+        # usó. Van juntos a propósito: el número sin el tope que lo produjo no
+        # se puede interpretar.
+        "bridge_seconds": puenteado,
+        "bridge_minutes": _puente_segundos(puente_min) // 60,
+        "by_space": sorted(
+            por_espacio.values(), key=lambda e: e["seconds"], reverse=True
+        ),
+        "by_day": [
+            {"day": dia, "seconds": segundos}
+            for dia, segundos in sorted(por_dia.items())
+        ],
+        "by_day_space": [
+            {"day": dia, "space": espacio, "seconds": segundos}
+            for (dia, espacio), segundos in sorted(por_dia_espacio.items())
+        ],
         # Desde cuándo hay datos: sin esto, un total pequeño no se distingue de
         # "el registro se activó ayer".
         "since": primera,

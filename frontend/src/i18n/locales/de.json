@@ -295,5 +295,11 @@
   "dashboard.declared": "erklärt",
   "dashboard.declared_hint": "Ein Teil dieser Phase wurde von Hand erklärt, nicht gemessen.",
   "dashboard.declared_note": "Davon sind {time} von Hand erklärte Zeit (Arbeit außerhalb des Panels), nicht gemessen.",
+  "dashboard.bridge": "Kontinuität",
+  "dashboard.bridge_off": "Nur gemessen",
+  "dashboard.bridge_hint": "Größte Lücke, die als Arbeit zählt, wenn du in einem anderen Fenster bist, ohne das Projekt zu verlassen. Ändert nur die Auswertung, nicht die Daten.",
+  "dashboard.bridge_note": "Davon sind {time} Lücken von bis zu {min} Min. zwischen zwei Abschnitten im selben Projekt: abgeleitete, nicht gemessene Zeit.",
+  "dashboard.inferred": "abgeleitet",
+  "dashboard.inferred_hint": "Von diesem Abschnitt sind {time} eine durch Kontinuität gefüllte Lücke: nicht gemessen.",
   "dashboard.program": "Programm"
 }

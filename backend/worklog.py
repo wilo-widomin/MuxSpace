@@ -349,17 +349,29 @@ def resumen(
     hasta: float | None = None,
     tz_offset_min: int = 0,
     puente_min: int | None = None,
+    space: str | None = None,
 ) -> dict:
     """Totales del periodo: general, por espacio y por día local.
 
     Todo sale de contar ranuras y multiplicar por su duración. No hay ningún
     acumulado que mantener.
 
+    Con `space`, TODO el resumen es de ese espacio: el total, los días y la
+    media. Filtrar solo la lista de tramos y dejar las cifras de arriba
+    globales es peor que no filtrar, porque la pantalla mezcla dos preguntas
+    distintas sin decirlo.
+
+    El filtro va DESPUÉS del puente, igual que en `bloques()`: aplicado antes,
+    dos ranuras separadas por otro proyecto parecerían contiguas.
+
     Se agrega en Python y no en SQL porque las ranuras del puente no existen
     en la base: un `GROUP BY` sobre la tabla y un puente aplicado aparte darían
     dos totales distintos para la misma pregunta.
     """
-    filas = _ranuras(desde, hasta, puente_min)
+    filas = [
+        fila for fila in _ranuras(desde, hasta, puente_min)
+        if not space or fila[1] == space
+    ]
 
     por_espacio: dict[str, dict] = {}
     por_dia: dict[str, int] = {}
@@ -395,8 +407,18 @@ def resumen(
         por_dia_espacio[clave] = por_dia_espacio.get(clave, 0) + SLOT_SECONDS
         total += SLOT_SECONDS
 
+    # Desde cuándo hay datos DE LO QUE SE PREGUNTA: con un espacio filtrado,
+    # la fecha del registro entero contestaría otra cosa ("el panel lleva
+    # midiendo desde marzo" cuando el espacio se creó en agosto).
     with _conexion() as con:
-        primera = con.execute("SELECT MIN(slot_start) FROM work_slots").fetchone()[0]
+        if space:
+            primera = con.execute(
+                "SELECT MIN(slot_start) FROM work_slots WHERE space = ?", (space,)
+            ).fetchone()[0]
+        else:
+            primera = con.execute(
+                "SELECT MIN(slot_start) FROM work_slots"
+            ).fetchone()[0]
 
     return {
         "slot_seconds": SLOT_SECONDS,

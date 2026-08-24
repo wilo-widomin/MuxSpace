@@ -430,6 +430,50 @@ def test_el_tope_se_acota_y_cero_lo_apaga() -> None:
     assert worklog.resumen(puente_min=-5)["bridge_seconds"] == 0
 
 
+def test_filtrar_por_espacio_filtra_el_resumen_entero() -> None:
+    """El total, los días y la media tienen que ser de lo que se pregunta.
+
+    Filtrar solo la lista de tramos y dejar las cifras de arriba globales es
+    peor que no filtrar: la pantalla mezcla dos preguntas sin decirlo, y el
+    total de un espacio se lee como si fuera suyo.
+    """
+    base = epoch("2026-08-15 09:00:00")
+    _latir("sp_a", base, 4)
+    _latir("sp_b", base + 3600, 6)
+
+    solo_a = worklog.resumen(space="sp_a", puente_min=0)
+    assert solo_a["total_seconds"] == 4 * worklog.SLOT_SECONDS
+    assert [e["space"] for e in solo_a["by_space"]] == ["sp_a"]
+    assert sum(d["seconds"] for d in solo_a["by_day"]) == solo_a["total_seconds"]
+    assert all(d["space"] == "sp_a" for d in solo_a["by_day_space"])
+
+    assert worklog.resumen(puente_min=0)["total_seconds"] == 10 * worklog.SLOT_SECONDS
+
+
+def test_el_espacio_filtrado_dice_desde_cuando_hay_datos_SUYOS() -> None:
+    """Con un espacio elegido, la fecha del registro entero contestaría otra
+    cosa: «el panel mide desde marzo» cuando ese espacio nació en agosto."""
+    _latir("sp_viejo", epoch("2026-03-01 09:00:00"), 2)
+    nacimiento = epoch("2026-08-15 09:00:00")
+    _latir("sp_nuevo", nacimiento, 2)
+
+    assert worklog.resumen(space="sp_nuevo")["since"] == worklog.slot_de(nacimiento)
+
+
+def test_el_resumen_filtrado_no_puentea_por_encima_de_otro_espacio() -> None:
+    """Mismo orden que en los tramos: primero el puente, luego el filtro.
+
+    Al revés, dos ranuras separadas por otro proyecto parecerían contiguas y el
+    espacio filtrado se quedaría con un rato que no es suyo.
+    """
+    base = epoch("2026-08-15 09:00:00")
+    worklog.registrar("sp_a", ahora=base)
+    worklog.registrar("sp_b", ahora=base + 180)
+    worklog.registrar("sp_a", ahora=base + 360)
+
+    assert worklog.resumen(space="sp_a", puente_min=10)["bridge_seconds"] == 0
+
+
 # ----------------------------------------------------------------------
 # Por HTTP
 # ----------------------------------------------------------------------
@@ -483,3 +527,12 @@ def test_los_tramos_aceptan_el_tope_del_puente(client_auth) -> None:
     """Los dos endpoints tienen que entender el mismo parámetro o la lista de
     tramos no sumaría el total que se pinta encima."""
     assert client_auth.get("/api/worklog/blocks?bridge=15").status_code == 200
+
+
+def test_el_resumen_acepta_el_filtro_por_espacio(client_auth) -> None:
+    """El mismo parámetro que `/blocks`: la vista de tiempos pide los dos a la
+    vez y las cifras de arriba tienen que hablar de la lista de abajo."""
+    client_auth.post("/api/worklog/beat", json={"space": "sp_a"})
+    resumen = client_auth.get("/api/worklog/summary?space=sp_b").json()
+    assert resumen["total_seconds"] == 0
+    assert resumen["by_space"] == []

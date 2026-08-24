@@ -103,7 +103,12 @@ export default function Dashboard({ spaces = [] }) {
     try {
       setError(null)
       const [resumen, bloques] = await Promise.all([
-        api.workSummary({ desde, hasta, bridge: puente }),
+        api.workSummary({
+          desde,
+          hasta,
+          bridge: puente,
+          space: espacioFiltro || undefined,
+        }),
         api.workBlocks({ desde, hasta, space: espacioFiltro || undefined, bridge: puente }),
       ])
       setDatos(resumen)

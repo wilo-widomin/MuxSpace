@@ -273,6 +273,8 @@
   "dashboard.by_day": "Per giorno",
   "dashboard.day": "Giorno",
   "dashboard.time": "Tempo",
+  "dashboard.cumulative": "Cumulativo",
+  "dashboard.cumulative_hint": "Totale sommato fino alla fine di quel periodo, a partire dal più vecchio dell’intervallo.",
   "dashboard.as_table": "Vedi come tabella",
   "dashboard.as_chart": "Vedi come grafico",
   "dashboard.series_agent": "Con un agente in esecuzione",

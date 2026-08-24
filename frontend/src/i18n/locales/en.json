@@ -273,6 +273,8 @@
   "dashboard.by_day": "By day",
   "dashboard.day": "Day",
   "dashboard.time": "Time",
+  "dashboard.cumulative": "Running total",
+  "dashboard.cumulative_hint": "Total accumulated up to the end of that stretch, counting from the oldest one in the range.",
   "dashboard.as_table": "View as table",
   "dashboard.as_chart": "View as chart",
   "dashboard.series_agent": "With an agent running",

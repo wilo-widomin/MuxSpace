@@ -273,6 +273,8 @@
   "dashboard.by_day": "Nach Tag",
   "dashboard.day": "Tag",
   "dashboard.time": "Zeit",
+  "dashboard.cumulative": "Kumuliert",
+  "dashboard.cumulative_hint": "Bis zum Ende dieses Abschnitts aufsummierte Zeit, gezählt ab dem ältesten im Zeitraum.",
   "dashboard.as_table": "Als Tabelle",
   "dashboard.as_chart": "Als Diagramm",
   "dashboard.series_agent": "Mit laufendem Agenten",

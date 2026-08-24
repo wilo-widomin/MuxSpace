@@ -513,6 +513,20 @@ function TablaTramos({ tramos, titulo, t }) {
   const hora = (epoch) => formatTime(epoch, { segundos: true })
   const fecha = formatDate
 
+  // Acumulado CRONOLÓGICO: cuánto se llevaba sumado hasta el final de cada
+  // tramo. Se calcula en orden ascendente y se pinta al revés (la lista va de
+  // lo más reciente a lo más antiguo), así la primera fila coincide con el
+  // total de la tarjeta de arriba y hacia abajo se ve cómo fue creciendo.
+  // Acumular en el orden de pintado daría "lo que queda por sumar", que no es
+  // una cifra que nadie busque.
+  let suma = 0
+  const filas = tramos
+    .map((b) => {
+      suma += b.seconds
+      return { ...b, acumulado: suma }
+    })
+    .reverse()
+
   return (
     <table className="w-full border-collapse text-sm">
       <thead>
@@ -529,13 +543,20 @@ function TablaTramos({ tramos, titulo, t }) {
           <th scope="col" className="py-1 pr-3 text-right font-normal">
             {t('dashboard.time')}
           </th>
+          <th
+            scope="col"
+            className="py-1 pr-3 text-right font-normal"
+            title={t('dashboard.cumulative_hint')}
+          >
+            {t('dashboard.cumulative')}
+          </th>
           <th scope="col" className="py-1 text-left font-normal">
             {t('dashboard.program')}
           </th>
         </tr>
       </thead>
       <tbody>
-        {[...tramos].reverse().map((b) => {
+        {filas.map((b) => {
           const mismoDia = fecha(b.start) === fecha(b.end)
           return (
             <tr
@@ -571,6 +592,12 @@ function TablaTramos({ tramos, titulo, t }) {
               </td>
               <td className="py-1 pr-3 text-right tabular-nums text-gray-200">
                 {formatDurationExact(b.seconds)}
+              </td>
+              {/* Apagado respecto a la duración del tramo: es contexto, no el
+                  dato de la fila. Si los dos números pesan igual, la columna
+                  que se lee mal es la que de verdad importa. */}
+              <td className="py-1 pr-3 text-right tabular-nums text-panel-muted">
+                {formatDuration(b.acumulado)}
               </td>
               {/* El programa, no la sesión: cuando cada sesión se llama
                   como su espacio, el nombre repetía la primera columna. Los

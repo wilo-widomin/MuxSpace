@@ -584,54 +584,58 @@ export default function Sidebar({
       {/* Dos filas FIJAS y no un `flex-wrap` con el título dentro: con el
           ancho mínimo del sidebar (220 px) los iconos no caben junto al
           nombre, y dejándolo al azar del wrap la cabecera salía en tres
-          líneas con el título encajado en medio. Arriba el nombre y el
-          plegado —lo que siempre tiene que estar a mano—, abajo las
-          acciones. */}
-      <header className="border-b border-panel-border bg-black px-3 py-2">
+          líneas con el título encajado en medio. Arriba el logo, la
+          disposición del grid y el plegado —lo que siempre tiene que estar a
+          mano—, abajo el resto de acciones. */}
+      <header className="relative border-b border-panel-border bg-black px-3 py-2">
         <div className="flex items-center justify-between gap-2">
           {/* El logo ES el nombre: lleva las siglas dentro. El `alt` mantiene
               el nombre para quien no ve la imagen (lector de pantalla, o el
               PNG que no carga), y el `h1` sigue ahí porque el encabezado de
               la página no puede depender de que una imagen cargue. */}
           <h1 className="flex min-w-0 items-center">
+            {/* Fuera del flujo para que el logo pueda ser grande sin empujar
+                la cabecera: ocupa el alto de las dos filas y sobresale por
+                abajo. Los iconos de disposición se subieron a la fila de
+                arriba justamente para dejarle este hueco. */}
             <img
               src={logo}
               alt={t('app.brand')}
-              width="26"
-              height="26"
               className="shrink-0"
+              style={{ position: 'absolute', width: '57px', marginTop: '26px' }}
             />
           </h1>
-          <button
-            onClick={onToggleCollapse}
-            title={t('sidebar.collapse')}
-            className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
-          >
-            <ChevronLeftIcon />
-          </button>
+          <div className="flex shrink-0 items-center gap-0.5">
+            {LAYOUTS.map((mode) => (
+              <button
+                key={mode}
+                onClick={() => onSetLayout(mode)}
+                title={t(`grid.layout_${mode}`)}
+                aria-label={t(`grid.layout_${mode}`)}
+                aria-pressed={layout === mode}
+                className={`shrink-0 rounded p-1 transition hover:bg-panel-bg ${
+                  layout === mode
+                    ? 'text-panel-accent'
+                    : 'text-panel-muted hover:text-gray-100'
+                }`}
+              >
+                <LayoutIcon mode={mode} />
+              </button>
+            ))}
+            <button
+              onClick={onToggleCollapse}
+              title={t('sidebar.collapse')}
+              className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+            >
+              <ChevronLeftIcon />
+            </button>
+          </div>
         </div>
         {/* `flex-wrap` de todos modos: si el usuario baja el sidebar al
             mínimo con un idioma de nombres largos, es preferible una tercera
             línea a un botón fuera de la barra que no se puede pulsar — lo
             cazaron los E2E al añadir el cronómetro. */}
         <div className="mt-1 flex flex-wrap items-center justify-end gap-0.5">
-          {LAYOUTS.map((mode) => (
-            <button
-              key={mode}
-              onClick={() => onSetLayout(mode)}
-              title={t(`grid.layout_${mode}`)}
-              aria-label={t(`grid.layout_${mode}`)}
-              aria-pressed={layout === mode}
-              className={`rounded p-1 transition hover:bg-panel-bg ${
-                layout === mode
-                  ? 'text-panel-accent'
-                  : 'text-panel-muted hover:text-gray-100'
-              }`}
-            >
-              <LayoutIcon mode={mode} />
-            </button>
-          ))}
-          <span className="mx-0.5 h-4 w-px bg-panel-border" />
           {/* Cronómetro: verde cuando el tiempo se está contando, apagado
               cuando no. Es el mando de "no me fío": si el detector no ve la
               actividad (leer un rato largo sin tocar nada), se pulsa y cuenta

@@ -109,7 +109,12 @@ export default function Dashboard({ spaces = [] }) {
           bridge: puente,
           space: espacioFiltro || undefined,
         }),
-        api.workBlocks({ desde, hasta, space: espacioFiltro || undefined, bridge: puente }),
+        api.workBlocks({
+          desde,
+          hasta,
+          space: espacioFiltro || undefined,
+          bridge: puente,
+        }),
       ])
       setDatos(resumen)
       setTramos(bloques)

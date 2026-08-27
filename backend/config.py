@@ -143,7 +143,9 @@ TRUSTED_PROXIES: list[str] = _get_str_list(
 # 0 lo apaga (solo se cuenta lo medido). El tope real de cada consulta puede
 # venir en el parámetro `bridge`, para poder probar valores desde el panel sin
 # reiniciar: esto es solo el valor por defecto.
-WORKLOG_BRIDGE_MIN: int = max(0, min(int(os.getenv("MUXSPACE_WORKLOG_BRIDGE_MIN", "10")), 60))
+WORKLOG_BRIDGE_MIN: int = max(
+    0, min(int(os.getenv("MUXSPACE_WORKLOG_BRIDGE_MIN", "10")), 60)
+)
 
 # Binario de tmux (por si no está en el PATH estándar).
 TMUX_BINARY: str = os.getenv("MUXSPACE_TMUX_BINARY", "tmux")

@@ -124,22 +124,32 @@ export default function Dashboard({ spaces = [] }) {
   const cargar = useCallback(async () => {
     try {
       setError(null)
-      const [resumen, bloques] = await Promise.all([
+      // Las tres consultas comparten modo y tope: con criterios distintos, la
+      // lista de abajo no sumaría el total de arriba y parecería un error de
+      // cuentas que no lo es.
+      const [resumen, bloques, pausas] = await Promise.all([
         api.workSummary({
           desde,
           hasta,
           bridge: puente,
           space: espacioFiltro || undefined,
+          modo,
         }),
         api.workBlocks({
           desde,
           hasta,
           space: espacioFiltro || undefined,
           bridge: puente,
+          modo,
         }),
+        api.workPauses({ desde, hasta }),
       ])
       setDatos(resumen)
       setTramos(bloques)
+      setPausasDelPeriodo(pausas.pauses || [])
+      // Sin modo elegido a mano manda el del servidor, y hay que saberlo para
+      // poder explicar en pantalla qué se está contando.
+      if (!modo && pausas.mode) setModo(pausas.mode)
       // El servidor dice con qué tope calculó. Se adopta solo la primera vez
       // (cuando aquí no había elegido nada): a partir de ahí manda el
       // selector, y adoptarlo siempre lo dejaría clavado en el default.
@@ -147,11 +157,23 @@ export default function Dashboard({ spaces = [] }) {
     } catch (e) {
       setError(e instanceof ApiError ? e : new ApiError(0))
     }
-  }, [desde, hasta, espacioFiltro, puente])
+  }, [desde, hasta, espacioFiltro, puente, modo])
 
   useEffect(() => {
     cargar()
   }, [cargar])
+
+  const quitarPausa = useCallback(
+    async (inicio) => {
+      try {
+        await api.deletePause(inicio * 1000)
+        await cargar()
+      } catch (e) {
+        setError(e instanceof ApiError ? e : new ApiError(0))
+      }
+    },
+    [cargar],
+  )
 
   const titulo = useCallback(
     (id) => {
@@ -405,6 +427,45 @@ export default function Dashboard({ spaces = [] }) {
                 <GraficoDias dias={porDia} max={maxDia} />
               )}
             </section>
+
+            {/* Las pausas, solo en el modo que las usa. Se pueden quitar: una
+                marcada de más resta trabajo real, y el usuario tiene que poder
+                deshacerla sin tocar la base a mano. */}
+            {modo === 'workday' && (
+              <section className="mt-8">
+                <h2 className="mb-2 text-sm font-medium">{t('dashboard.pauses')}</h2>
+                {pausasDelPeriodo.length === 0 ? (
+                  <p className="text-sm text-panel-muted">{t('dashboard.no_pauses')}</p>
+                ) : (
+                  <ul className="text-sm">
+                    {pausasDelPeriodo.map((pausa) => (
+                      <li
+                        key={pausa.start}
+                        className="flex items-center gap-3 border-b border-panel-border/50 py-1"
+                      >
+                        <span className="tabular-nums text-gray-200">
+                          {formatDate(pausa.start)} {formatTime(pausa.start)}
+                          {' → '}
+                          {pausa.end ? formatTime(pausa.end) : '…'}
+                        </span>
+                        <span className="text-xs text-panel-muted">
+                          {pausa.end
+                            ? formatDuration(pausa.end - pausa.start)
+                            : t('clock.resume')}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => quitarPausa(pausa.start)}
+                          className="ml-auto text-xs text-panel-muted underline-offset-2 hover:text-gray-100 hover:underline"
+                        >
+                          {t('dashboard.pause_delete')}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
 
             <section className="mt-8">
               <div className="mb-1 flex flex-wrap items-baseline gap-2">

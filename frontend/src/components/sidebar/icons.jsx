@@ -150,6 +150,34 @@ export function ClockIcon({ activo = false }) {
   )
 }
 
+// Pausa / reanudar (estilo lucide "pause"/"play"): declarar la ausencia.
+// El estado no depende solo del color: en pausa se ve el triángulo de
+// «reanudar», que es lo que el botón hará si se pulsa.
+export function PauseIcon({ pausado = false }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {pausado ? (
+        <polygon points="6 3 20 12 6 21 6 3" fill="currentColor" />
+      ) : (
+        <>
+          <rect x="6" y="4" width="4" height="16" />
+          <rect x="14" y="4" width="4" height="16" />
+        </>
+      )}
+    </svg>
+  )
+}
+
 // Barras (estilo lucide "bar-chart-3"): la vista de tiempos.
 export function ChartIcon() {
   return (

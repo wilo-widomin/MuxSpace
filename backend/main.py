@@ -19,7 +19,15 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Body, Depends, FastAPI, Request, Response, WebSocket
+from fastapi import (
+    Body,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    Response,
+    WebSocket,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -998,6 +1006,17 @@ async def terminal_ws(websocket: WebSocket, name: str) -> None:
     await bridge(websocket, name)
 
 
+def _modo(valor: str | None) -> str | None:
+    """Modo de cálculo pedido, o None para el de la configuración.
+
+    Lo que no se reconozca se ignora en vez de fallar: el modo es una forma de
+    MIRAR los mismos datos, y un panel viejo pidiendo un modo que ya no existe
+    debe seguir viendo sus horas.
+    """
+    limpio = (valor or "").strip().lower()
+    return limpio if limpio in worklog.MODOS else None
+
+
 class WorkBeat(BaseModel):
     """Latido de actividad. NO dice qué se tecleó: solo que hubo entrada."""
 
@@ -1046,6 +1065,7 @@ def get_work_summary(
     tz: int = 0,
     bridge: int | None = None,
     space: str | None = None,
+    modo: str | None = None,
     user: str = _auth,
 ) -> dict:
     """Totales de tiempo trabajado: general, por espacio y por día local.
@@ -1065,7 +1085,7 @@ def get_work_summary(
     # Un desfase fuera de las zonas reales solo puede venir de un cliente roto.
     tz = max(-14 * 60, min(tz, 14 * 60))
     return worklog.resumen(
-        desde, hasta, tz, bridge, (space or "").strip()[:64] or None
+        desde, hasta, tz, bridge, (space or "").strip()[:64] or None, _modo(modo)
     )
 
 
@@ -1075,6 +1095,8 @@ def get_work_blocks(
     hasta: float | None = None,
     space: str | None = None,
     bridge: int | None = None,
+    modo: str | None = None,
+    tz: int = 0,
     user: str = _auth,
 ) -> list[dict]:
     """Tramos de trabajo (inicio y fin) derivados de las ranuras.
@@ -1087,9 +1109,70 @@ def get_work_blocks(
     resumen. Los dos endpoints tienen que recibir el mismo o la lista de
     tramos no sumará el total.
     """
+    tz = max(-14 * 60, min(tz, 14 * 60))
     return worklog.bloques(
-        desde, hasta, (space or "").strip()[:64] or None, bridge
+        desde, hasta, (space or "").strip()[:64] or None, bridge, _modo(modo), tz
     )
+
+
+class PauseRange(BaseModel):
+    """Una pausa ya pasada: la respuesta a «¿estabas fuera?»."""
+
+    start: float
+    end: float
+
+
+@app.get("/api/worklog/pauses")
+def get_work_pauses(
+    desde: float | None = None, hasta: float | None = None, user: str = _auth
+) -> dict:
+    """Pausas del periodo y el modo de cálculo vigente.
+
+    El modo viaja con las pausas porque el panel necesita los dos para saber
+    si enseñar el botón: en 'measured' las pausas no pintan nada.
+    """
+    return {
+        "mode": worklog.MODO_POR_DEFECTO,
+        "max_day_hours": worklog.JORNADA_MAX_HORAS,
+        "pauses": worklog.pausas(desde, hasta),
+        # Última ranura con actividad. Es lo que permite al panel detectar una
+        # ausencia SIN depender de que la máquina se haya dormido: irse a comer
+        # dejando el panel abierto no produce ningún salto de reloj, pero sí
+        # deja de haber latidos.
+        "last_slot": worklog.ultima_ranura(),
+    }
+
+
+@app.post("/api/worklog/pause")
+def post_work_pause(user: str = _auth) -> dict:
+    """Empieza una pausa: «me voy»."""
+    return {"start": worklog.pausar()}
+
+
+@app.post("/api/worklog/resume")
+def post_work_resume(user: str = _auth) -> dict:
+    """Cierra la pausa abierta: «ya estoy»."""
+    cerrada = worklog.reanudar()
+    return {"pause": cerrada}
+
+
+@app.post("/api/worklog/pauses")
+def post_work_pause_range(rango: PauseRange, user: str = _auth) -> dict:
+    """Marca una pausa YA pasada.
+
+    Es la respuesta a la pregunta del panel al volver de un hueco largo: nadie
+    se acuerda de marcar la pausa ANTES de levantarse, pero sí puede decir al
+    volver qué era ese hueco.
+    """
+    if rango.end < rango.start:
+        raise HTTPException(status_code=400, detail="rango_invalido")
+    return worklog.marcar_pausa(rango.start, rango.end)
+
+
+@app.delete("/api/worklog/pauses/{inicio}")
+def delete_work_pause(inicio: float, user: str = _auth) -> dict:
+    """Quita una pausa: marcar de más tiene que poder deshacerse."""
+    return {"deleted": worklog.borrar_pausa(inicio)}
 
 
 @app.get("/api/terminal/{name}/transcript")

@@ -303,5 +303,20 @@
   "dashboard.bridge_note": "De ese total, {time} son huecos de hasta {min} min entre dos ratos en el mismo proyecto: tiempo inferido, no medido.",
   "dashboard.inferred": "inferido",
   "dashboard.inferred_hint": "De este tramo, {time} son un hueco rellenado por continuidad: no se midió.",
-  "dashboard.program": "Programa"
+  "dashboard.program": "Programa",
+  "clock.pause": "Marcar una pausa: la jornada deja de contar hasta que vuelvas",
+  "clock.resume": "En pausa. Púlsalo al volver para seguir contando",
+  "pause.question": "Has estado {time} sin actividad. ¿Estabas trabajando?",
+  "pause.was_working": "Trabajando",
+  "pause.was_away": "Fuera",
+  "pause.hint": "Si estabas fuera, ese rato no cuenta. Puedes corregirlo luego en la vista de tiempos.",
+  "dashboard.mode": "Cálculo",
+  "dashboard.mode_measured": "Solo lo medido",
+  "dashboard.mode_workday": "Jornada",
+  "dashboard.mode_hint_measured": "Cuenta solo el tiempo con el panel delante y el teclado reciente. Se queda muy corto cuando el agente trabaja y tú miras otra ventana.",
+  "dashboard.mode_hint_workday": "Cuenta la jornada entera entre la primera y la última señal del día, menos las pausas marcadas.",
+  "dashboard.pauses": "Pausas",
+  "dashboard.no_pauses": "Ninguna pausa marcada en este periodo.",
+  "dashboard.pause_delete": "Quitar",
+  "dashboard.day_seconds": "Cubierto por la jornada"
 }

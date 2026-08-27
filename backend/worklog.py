@@ -50,6 +50,23 @@ Se hace derivando y no escribiendo ranuras a propósito: cambiar el tope
 recalcula todo el histórico al instante, y una ranura de puente escrita en la
 base ya no se distinguiría de una medida.
 
+## Dos modos de contar el día
+
+Todo lo anterior describe el modo `measured`, y ese modo se queda corto de una
+forma que no se veía hasta medirla: **3 h 25 apuntadas de una jornada real de
+8 h 30**. No es un error de calibración, es el modelo — pregunta «¿tocaste
+algo hace menos de tres minutos?» y con un agente construyendo la respuesta es
+que no casi todo el rato.
+
+El modo `workday` invierte la carga de la prueba: la jornada cuenta entera
+entre la primera y la última señal del día, y lo que hay que declarar es la
+**ausencia**. Las señales —latidos y transcripts de Claude— dejan de decidir
+*si* trabajaste y pasan a decidir solo *en qué proyecto*. Ver `MODOS`.
+
+Los dos modos leen exactamente los mismos datos: elegir uno u otro no escribe
+nada distinto, así que se pueden comparar el mismo día y volver atrás sin
+perder nada.
+
 ## Precisión
 
 El objetivo es ±15 %: distinguir un proyecto de 40 h de uno de 100 h, no saber
@@ -95,6 +112,20 @@ CREATE TABLE IF NOT EXISTS work_slots (
     command    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_work_slots_space ON work_slots(space);
+
+CREATE TABLE IF NOT EXISTS work_pauses (
+    -- Inicio de la pausa en segundos epoch (UTC). Clave primaria: dos pausas
+    -- no pueden empezar en el mismo instante, y así reabrir una pausa ya
+    -- marcada la corrige en vez de duplicarla.
+    start INTEGER PRIMARY KEY,
+    -- NULL mientras la pausa sigue abierta. Una pausa abierta NO se cierra
+    -- sola al leer: cerrarla a ojo apuntaría trabajo que quizá no existió,
+    -- y el tope de jornada ya acota el daño del olvido.
+    end   INTEGER,
+    -- 'manual' (la marcaste al irte) o 'answer' (respondiste a la pregunta
+    -- del panel al volver de un hueco largo).
+    source TEXT NOT NULL DEFAULT 'manual'
+);
 """
 
 # Cómo se supo que esa ranura era trabajo:
@@ -104,6 +135,10 @@ CREATE INDEX IF NOT EXISTS idx_work_slots_space ON work_slots(space);
 #   'bridge' — inferido: nadie lo latió, lo rellena el puente de continuidad
 #              al leer (ver el docstring del módulo). NUNCA se guarda en la
 #              base; solo existe en la salida de `bloques()` y `resumen()`.
+#   'signal' — probado por el transcript de Claude: el agente de ese proyecto
+#              estaba trabajando (ver worklog_signals.py).
+#   'day'    — cubierto por la jornada continua: dentro del horario del día y
+#              fuera de toda pausa, aunque nadie latiera (ver MODOS).
 # Se guardan juntos pero se pueden mirar por separado, y eso no es un adorno:
 # si algún día el total no cuadra con lo que uno recuerda, lo primero que hay
 # que poder saber es qué parte se midió, qué parte se declaró y qué parte se
@@ -116,6 +151,28 @@ FUENTES = ("auto", "manual")
 # irse) están todos por encima de la media hora. Entre 10 y 20 el total apenas
 # se mueve, así que el valor no es delicado.
 PUENTE_MINUTOS = config.WORKLOG_BRIDGE_MIN
+
+# Cómo se decide cuánto dura el día.
+#
+#   'measured' — el de siempre: solo cuenta lo que dejó rastro. Sesga a la
+#                baja de forma brutal (medido: 3 h 25 en un día de 8 h 30),
+#                porque el rato en el que un agente construye y tú miras otra
+#                ventana no deja rastro en ninguna parte.
+#   'workday'  — la jornada cuenta entera entre la primera y la última señal
+#                del día, MENOS las pausas marcadas. Las señales dejan de
+#                decidir *si* trabajaste y pasan a decidir solo *en qué
+#                proyecto*, que es lo único que saben de verdad.
+#
+# Se elige por consulta y no se guarda nada distinto según el modo: los dos
+# salen de los mismos datos, así que se pueden comparar el mismo día y volver
+# atrás sin perder nada.
+MODOS = ("measured", "workday")
+MODO_POR_DEFECTO = config.WORKLOG_MODE
+
+# Tope de una jornada, en horas. Es la red para el día en que se olvide marcar
+# la pausa: sin él, irse el viernes dejando el panel abierto apuntaría el fin
+# de semana entero.
+JORNADA_MAX_HORAS = config.WORKLOG_MAX_DAY_HOURS
 
 
 def _ruta() -> Path:
@@ -212,15 +269,125 @@ def _puente_segundos(minutos: int | None) -> int:
     return max(0, min(int(minutos), 60)) * 60
 
 
+# --- Pausas -------------------------------------------------------------
+#
+# Son el único dato que el panel no puede deducir. La duración de un hueco no
+# dice si fue trabajo: medido sobre un día real, un hueco de 87 minutos fue
+# mitad trabajo, uno de 60 fue trabajo entero y uno de 89 fue casi todo
+# ausencia. Ningún umbral separa esos tres casos, así que lo decide el usuario.
+
+
+def pausar(ahora: float | None = None, source: str = "manual") -> int:
+    """Abre una pausa. Devuelve su inicio.
+
+    Si ya hay una abierta no se toca: pulsar dos veces «me voy» no puede
+    perder el inicio real de la ausencia.
+    """
+    inicio = slot_de(time.time() if ahora is None else ahora)
+    with _conexion() as con:
+        abierta = con.execute(
+            "SELECT start FROM work_pauses WHERE end IS NULL ORDER BY start DESC"
+        ).fetchone()
+        if abierta:
+            return int(abierta[0])
+        con.execute(
+            "INSERT OR IGNORE INTO work_pauses (start, end, source)"
+            " VALUES (?, NULL, ?)",
+            (inicio, source if source in ("manual", "answer") else "manual"),
+        )
+    return inicio
+
+
+def reanudar(ahora: float | None = None) -> dict | None:
+    """Cierra la pausa abierta. Devuelve la pausa cerrada, o None si no había."""
+    fin = slot_de(time.time() if ahora is None else ahora) + SLOT_SECONDS
+    with _conexion() as con:
+        abierta = con.execute(
+            "SELECT start FROM work_pauses WHERE end IS NULL ORDER BY start DESC"
+        ).fetchone()
+        if not abierta:
+            return None
+        inicio = int(abierta[0])
+        # Una pausa que acabaría antes de empezar solo puede venir de un reloj
+        # tocado a mano: se cierra en su propio inicio y dura cero.
+        fin = max(fin, inicio)
+        con.execute("UPDATE work_pauses SET end = ? WHERE start = ?", (fin, inicio))
+    return {"start": inicio, "end": fin}
+
+
+def marcar_pausa(inicio: float, fin: float, source: str = "answer") -> dict:
+    """Anota una pausa YA pasada: la respuesta a «¿estabas fuera?».
+
+    Existe porque nadie se acuerda de marcar la pausa antes de levantarse. Lo
+    que sí se puede es responder al volver, y entonces el rato se recorta con
+    la hora real en vez de con una regla inventada.
+    """
+    ini = slot_de(inicio)
+    final = max(slot_de(fin) + SLOT_SECONDS, ini)
+    with _conexion() as con:
+        con.execute(
+            "INSERT INTO work_pauses (start, end, source) VALUES (?, ?, ?)"
+            " ON CONFLICT(start) DO UPDATE SET end = excluded.end,"
+            "   source = excluded.source",
+            (ini, final, source if source in ("manual", "answer") else "answer"),
+        )
+    return {"start": ini, "end": final}
+
+
+def borrar_pausa(inicio: float) -> bool:
+    """Quita una pausa. Marcar de más tiene que poder deshacerse."""
+    with _conexion() as con:
+        cur = con.execute("DELETE FROM work_pauses WHERE start = ?", (slot_de(inicio),))
+    return cur.rowcount > 0
+
+
+def pausas(desde: float | None = None, hasta: float | None = None) -> list[dict]:
+    """Pausas que tocan el periodo, la abierta incluida (con `end` a None)."""
+    inicio, fin = _rango(desde, hasta)
+    with _conexion() as con:
+        filas = list(
+            con.execute(
+                "SELECT start, end, source FROM work_pauses"
+                " WHERE (end IS NULL OR end > ?) AND start < ? ORDER BY start",
+                (inicio, fin),
+            )
+        )
+    return [
+        {"start": f[0], "end": f[1], "source": f[2], "open": f[1] is None}
+        for f in filas
+    ]
+
+
+def ultima_ranura() -> int | None:
+    """Inicio de la última ranura registrada, o None si no hay ninguna.
+
+    El panel la usa para saber cuánto lleva sin haber actividad. Detectar la
+    ausencia por el salto del reloj no basta: solo cazaría el portátil que se
+    suspende, y la ausencia normal —irse dejando el panel abierto— no mueve
+    ningún reloj.
+    """
+    with _conexion() as con:
+        fila = con.execute("SELECT MAX(slot_start) FROM work_slots").fetchone()
+    return int(fila[0]) if fila and fila[0] is not None else None
+
+
+def _en_pausa(slot: int, tramos: list[tuple[int, int]]) -> bool:
+    return any(a <= slot < b for a, b in tramos)
+
+
 def _ranuras(
     desde: float | None,
     hasta: float | None,
     puente_min: int | None,
+    modo: str | None = None,
+    tz_offset_min: int = 0,
 ) -> list[tuple[int, str, str | None, str | None, str]]:
     """Ranuras del periodo, ya con los huecos cortos rellenados.
 
-    Es el único sitio donde se aplica el puente: `bloques()` y `resumen()`
-    parten de aquí, así que no pueden dar totales distintos por descuido.
+    Es el único sitio donde se decide qué cuenta: `bloques()` y `resumen()`
+    parten de aquí, así que no pueden dar totales distintos por descuido. Y es
+    también donde se bifurcan los dos modos (ver `MODOS`) — en 'workday' el
+    puente sobra, porque la jornada ya cubre los huecos que no son pausa.
 
     El recorrido es GLOBAL, sin filtrar por espacio, y de ahí sale gratis la
     condición que hace honesto el puente: como `slot_start` es clave primaria,
@@ -233,6 +400,9 @@ def _ranuras(
     delante" encogería como fracción del total cada vez que se subiera el
     puente.
     """
+    if (modo or MODO_POR_DEFECTO) == "workday":
+        return _ranuras_jornada(desde, hasta, tz_offset_min)
+
     inicio, fin = _rango(desde, hasta)
     with _conexion() as con:
         filas = list(
@@ -264,6 +434,8 @@ def bloques(
     hasta: float | None = None,
     space: str | None = None,
     puente_min: int | None = None,
+    modo: str | None = None,
+    tz_offset_min: int = 0,
 ) -> list[dict]:
     """Tramos de trabajo continuos: cuándo empezó y cuándo acabó cada uno.
 
@@ -280,7 +452,7 @@ def bloques(
     ranura representa el tiempo que cubre.
     """
     filas = [
-        fila for fila in _ranuras(desde, hasta, puente_min)
+        fila for fila in _ranuras(desde, hasta, puente_min, modo, tz_offset_min)
         if not space or fila[1] == space
     ]
 
@@ -344,12 +516,121 @@ def _dia_local(slot: int, tz_offset_min: int) -> str:
     return time.strftime("%Y-%m-%d", time.gmtime(slot + tz_offset_min * 60))
 
 
+def _ranuras_jornada(
+    desde: float | None,
+    hasta: float | None,
+    tz_offset_min: int,
+    tope_horas: int | None = None,
+) -> list[tuple[int, str, str | None, str | None, str]]:
+    """Ranuras del modo 'workday': el día entero menos las pausas.
+
+    El reparto por proyecto se hace por **cercanía**: cada ranura se la lleva
+    aquella cuya señal más próxima en el tiempo sea suya, con las tuyas —un
+    mensaje que escribiste— ganando los empates. Las señales son los latidos
+    del panel Y los transcripts de Claude, que es lo que permite atribuir el
+    rato en que un agente construye y tú miras otra ventana.
+
+    La jornada se calcula **por día local**: si el rango se tomara entero, la
+    noche entre dos días contaría como trabajo.
+
+    Una ranura sigue teniendo un único dueño, así que el invariante de siempre
+    —la suma de los espacios nunca supera el tiempo real— se mantiene.
+    """
+    import bisect
+
+    import worklog_signals
+
+    inicio, fin = _rango(desde, hasta)
+    tope = max(1, min(int(JORNADA_MAX_HORAS if tope_horas is None else tope_horas), 24))
+
+    with _conexion() as con:
+        worklog_signals.indexar(con, SLOT_SECONDS)
+        latidos = list(
+            con.execute(
+                "SELECT slot_start, space, session, command, source FROM work_slots"
+                " WHERE slot_start >= ? AND slot_start < ? ORDER BY slot_start",
+                (inicio, fin),
+            )
+        )
+        transcritas = worklog_signals.señales(con, inicio, fin)
+        tramos_pausa = [
+            (int(f[0]), int(f[1]) if f[1] is not None else 2**62)
+            for f in con.execute(
+                "SELECT start, end FROM work_pauses WHERE (end IS NULL OR end > ?)"
+                " AND start < ?",
+                (inicio, fin),
+            )
+        ]
+
+    # Señal: (slot, space, session, command, source, es_tuyo). Los latidos
+    # pesan como tuyos porque son entrada real del usuario.
+    señales: list[tuple] = [(f[0], f[1], f[2], f[3], f[4], True) for f in latidos]
+    conocidas = {(f[0], f[1]) for f in latidos}
+    for slot, espacio, es_tuyo in transcritas:
+        if (slot, espacio) not in conocidas:
+            señales.append((slot, espacio, None, "claude", "signal", bool(es_tuyo)))
+    if not señales:
+        return []
+    señales.sort(key=lambda s: s[0])
+    tiempos = [s[0] for s in señales]
+
+    # La jornada de cada día local: de su primera señal a su última.
+    dias: dict[str, list[int]] = {}
+    for s in señales:
+        dias.setdefault(_dia_local(s[0], tz_offset_min), []).append(s[0])
+
+    por_slot: dict[int, tuple] = {}
+    for s in señales:
+        # Con dos señales en la misma ranura gana la tuya: es lo que impide
+        # que el ruido de un agente le quite la ranura al proyecto que estabas
+        # mirando de verdad.
+        previa = por_slot.get(s[0])
+        if previa is None or (s[5] and not previa[5]):
+            por_slot[s[0]] = s
+
+    salida: list[tuple] = []
+    for slots in dias.values():
+        principio, final = min(slots), max(slots) + SLOT_SECONDS
+        # El tope se mide sobre lo CONTADO, no sobre el horario: aplicado al
+        # horario castigaría justo a quien marca sus pausas —una jornada de
+        # 11 h con 2 h de pausa son 9 h de trabajo, no 10— y el olvido que la
+        # red pretende cubrir seguiría pasando.
+        restantes = tope * 3600 // SLOT_SECONDS
+        for slot in range(principio, final, SLOT_SECONDS):
+            if restantes <= 0:
+                break
+            if slot < inicio or slot >= fin:
+                continue
+            if _en_pausa(slot, tramos_pausa):
+                continue
+            restantes -= 1
+            propia = por_slot.get(slot)
+            if propia is not None:
+                salida.append(propia[:5])
+                continue
+            # Sin señal en esta ranura: se la queda la más cercana.
+            i = bisect.bisect_left(tiempos, slot)
+            candidatas = [j for j in (i - 1, i) if 0 <= j < len(señales)]
+            if not candidatas:
+                continue
+            j = min(
+                candidatas,
+                key=lambda k: (abs(tiempos[k] - slot), not señales[k][5]),
+            )
+            _, espacio, sesion, comando, _, _ = señales[j]
+            salida.append((slot, espacio, sesion, comando, "day"))
+
+    salida.sort(key=lambda s: s[0])
+    return salida
+
+
 def resumen(
     desde: float | None = None,
     hasta: float | None = None,
     tz_offset_min: int = 0,
     puente_min: int | None = None,
     space: str | None = None,
+    modo: str | None = None,
 ) -> dict:
     """Totales del periodo: general, por espacio y por día local.
 
@@ -369,7 +650,7 @@ def resumen(
     dos totales distintos para la misma pregunta.
     """
     filas = [
-        fila for fila in _ranuras(desde, hasta, puente_min)
+        fila for fila in _ranuras(desde, hasta, puente_min, modo, tz_offset_min)
         if not space or fila[1] == space
     ]
 

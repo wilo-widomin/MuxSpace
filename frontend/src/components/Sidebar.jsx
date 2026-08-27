@@ -12,6 +12,7 @@ import {
   ChartIcon,
   CheckIcon,
   ClockIcon,
+  PauseIcon,
   PencilIcon,
   PlusIcon,
   SpaceIcon,
@@ -52,6 +53,7 @@ export default function Sidebar({
   // Estado del reloj de trabajo (ver useWorkClock.js): si se está contando,
   // si está forzado a mano y cómo alternarlo.
   workClock,
+  workPause,
   collapsed,
   onToggleCollapse,
   width,
@@ -562,6 +564,24 @@ export default function Sidebar({
         >
           <ClockIcon activo={Boolean(workClock?.activo)} />
         </button>
+        {/* La pausa solo pinta algo en el modo 'workday': ahí la jornada
+            cuenta entera y lo que hay que declarar es la AUSENCIA. En el modo
+            medido no hay nada que pausar, así que el botón no aparece. */}
+        {workPause?.modo === 'workday' && (
+          <button
+            onClick={workPause?.alternarPausa}
+            title={workPause?.pausado ? t('clock.resume') : t('clock.pause')}
+            aria-label={workPause?.pausado ? t('clock.resume') : t('clock.pause')}
+            aria-pressed={Boolean(workPause?.pausado)}
+            className={`mt-2 rounded p-1.5 transition hover:bg-panel-bg ${
+              workPause?.pausado
+                ? 'text-amber-400'
+                : 'text-panel-muted hover:text-gray-100'
+            }`}
+          >
+            <PauseIcon pausado={Boolean(workPause?.pausado)} />
+          </button>
+        )}
         <a
           href="/dashboard"
           target="_blank"
@@ -664,6 +684,22 @@ export default function Sidebar({
           >
             <ClockIcon activo={Boolean(workClock?.activo)} />
           </button>
+          {/* Ver el comentario del botón gemelo en el sidebar plegado. */}
+          {workPause?.modo === 'workday' && (
+            <button
+              onClick={workPause?.alternarPausa}
+              title={workPause?.pausado ? t('clock.resume') : t('clock.pause')}
+              aria-label={workPause?.pausado ? t('clock.resume') : t('clock.pause')}
+              aria-pressed={Boolean(workPause?.pausado)}
+              className={`rounded p-1 transition hover:bg-panel-bg ${
+                workPause?.pausado
+                  ? 'text-amber-400'
+                  : 'text-panel-muted hover:text-gray-100'
+              }`}
+            >
+              <PauseIcon pausado={Boolean(workPause?.pausado)} />
+            </button>
+          )}
           <a
             href="/dashboard"
             target="_blank"

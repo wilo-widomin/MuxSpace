@@ -303,5 +303,20 @@
   "dashboard.bridge_note": "Davon sind {time} Lücken von bis zu {min} Min. zwischen zwei Abschnitten im selben Projekt: abgeleitete, nicht gemessene Zeit.",
   "dashboard.inferred": "abgeleitet",
   "dashboard.inferred_hint": "Von diesem Abschnitt sind {time} eine durch Kontinuität gefüllte Lücke: nicht gemessen.",
-  "dashboard.program": "Programm"
+  "dashboard.program": "Programm",
+  "clock.pause": "Mark a break: the workday stops counting until you return",
+  "clock.resume": "Paused. Click when you are back to keep counting",
+  "pause.question": "You were inactive for {time}. Were you working?",
+  "pause.was_working": "Working",
+  "pause.was_away": "Away",
+  "pause.hint": "If you were away, that time will not count. You can fix it later in the time view.",
+  "dashboard.mode": "Calculation",
+  "dashboard.mode_measured": "Measured only",
+  "dashboard.mode_workday": "Workday",
+  "dashboard.mode_hint_measured": "Counts only time with the panel focused and recent typing. Falls far short while an agent works and you look elsewhere.",
+  "dashboard.mode_hint_workday": "Counts the whole workday between the first and last signal of the day, minus the breaks you marked.",
+  "dashboard.pauses": "Breaks",
+  "dashboard.no_pauses": "No breaks marked in this period.",
+  "dashboard.pause_delete": "Remove",
+  "dashboard.day_seconds": "Covered by workday"
 }

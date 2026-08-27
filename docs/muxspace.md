@@ -248,6 +248,50 @@ usuario trabaja en otro.
   caducidad es la única red, y basta.
 - Con foco y entrada, **lo medido manda**: esa ranura se guarda como `auto`
   aunque el interruptor esté encendido.
+### Los dos modos de contar el día
+
+Medir solo lo que deja rastro sesga a la baja mucho más de lo que parecía. Un
+día real del usuario, contado de las dos formas: **3 h 25 medidas de una
+jornada de 8 h 30**. El motivo es la forma de trabajar que este registro
+existe para medir — le pides algo a un agente y te vas a mirar otra cosa —, y
+en ese rato no hay foco, ni teclas, ni nada que registrar.
+
+Por eso hay dos modos, elegibles por consulta (`modo=` en la API, selector en
+el dashboard) y con el de por defecto en `MUXSPACE_WORKLOG_MODE`:
+
+- **`measured`** — el original. Solo cuenta lo que dejó rastro.
+- **`workday`** — la jornada cuenta **entera** entre la primera y la última
+  señal del día, **menos las pausas marcadas**. Las señales dejan de decidir
+  *si* trabajaste y pasan a decidir solo *en qué proyecto*, que es lo único
+  que saben de verdad.
+
+Los dos salen de los mismos datos y no se guarda nada distinto según el modo,
+así que se pueden comparar el mismo día y volver atrás sin perder nada.
+
+**Las señales del transcript.** En modo `workday` se suman a los latidos las
+conversaciones de Claude Code: cada línea de un `.jsonl` lleva hora y `cwd`,
+así que prueba que un proyecto estaba vivo aunque estuvieras mirando otra
+ventana. Se indexan a ranuras en la misma base (`worklog_signals.py`) porque
+son 263 MB en 177 archivos y releerlos en cada consulta es inviable; el
+escaneo es incremental y recuerda por qué byte iba cada archivo.
+
+**Las pausas** son el único dato que el panel no puede deducir. La duración de
+un hueco no dice si fue trabajo: en el día medido, un hueco de 87 minutos fue
+mitad trabajo, uno de 60 fue trabajo entero y uno de 89 fue casi todo
+ausencia. Ningún umbral separa esos tres casos, así que lo decide el usuario
+con el botón de pausa, o respondiendo a la pregunta que salta al volver de un
+hueco largo. El hueco se detecta por **falta de latidos** y no por saltos del
+reloj: irse a comer dejando el panel abierto no mueve ningún reloj.
+
+**El tope de jornada** (`MUXSPACE_WORKLOG_MAX_DAY_HOURS`, 10 h) es la red para
+el día en que se olvide marcar la pausa. Se mide sobre lo **contado**, nunca
+sobre el horario: aplicado al horario castigaría justo a quien marca sus
+pausas.
+
+Y sigue vigente el invariante de siempre, que ningún modo puede romper: una
+ranura tiene un único dueño, así que la suma de los espacios jamás supera el
+tiempo transcurrido.
+
 - **`/dashboard`** (icono de barras, abre en pestaña nueva) muestra totales
   por espacio y por día. Necesita ruta propia en el backend porque
   `StaticFiles` devuelve 404 para lo que no es un archivo; `App.jsx` decide la

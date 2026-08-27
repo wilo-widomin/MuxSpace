@@ -75,6 +75,28 @@ export default function Dashboard({ spaces = [] }) {
   const [desdeFecha, setDesdeFecha] = useState('')
   const [hastaFecha, setHastaFecha] = useState('')
   const [espacioFiltro, setEspacioFiltro] = useState('')
+  // Modo de cálculo. Se recuerda en el navegador porque es una preferencia de
+  // lectura, no un filtro: quien mira sus horas quiere verlas siempre con el
+  // mismo criterio, y volver al de por defecto en cada visita haría que dos
+  // consultas del mismo día dieran números distintos sin motivo aparente.
+  const [modo, setModo] = useState(() => {
+    try {
+      return localStorage.getItem('muxspace.worklog.modo') || ''
+    } catch {
+      return ''
+    }
+  })
+  const [pausasDelPeriodo, setPausasDelPeriodo] = useState([])
+
+  useEffect(() => {
+    try {
+      if (modo) localStorage.setItem('muxspace.worklog.modo', modo)
+      else localStorage.removeItem('muxspace.worklog.modo')
+    } catch {
+      // Sin almacenamiento (ventana privada) se pierde la preferencia y no
+      // pasa nada más: el modo del servidor sigue siendo el que manda.
+    }
+  }, [modo])
   // Tope del puente. `null` = todavía no se ha elegido nada aquí: manda el
   // valor por defecto del servidor, y el selector se pone al recibirlo. Así
   // el desplegable nunca enseña un número distinto del que produjo el total.
@@ -102,22 +124,32 @@ export default function Dashboard({ spaces = [] }) {
   const cargar = useCallback(async () => {
     try {
       setError(null)
-      const [resumen, bloques] = await Promise.all([
+      // Las tres consultas comparten modo y tope: con criterios distintos, la
+      // lista de abajo no sumaría el total de arriba y parecería un error de
+      // cuentas que no lo es.
+      const [resumen, bloques, pausas] = await Promise.all([
         api.workSummary({
           desde,
           hasta,
           bridge: puente,
           space: espacioFiltro || undefined,
+          modo,
         }),
         api.workBlocks({
           desde,
           hasta,
           space: espacioFiltro || undefined,
           bridge: puente,
+          modo,
         }),
+        api.workPauses({ desde, hasta }),
       ])
       setDatos(resumen)
       setTramos(bloques)
+      setPausasDelPeriodo(pausas.pauses || [])
+      // Sin modo elegido a mano manda el del servidor, y hay que saberlo para
+      // poder explicar en pantalla qué se está contando.
+      if (!modo && pausas.mode) setModo(pausas.mode)
       // El servidor dice con qué tope calculó. Se adopta solo la primera vez
       // (cuando aquí no había elegido nada): a partir de ahí manda el
       // selector, y adoptarlo siempre lo dejaría clavado en el default.
@@ -125,11 +157,23 @@ export default function Dashboard({ spaces = [] }) {
     } catch (e) {
       setError(e instanceof ApiError ? e : new ApiError(0))
     }
-  }, [desde, hasta, espacioFiltro, puente])
+  }, [desde, hasta, espacioFiltro, puente, modo])
 
   useEffect(() => {
     cargar()
   }, [cargar])
+
+  const quitarPausa = useCallback(
+    async (inicio) => {
+      try {
+        await api.deletePause(inicio * 1000)
+        await cargar()
+      } catch (e) {
+        setError(e instanceof ApiError ? e : new ApiError(0))
+      }
+    },
+    [cargar],
+  )
 
   const titulo = useCallback(
     (id) => {
@@ -246,6 +290,20 @@ export default function Dashboard({ spaces = [] }) {
               ))}
             </select>
           </label>
+          {/* El modo es lo primero que hay que poder ver y cambiar: dos
+              números distintos del mismo día no son un error si se sabe cuál
+              de los dos criterios los produjo. */}
+          <label className="flex items-center gap-1">
+            {t('dashboard.mode')}
+            <select
+              value={modo}
+              onChange={(e) => setModo(e.target.value)}
+              className="rounded border border-panel-border bg-panel-surface px-2 py-1 text-gray-100 outline-none"
+            >
+              <option value="workday">{t('dashboard.mode_workday')}</option>
+              <option value="measured">{t('dashboard.mode_measured')}</option>
+            </select>
+          </label>
           {(desdeFecha || hastaFecha || espacioFiltro) && (
             <button
               type="button"
@@ -283,6 +341,10 @@ export default function Dashboard({ spaces = [] }) {
                 valor={formatDuration(media)}
               />
             </section>
+
+            <p className="-mt-6 mb-8 text-xs text-panel-muted">
+              {t(`dashboard.mode_hint_${modo || 'workday'}`)}
+            </p>
 
             {/* El tiempo declarado a mano se enseña aparte del medido. Si un
                 día el total no cuadra con lo que uno recuerda, lo primero que
@@ -365,6 +427,45 @@ export default function Dashboard({ spaces = [] }) {
                 <GraficoDias dias={porDia} max={maxDia} />
               )}
             </section>
+
+            {/* Las pausas, solo en el modo que las usa. Se pueden quitar: una
+                marcada de más resta trabajo real, y el usuario tiene que poder
+                deshacerla sin tocar la base a mano. */}
+            {modo === 'workday' && (
+              <section className="mt-8">
+                <h2 className="mb-2 text-sm font-medium">{t('dashboard.pauses')}</h2>
+                {pausasDelPeriodo.length === 0 ? (
+                  <p className="text-sm text-panel-muted">{t('dashboard.no_pauses')}</p>
+                ) : (
+                  <ul className="text-sm">
+                    {pausasDelPeriodo.map((pausa) => (
+                      <li
+                        key={pausa.start}
+                        className="flex items-center gap-3 border-b border-panel-border/50 py-1"
+                      >
+                        <span className="tabular-nums text-gray-200">
+                          {formatDate(pausa.start)} {formatTime(pausa.start)}
+                          {' → '}
+                          {pausa.end ? formatTime(pausa.end) : '…'}
+                        </span>
+                        <span className="text-xs text-panel-muted">
+                          {pausa.end
+                            ? formatDuration(pausa.end - pausa.start)
+                            : t('clock.resume')}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => quitarPausa(pausa.start)}
+                          className="ml-auto text-xs text-panel-muted underline-offset-2 hover:text-gray-100 hover:underline"
+                        >
+                          {t('dashboard.pause_delete')}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
 
             <section className="mt-8">
               <div className="mb-1 flex flex-wrap items-baseline gap-2">

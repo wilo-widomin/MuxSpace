@@ -36,7 +36,7 @@ ORIGIN = "http://testserver"
 for _var in [k for k in os.environ if k.startswith("MUXSPACE_")]:
     del os.environ[_var]
 
-# Se fijan LAS QUINCE que lee config.py, no solo las que interesan a un test
+# Se fijan LAS DIECISIETE que lee config.py, no solo las que interesan a un test
 # concreto: cualquiera que se deje sin fijar la rellena el `backend/.env` del
 # usuario (que es su despliegue real) y los tests pasarían a comportarse
 # distinto según la máquina.
@@ -73,6 +73,12 @@ os.environ.update(
         # se fija a 0 para que el default de la máquina no cambie los totales
         # de un test que no habla del puente.
         "MUXSPACE_WORKLOG_BRIDGE_MIN": "0",
+        # El modo de cálculo se prueba pasándolo explícito en cada test. Se
+        # fija a 'measured' porque es el que no depende de nada externo: el
+        # modo 'workday' lee los transcripts, y un default distinto haría que
+        # los tests del registro midieran la máquina en vez del código.
+        "MUXSPACE_WORKLOG_MODE": "measured",
+        "MUXSPACE_WORKLOG_MAX_DAY_HOURS": "10",
     }
 )
 
@@ -91,6 +97,7 @@ if str(_BACKEND) not in sys.path:
 # ----------------------------------------------------------------------
 import audit  # noqa: E402
 import auth  # noqa: E402
+import claude_transcript  # noqa: E402
 import config  # noqa: E402
 import library_store  # noqa: E402
 import main  # noqa: E402
@@ -143,6 +150,14 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     datos.mkdir(parents=True, exist_ok=True)
     raiz = _raiz_permitida(tmp_path)
     raiz.mkdir(parents=True, exist_ok=True)
+
+    # Los transcripts de Claude son del USUARIO y viven en su home. El modo
+    # 'workday' los lee para saber qué proyecto estaba vivo, así que sin esto
+    # un test escanearía cientos de MB de conversaciones reales y su resultado
+    # dependería de lo que el usuario hubiera hecho esa mañana.
+    transcripts = tmp_path / "claude-projects"
+    transcripts.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(claude_transcript, "RAIZ_PROYECTOS", transcripts)
 
     monkeypatch.setattr(library_store, "_STORE_PATH", datos / "library.json")
     monkeypatch.setattr(space_store, "_STORE_PATH", datos / "spaces.json")

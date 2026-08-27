@@ -1044,16 +1044,29 @@ def get_work_summary(
     desde: float | None = None,
     hasta: float | None = None,
     tz: int = 0,
+    bridge: int | None = None,
+    space: str | None = None,
     user: str = _auth,
 ) -> dict:
     """Totales de tiempo trabajado: general, por espacio y por día local.
 
     `desde`/`hasta` en segundos epoch; `tz` es el desfase local en minutos
     (el del navegador), porque agrupar por UTC partiría la jornada de noche.
+
+    `bridge` es el tope del puente de continuidad en minutos (0 lo apaga). Va
+    por consulta y no solo en la configuración porque el puente se aplica al
+    leer: cambiarlo recalcula el histórico entero al instante, así que se puede
+    probar un valor desde el panel sin reiniciar ni tocar los datos.
+
+    Con `space`, el resumen ENTERO es de ese espacio. Es el mismo filtro que
+    entiende `/api/worklog/blocks`: la vista de tiempos los pide a la vez y las
+    cifras de arriba tienen que hablar de lo mismo que la lista de abajo.
     """
     # Un desfase fuera de las zonas reales solo puede venir de un cliente roto.
     tz = max(-14 * 60, min(tz, 14 * 60))
-    return worklog.resumen(desde, hasta, tz)
+    return worklog.resumen(
+        desde, hasta, tz, bridge, (space or "").strip()[:64] or None
+    )
 
 
 @app.get("/api/worklog/blocks")
@@ -1061,6 +1074,7 @@ def get_work_blocks(
     desde: float | None = None,
     hasta: float | None = None,
     space: str | None = None,
+    bridge: int | None = None,
     user: str = _auth,
 ) -> list[dict]:
     """Tramos de trabajo (inicio y fin) derivados de las ranuras.
@@ -1068,8 +1082,14 @@ def get_work_blocks(
     Los tramos no se guardan: se derivan al leer agrupando ranuras contiguas.
     Guardarlos obligaría a cerrarlos, y un tramo sin cerrar —portátil cerrado,
     wifi caído— o se pierde entero o cuenta ocho horas.
+
+    `bridge`: tope del puente de continuidad en minutos, igual que en el
+    resumen. Los dos endpoints tienen que recibir el mismo o la lista de
+    tramos no sumará el total.
     """
-    return worklog.bloques(desde, hasta, (space or "").strip()[:64] or None)
+    return worklog.bloques(
+        desde, hasta, (space or "").strip()[:64] or None, bridge
+    )
 
 
 @app.get("/api/terminal/{name}/transcript")

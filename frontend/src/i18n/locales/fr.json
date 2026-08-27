@@ -273,6 +273,8 @@
   "dashboard.by_day": "Par jour",
   "dashboard.day": "Jour",
   "dashboard.time": "Temps",
+  "dashboard.cumulative": "Cumul",
+  "dashboard.cumulative_hint": "Total cumulé jusqu'à la fin de cette période, à partir de la plus ancienne de l'intervalle.",
   "dashboard.as_table": "Voir en tableau",
   "dashboard.as_chart": "Voir en graphique",
   "dashboard.series_agent": "Avec un agent en cours",
@@ -295,5 +297,11 @@
   "dashboard.declared": "déclaré",
   "dashboard.declared_hint": "Une partie de cette plage a été déclarée à la main, pas mesurée.",
   "dashboard.declared_note": "Sur ce total, {time} est du temps déclaré à la main (travail hors du panneau), non mesuré.",
+  "dashboard.bridge": "Continuité",
+  "dashboard.bridge_off": "Mesuré seulement",
+  "dashboard.bridge_hint": "Écart maximal compté comme du travail lorsque vous êtes dans une autre fenêtre sans quitter le projet. Cela ne change que la lecture des données : il ne les modifie pas.",
+  "dashboard.bridge_note": "Sur ce total, {time} sont des écarts allant jusqu'à {min} min entre deux moments sur le même projet : temps déduit, non mesuré.",
+  "dashboard.inferred": "déduit",
+  "dashboard.inferred_hint": "Sur cette période, {time} correspondent à un écart comblé par continuité : il n'a pas été mesuré.",
   "dashboard.program": "Programme"
 }

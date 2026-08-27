@@ -134,6 +134,19 @@ TRUSTED_PROXIES: list[str] = _get_str_list(
     "MUXSPACE_TRUSTED_PROXIES", ["127.0.0.1"]
 )
 
+# --- Registro de tiempo ---
+# Tope del "puente de continuidad", en minutos: hueco máximo entre dos ranuras
+# del mismo espacio que se rellena al leer como trabajo (ver worklog.py). Es
+# el rato que puedes estar en OTRA ventana —el servidor, los secretos del
+# repositorio— sin dejar de trabajar en el proyecto.
+#
+# 0 lo apaga (solo se cuenta lo medido). El tope real de cada consulta puede
+# venir en el parámetro `bridge`, para poder probar valores desde el panel sin
+# reiniciar: esto es solo el valor por defecto.
+WORKLOG_BRIDGE_MIN: int = max(
+    0, min(int(os.getenv("MUXSPACE_WORKLOG_BRIDGE_MIN", "10")), 60)
+)
+
 # Binario de tmux (por si no está en el PATH estándar).
 TMUX_BINARY: str = os.getenv("MUXSPACE_TMUX_BINARY", "tmux")
 

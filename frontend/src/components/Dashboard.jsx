@@ -31,6 +31,28 @@ const RANGOS = [
   { id: 'all', dias: null },
 ]
 
+// Topes del puente de continuidad que ofrece el selector, en minutos. 0 lo
+// apaga (solo tiempo medido). Salen de la distribución real de huecos: por
+// debajo de 10 min son saltos de ventana dentro de una misma sesión de
+// trabajo y por encima de 30 ya son ausencias, así que los valores
+// interesantes están todos aquí.
+const PUENTES = [0, 3, 5, 10, 15, 20, 30]
+
+// Dónde se recuerda el tope elegido. Es una preferencia de LECTURA —no cambia
+// ni un dato— así que vive en el navegador y no en el servidor: probar valores
+// desde una pestaña no puede alterar lo que ve el resto.
+const PUENTE_GUARDADO = 'muxspace.dashboard.bridge'
+
+function leerPuenteGuardado() {
+  try {
+    const valor = Number(window.localStorage.getItem(PUENTE_GUARDADO))
+    return PUENTES.includes(valor) ? valor : null
+  } catch {
+    // Sin almacenamiento (modo privado, permisos): manda el servidor.
+    return null
+  }
+}
+
 // Inicio del día local de hace `dias` días. Se usa el día LOCAL, igual que la
 // agrupación del servidor: si no, el rango cortaría a media jornada.
 function desdeHace(dias) {
@@ -53,6 +75,10 @@ export default function Dashboard({ spaces = [] }) {
   const [desdeFecha, setDesdeFecha] = useState('')
   const [hastaFecha, setHastaFecha] = useState('')
   const [espacioFiltro, setEspacioFiltro] = useState('')
+  // Tope del puente. `null` = todavía no se ha elegido nada aquí: manda el
+  // valor por defecto del servidor, y el selector se pone al recibirlo. Así
+  // el desplegable nunca enseña un número distinto del que produjo el total.
+  const [puente, setPuente] = useState(leerPuenteGuardado)
 
   // El rango efectivo en milisegundos. Las fechas escritas se interpretan en
   // hora LOCAL —«desde el 1» es desde las 00:00 de tu día, no de UTC— y el
@@ -77,15 +103,29 @@ export default function Dashboard({ spaces = [] }) {
     try {
       setError(null)
       const [resumen, bloques] = await Promise.all([
-        api.workSummary({ desde, hasta }),
-        api.workBlocks({ desde, hasta, space: espacioFiltro || undefined }),
+        api.workSummary({
+          desde,
+          hasta,
+          bridge: puente,
+          space: espacioFiltro || undefined,
+        }),
+        api.workBlocks({
+          desde,
+          hasta,
+          space: espacioFiltro || undefined,
+          bridge: puente,
+        }),
       ])
       setDatos(resumen)
       setTramos(bloques)
+      // El servidor dice con qué tope calculó. Se adopta solo la primera vez
+      // (cuando aquí no había elegido nada): a partir de ahí manda el
+      // selector, y adoptarlo siempre lo dejaría clavado en el default.
+      if (puente === null) setPuente(resumen.bridge_minutes ?? 0)
     } catch (e) {
       setError(e instanceof ApiError ? e : new ApiError(0))
     }
-  }, [desde, hasta, espacioFiltro])
+  }, [desde, hasta, espacioFiltro, puente])
 
   useEffect(() => {
     cargar()
@@ -184,6 +224,28 @@ export default function Dashboard({ spaces = [] }) {
               ))}
             </select>
           </label>
+          <label className="flex items-center gap-1" title={t('dashboard.bridge_hint')}>
+            {t('dashboard.bridge')}
+            <select
+              value={puente ?? ''}
+              onChange={(e) => {
+                const valor = Number(e.target.value)
+                setPuente(valor)
+                try {
+                  window.localStorage.setItem(PUENTE_GUARDADO, String(valor))
+                } catch {
+                  // Sin almacenamiento el tope vale para esta pestaña y ya.
+                }
+              }}
+              className="rounded border border-panel-border bg-panel-surface px-2 py-1 text-gray-100 outline-none"
+            >
+              {PUENTES.map((min) => (
+                <option key={min} value={min}>
+                  {min === 0 ? t('dashboard.bridge_off') : `${min} min`}
+                </option>
+              ))}
+            </select>
+          </label>
           {(desdeFecha || hastaFecha || espacioFiltro) && (
             <button
               type="button"
@@ -225,12 +287,27 @@ export default function Dashboard({ spaces = [] }) {
             {/* El tiempo declarado a mano se enseña aparte del medido. Si un
                 día el total no cuadra con lo que uno recuerda, lo primero que
                 hay que poder mirar es qué parte se declaró. */}
-            {datos.manual_seconds > 0 && (
-              <p className="-mt-6 mb-8 text-xs text-panel-muted">
-                {t('dashboard.declared_note', {
-                  time: formatDuration(datos.manual_seconds),
-                })}
-              </p>
+            {(datos.manual_seconds > 0 || datos.bridge_seconds > 0) && (
+              <div className="-mt-6 mb-8 space-y-1 text-xs text-panel-muted">
+                {datos.manual_seconds > 0 && (
+                  <p>
+                    {t('dashboard.declared_note', {
+                      time: formatDuration(datos.manual_seconds),
+                    })}
+                  </p>
+                )}
+                {/* Y lo mismo con el tiempo que puso el puente: es deducción,
+                    no medida, y va con el tope que la produjo. Sin el tope, el
+                    número no se puede interpretar ni discutir. */}
+                {datos.bridge_seconds > 0 && (
+                  <p>
+                    {t('dashboard.bridge_note', {
+                      time: formatDuration(datos.bridge_seconds),
+                      min: String(datos.bridge_minutes),
+                    })}
+                  </p>
+                )}
+              </div>
             )}
 
             <section className="mb-8">
@@ -441,6 +518,20 @@ function TablaTramos({ tramos, titulo, t }) {
   const hora = (epoch) => formatTime(epoch, { segundos: true })
   const fecha = formatDate
 
+  // Acumulado CRONOLÓGICO: cuánto se llevaba sumado hasta el final de cada
+  // tramo. Se calcula en orden ascendente y se pinta al revés (la lista va de
+  // lo más reciente a lo más antiguo), así la primera fila coincide con el
+  // total de la tarjeta de arriba y hacia abajo se ve cómo fue creciendo.
+  // Acumular en el orden de pintado daría "lo que queda por sumar", que no es
+  // una cifra que nadie busque.
+  let suma = 0
+  const filas = tramos
+    .map((b) => {
+      suma += b.seconds
+      return { ...b, acumulado: suma }
+    })
+    .reverse()
+
   return (
     <table className="w-full border-collapse text-sm">
       <thead>
@@ -457,13 +548,20 @@ function TablaTramos({ tramos, titulo, t }) {
           <th scope="col" className="py-1 pr-3 text-right font-normal">
             {t('dashboard.time')}
           </th>
+          <th
+            scope="col"
+            className="py-1 pr-3 text-right font-normal"
+            title={t('dashboard.cumulative_hint')}
+          >
+            {t('dashboard.cumulative')}
+          </th>
           <th scope="col" className="py-1 text-left font-normal">
             {t('dashboard.program')}
           </th>
         </tr>
       </thead>
       <tbody>
-        {[...tramos].reverse().map((b) => {
+        {filas.map((b) => {
           const mismoDia = fecha(b.start) === fecha(b.end)
           return (
             <tr
@@ -480,6 +578,16 @@ function TablaTramos({ tramos, titulo, t }) {
                     {t('dashboard.declared')}
                   </span>
                 )}
+                {b.bridge_seconds > 0 && (
+                  <span
+                    className="ml-2 rounded-full border border-panel-border px-1.5 py-0.5 text-[10px] text-panel-muted"
+                    title={t('dashboard.inferred_hint', {
+                      time: formatDurationExact(b.bridge_seconds),
+                    })}
+                  >
+                    {t('dashboard.inferred')}
+                  </span>
+                )}
               </td>
               <td className="py-1 pr-3 tabular-nums text-gray-200">
                 {fecha(b.start)} {hora(b.start)}
@@ -489,6 +597,12 @@ function TablaTramos({ tramos, titulo, t }) {
               </td>
               <td className="py-1 pr-3 text-right tabular-nums text-gray-200">
                 {formatDurationExact(b.seconds)}
+              </td>
+              {/* Apagado respecto a la duración del tramo: es contexto, no el
+                  dato de la fila. Si los dos números pesan igual, la columna
+                  que se lee mal es la que de verdad importa. */}
+              <td className="py-1 pr-3 text-right tabular-nums text-panel-muted">
+                {formatDuration(b.acumulado)}
               </td>
               {/* El programa, no la sesión: cuando cada sesión se llama
                   como su espacio, el nombre repetía la primera columna. Los

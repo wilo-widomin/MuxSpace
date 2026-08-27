@@ -79,7 +79,9 @@ describe('TerminalTile: otra terminal en el mismo directorio', () => {
 describe('TerminalTile: el desplegable de comandos', () => {
   it('Escape lo cierra aunque el foco esté fuera del filtro', () => {
     renderTile({ commands: [{ id: '1', label: 'build', command: 'bun run build' }] })
-    fireEvent.click(screen.getByRole('button', { name: 'Run a command from the library' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Run a command from the library' }),
+    )
     expect(screen.getByPlaceholderText('Filter commands…')).toBeInTheDocument()
 
     // El foco se va del filtro en cuanto se pincha la lista o la terminal:

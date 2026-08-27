@@ -213,6 +213,21 @@ usuario trabaja en otro.
 - Junto a la ranura se guarda qué programa corría en la sesión mirada
   (`pane_current_command`), lo que permite separar **horas con un agente
   delante** de horas de terminal a secas.
+- **Puente de continuidad.** El foco del panel no ve el trabajo que se hace en
+  otra ventana sin dejar el proyecto: mirar un token en el servidor, tocar los
+  secretos del repositorio. Por eso, **al leer**, se rellenan los huecos de
+  hasta **10 min** (por defecto) entre dos ranuras del mismo espacio cuando en
+  medio no hubo ningún otro espacio. La vuelta es la prueba: sin ranura
+  posterior no hay puente, así que irse y no volver no infla nada. Sobre el
+  histórico real esto recupera un **+35 %** del tiempo y reduce los tramos de
+  467 a 336 (los huecos ya no fragmentan la lista).
+- El tope se puede cambiar **desde el dashboard** (selector «Continuidad») o
+  con `MUXSPACE_WORKLOG_BRIDGE_MIN`. Como el puente se aplica al leer y no
+  escribe ranuras, cambiarlo recalcula el histórico entero al instante y no
+  toca ni un dato: es una preferencia de lectura, guardada en el navegador.
+- Ese tiempo se marca como `bridge` en la salida (nunca en la base) y se
+  enseña aparte, igual que el declarado: un total con un 35 % deducido tiene
+  que poder auditarse de un vistazo.
 - **Precisión objetivo ±15 %.** Hay dos sesgos conocidos que se compensan:
   leer sin tocar nada más de 3 minutos resta, y seguir contando hasta 3
   minutos tras la última tecla suma. Afinar uno solo empeora el dato.

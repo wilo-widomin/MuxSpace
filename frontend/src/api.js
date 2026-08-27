@@ -85,20 +85,30 @@ export const api = {
     }),
   // Tramos de trabajo (inicio y fin). No se guardan como tales: el servidor
   // los deriva agrupando ranuras contiguas.
-  workBlocks: ({ desde, hasta, space } = {}) => {
+  // `bridge`: tope en minutos del puente de continuidad (el rato en otra
+  // ventana que sigue contando). Si no se manda, decide el servidor. Los dos
+  // endpoints tienen que recibir el MISMO: si no, la lista de tramos no suma
+  // el total que se pinta encima.
+  workBlocks: ({ desde, hasta, space, bridge } = {}) => {
     const params = new URLSearchParams()
     if (desde) params.set('desde', String(Math.floor(desde / 1000)))
     if (hasta) params.set('hasta', String(Math.floor(hasta / 1000)))
     if (space) params.set('space', space)
+    if (bridge !== undefined && bridge !== null) params.set('bridge', String(bridge))
     return request(`/api/worklog/blocks?${params.toString()}`)
   },
-  workSummary: ({ desde, hasta, tz } = {}) => {
+  // `space` filtra el resumen ENTERO (total, días, media), no solo el reparto
+  // por espacio: la vista de tiempos lo pide junto a los tramos y las cifras
+  // de arriba tienen que hablar de lo mismo que la lista de abajo.
+  workSummary: ({ desde, hasta, tz, bridge, space } = {}) => {
     const params = new URLSearchParams()
     if (desde) params.set('desde', String(Math.floor(desde / 1000)))
     if (hasta) params.set('hasta', String(Math.floor(hasta / 1000)))
     // Desfase local en minutos: agrupar por UTC partiría la jornada de noche.
     params.set('tz', String(-new Date().getTimezoneOffset()))
     if (tz !== undefined) params.set('tz', String(tz))
+    if (bridge !== undefined && bridge !== null) params.set('bridge', String(bridge))
+    if (space) params.set('space', space)
     return request(`/api/worklog/summary?${params.toString()}`)
   },
   // Conversación de la sesión de Claude que corre en ese panel, para poder

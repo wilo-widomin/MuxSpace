@@ -36,7 +36,7 @@ ORIGIN = "http://testserver"
 for _var in [k for k in os.environ if k.startswith("MUXSPACE_")]:
     del os.environ[_var]
 
-# Se fijan LAS CATORCE que lee config.py, no solo las que interesan a un test
+# Se fijan LAS QUINCE que lee config.py, no solo las que interesan a un test
 # concreto: cualquiera que se deje sin fijar la rellena el `backend/.env` del
 # usuario (que es su despliegue real) y los tests pasarían a comportarse
 # distinto según la máquina.
@@ -69,6 +69,10 @@ os.environ.update(
         # apunta las raíces a tmp, el modo de fallo debe ser "no hay
         # sugerencias" y no "el test está paseando por el home del usuario".
         "MUXSPACE_DIR_SUGGESTION_ROOTS": json.dumps(["/nonexistent/muxspace-tests"]),
+        # El puente de continuidad se prueba pasándolo explícito en cada test:
+        # se fija a 0 para que el default de la máquina no cambie los totales
+        # de un test que no habla del puente.
+        "MUXSPACE_WORKLOG_BRIDGE_MIN": "0",
     }
 )
 

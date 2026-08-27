@@ -293,6 +293,188 @@ def test_el_tramo_dice_qué_se_estuvo_mirando() -> None:
 
 
 # ----------------------------------------------------------------------
+# El puente de continuidad
+# ----------------------------------------------------------------------
+#
+# Lo que se prueba aquí no es "rellena huecos", que es la parte fácil: es que
+# no se pueda inflar el total con él. El puente inventa tiempo por definición,
+# así que cada test dice cuál es el límite de esa invención.
+
+
+def _latir(espacio: str, base: float, ranuras: int, **extra) -> None:
+    """`ranuras` latidos seguidos en ese espacio a partir de `base`."""
+    for i in range(ranuras):
+        worklog.registrar(espacio, ahora=base + i * worklog.SLOT_SECONDS, **extra)
+
+
+def test_un_hueco_corto_en_el_mismo_espacio_se_cuenta_como_trabajo() -> None:
+    """El caso que existe para esto: te vas a otra ventana y vuelves."""
+    base = epoch("2026-08-15 09:00:00")
+    _latir("sp_a", base, 2)
+    # Cinco minutos fuera del panel (mirando el servidor, pongamos) y vuelta.
+    _latir("sp_a", base + 360, 2)
+
+    sin_puente = worklog.resumen(puente_min=0)["total_seconds"]
+    con_puente = worklog.resumen(puente_min=10)
+
+    assert sin_puente == 4 * worklog.SLOT_SECONDS
+    # Las dos ranuras medidas de cada lado más los 5 minutos de en medio.
+    assert con_puente["total_seconds"] == 4 * worklog.SLOT_SECONDS + 300
+    assert con_puente["bridge_seconds"] == 300
+    assert con_puente["by_space"][0]["bridge_seconds"] == 300
+
+
+def test_un_hueco_mayor_que_el_tope_no_se_puentea() -> None:
+    """Comer no es trabajar. El tope es lo único que separa un caso del otro."""
+    base = epoch("2026-08-15 09:00:00")
+    _latir("sp_a", base, 2)
+    _latir("sp_a", base + 3600, 2)
+
+    resumen = worklog.resumen(puente_min=10)
+    assert resumen["total_seconds"] == 4 * worklog.SLOT_SECONDS
+    assert resumen["bridge_seconds"] == 0
+
+
+def test_no_se_puentea_por_encima_de_otro_espacio() -> None:
+    """Si en medio trabajaste en otro proyecto, el hueco no es de este.
+
+    Sin esta regla el tiempo se contaría dos veces —una en cada espacio— y
+    caería el invariante de no superar el tiempo transcurrido, que es el que
+    sostiene todo el registro.
+    """
+    base = epoch("2026-08-15 09:00:00")
+    worklog.registrar("sp_a", ahora=base)
+    worklog.registrar("sp_b", ahora=base + 180)
+    worklog.registrar("sp_a", ahora=base + 360)
+
+    resumen = worklog.resumen(puente_min=10)
+    assert resumen["bridge_seconds"] == 0
+    assert resumen["total_seconds"] == 3 * worklog.SLOT_SECONDS
+
+
+def test_irse_y_no_volver_no_puentea_nada() -> None:
+    """El puente necesita las dos orillas: la vuelta es la prueba.
+
+    Es lo que lo distingue de alargar el tiempo de inactividad del cliente,
+    que sí apuntaría una cola tras el último latido pasara lo que pasara.
+    """
+    base = epoch("2026-08-15 09:00:00")
+    _latir("sp_a", base, 4)
+
+    assert worklog.resumen(puente_min=30)["total_seconds"] == 4 * worklog.SLOT_SECONDS
+
+
+def test_el_puente_nunca_supera_el_tiempo_transcurrido() -> None:
+    """El invariante de siempre, ahora contra la parte inventada.
+
+    Rellenar huecos es exactamente la operación que podría romperlo, así que
+    se comprueba con el tope al máximo y dos espacios alternándose.
+    """
+    base = epoch("2026-08-15 09:00:00")
+    for i in range(20):
+        worklog.registrar("sp_a" if i % 2 else "sp_b", ahora=base + i * 300)
+    transcurrido = 19 * 300 + worklog.SLOT_SECONDS
+
+    resumen = worklog.resumen(puente_min=60)
+    assert resumen["total_seconds"] <= transcurrido
+    assert sum(e["seconds"] for e in resumen["by_space"]) == resumen["total_seconds"]
+
+
+def test_el_puente_une_el_tramo_en_vez_de_partirlo() -> None:
+    """La otra mitad del arreglo: la lista de tramos deja de fragmentarse."""
+    base = epoch("2026-08-15 09:00:00")
+    _latir("sp_a", base, 2)
+    _latir("sp_a", base + 300, 2)
+
+    assert len(worklog.bloques(puente_min=0)) == 2
+    tramos = worklog.bloques(puente_min=10)
+    assert len(tramos) == 1
+    assert tramos[0]["seconds"] == 4 * worklog.SLOT_SECONDS + 240
+    assert tramos[0]["bridge_seconds"] == 240
+
+
+def test_el_filtro_por_espacio_no_puentea_lo_que_no_toca() -> None:
+    """Filtrar por espacio ANTES del puente inventaría continuidad falsa.
+
+    Con `sp_b` en medio, pedir solo los tramos de `sp_a` no puede devolver un
+    tramo continuo: ese rato el usuario estaba en otro proyecto.
+    """
+    base = epoch("2026-08-15 09:00:00")
+    worklog.registrar("sp_a", ahora=base)
+    worklog.registrar("sp_b", ahora=base + 180)
+    worklog.registrar("sp_a", ahora=base + 360)
+
+    assert len(worklog.bloques(space="sp_a", puente_min=10)) == 2
+
+
+def test_el_tiempo_inferido_hereda_lo_que_se_estaba_mirando() -> None:
+    """Si no heredara, el tiempo 'con agente delante' encogería como fracción
+    del total cada vez que se subiera el tope, y parecería que se usa menos el
+    agente por haber cambiado un parámetro que no tiene nada que ver."""
+    base = epoch("2026-08-15 09:00:00")
+    worklog.registrar("sp_a", session="s1", command="claude", ahora=base)
+    worklog.registrar("sp_a", session="s1", command="claude", ahora=base + 300)
+
+    resumen = worklog.resumen(puente_min=10)
+    assert resumen["by_space"][0]["claude_seconds"] == resumen["total_seconds"]
+
+
+def test_el_tope_se_acota_y_cero_lo_apaga() -> None:
+    """Un tope enorme convertiría una semana entera en un solo tramo."""
+    base = epoch("2026-08-15 09:00:00")
+    _latir("sp_a", base, 1)
+    _latir("sp_a", base + 3 * 3600, 1)
+
+    assert worklog.resumen(puente_min=10_000)["bridge_seconds"] == 0
+    assert worklog.resumen(puente_min=0)["bridge_seconds"] == 0
+    assert worklog.resumen(puente_min=-5)["bridge_seconds"] == 0
+
+
+def test_filtrar_por_espacio_filtra_el_resumen_entero() -> None:
+    """El total, los días y la media tienen que ser de lo que se pregunta.
+
+    Filtrar solo la lista de tramos y dejar las cifras de arriba globales es
+    peor que no filtrar: la pantalla mezcla dos preguntas sin decirlo, y el
+    total de un espacio se lee como si fuera suyo.
+    """
+    base = epoch("2026-08-15 09:00:00")
+    _latir("sp_a", base, 4)
+    _latir("sp_b", base + 3600, 6)
+
+    solo_a = worklog.resumen(space="sp_a", puente_min=0)
+    assert solo_a["total_seconds"] == 4 * worklog.SLOT_SECONDS
+    assert [e["space"] for e in solo_a["by_space"]] == ["sp_a"]
+    assert sum(d["seconds"] for d in solo_a["by_day"]) == solo_a["total_seconds"]
+    assert all(d["space"] == "sp_a" for d in solo_a["by_day_space"])
+
+    assert worklog.resumen(puente_min=0)["total_seconds"] == 10 * worklog.SLOT_SECONDS
+
+
+def test_el_espacio_filtrado_dice_desde_cuando_hay_datos_SUYOS() -> None:
+    """Con un espacio elegido, la fecha del registro entero contestaría otra
+    cosa: «el panel mide desde marzo» cuando ese espacio nació en agosto."""
+    _latir("sp_viejo", epoch("2026-03-01 09:00:00"), 2)
+    nacimiento = epoch("2026-08-15 09:00:00")
+    _latir("sp_nuevo", nacimiento, 2)
+
+    assert worklog.resumen(space="sp_nuevo")["since"] == worklog.slot_de(nacimiento)
+
+
+def test_el_resumen_filtrado_no_puentea_por_encima_de_otro_espacio() -> None:
+    """Mismo orden que en los tramos: primero el puente, luego el filtro.
+
+    Al revés, dos ranuras separadas por otro proyecto parecerían contiguas y el
+    espacio filtrado se quedaría con un rato que no es suyo.
+    """
+    base = epoch("2026-08-15 09:00:00")
+    worklog.registrar("sp_a", ahora=base)
+    worklog.registrar("sp_b", ahora=base + 180)
+    worklog.registrar("sp_a", ahora=base + 360)
+
+    assert worklog.resumen(space="sp_a", puente_min=10)["bridge_seconds"] == 0
+
+
+# ----------------------------------------------------------------------
 # Por HTTP
 # ----------------------------------------------------------------------
 
@@ -330,3 +512,27 @@ def test_una_zona_horaria_imposible_no_rompe_el_resumen(client_auth) -> None:
     """El desfase viene del navegador; recortarlo evita agrupar por fechas
     absurdas si algún día llega basura."""
     assert client_auth.get("/api/worklog/summary?tz=99999").status_code == 200
+
+
+def test_el_resumen_acepta_el_tope_del_puente(client_auth) -> None:
+    """El tope viaja por consulta para poder probarlo desde el panel sin
+    reiniciar: si no llegara, el selector de la vista de tiempos no haría
+    nada y no habría forma de notarlo mirando la pantalla."""
+    resp = client_auth.get("/api/worklog/summary?bridge=15")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["bridge_minutes"] == 15
+
+
+def test_los_tramos_aceptan_el_tope_del_puente(client_auth) -> None:
+    """Los dos endpoints tienen que entender el mismo parámetro o la lista de
+    tramos no sumaría el total que se pinta encima."""
+    assert client_auth.get("/api/worklog/blocks?bridge=15").status_code == 200
+
+
+def test_el_resumen_acepta_el_filtro_por_espacio(client_auth) -> None:
+    """El mismo parámetro que `/blocks`: la vista de tiempos pide los dos a la
+    vez y las cifras de arriba tienen que hablar de la lista de abajo."""
+    client_auth.post("/api/worklog/beat", json={"space": "sp_a"})
+    resumen = client_auth.get("/api/worklog/summary?space=sp_b").json()
+    assert resumen["total_seconds"] == 0
+    assert resumen["by_space"] == []

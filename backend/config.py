@@ -147,6 +147,18 @@ WORKLOG_BRIDGE_MIN: int = max(
     0, min(int(os.getenv("MUXSPACE_WORKLOG_BRIDGE_MIN", "10")), 60)
 )
 
+# Cómo se cuenta el día: 'measured' (solo lo que dejó rastro) o 'workday'
+# (la jornada entera menos las pausas marcadas). Ver worklog.MODOS.
+WORKLOG_MODE: str = (
+    os.getenv("MUXSPACE_WORKLOG_MODE", "workday").strip().lower() or "workday"
+)
+
+# Tope de una jornada en horas: la red para el día en que se olvide marcar la
+# pausa. Acotado para que un valor absurdo no pueda apuntar una semana.
+WORKLOG_MAX_DAY_HOURS: int = max(
+    1, min(int(os.getenv("MUXSPACE_WORKLOG_MAX_DAY_HOURS", "10")), 24)
+)
+
 # Binario de tmux (por si no está en el PATH estándar).
 TMUX_BINARY: str = os.getenv("MUXSPACE_TMUX_BINARY", "tmux")
 

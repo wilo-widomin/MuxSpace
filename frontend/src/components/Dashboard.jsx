@@ -75,6 +75,28 @@ export default function Dashboard({ spaces = [] }) {
   const [desdeFecha, setDesdeFecha] = useState('')
   const [hastaFecha, setHastaFecha] = useState('')
   const [espacioFiltro, setEspacioFiltro] = useState('')
+  // Modo de cálculo. Se recuerda en el navegador porque es una preferencia de
+  // lectura, no un filtro: quien mira sus horas quiere verlas siempre con el
+  // mismo criterio, y volver al de por defecto en cada visita haría que dos
+  // consultas del mismo día dieran números distintos sin motivo aparente.
+  const [modo, setModo] = useState(() => {
+    try {
+      return localStorage.getItem('muxspace.worklog.modo') || ''
+    } catch {
+      return ''
+    }
+  })
+  const [pausasDelPeriodo, setPausasDelPeriodo] = useState([])
+
+  useEffect(() => {
+    try {
+      if (modo) localStorage.setItem('muxspace.worklog.modo', modo)
+      else localStorage.removeItem('muxspace.worklog.modo')
+    } catch {
+      // Sin almacenamiento (ventana privada) se pierde la preferencia y no
+      // pasa nada más: el modo del servidor sigue siendo el que manda.
+    }
+  }, [modo])
   // Tope del puente. `null` = todavía no se ha elegido nada aquí: manda el
   // valor por defecto del servidor, y el selector se pone al recibirlo. Así
   // el desplegable nunca enseña un número distinto del que produjo el total.
@@ -246,6 +268,20 @@ export default function Dashboard({ spaces = [] }) {
               ))}
             </select>
           </label>
+          {/* El modo es lo primero que hay que poder ver y cambiar: dos
+              números distintos del mismo día no son un error si se sabe cuál
+              de los dos criterios los produjo. */}
+          <label className="flex items-center gap-1">
+            {t('dashboard.mode')}
+            <select
+              value={modo}
+              onChange={(e) => setModo(e.target.value)}
+              className="rounded border border-panel-border bg-panel-surface px-2 py-1 text-gray-100 outline-none"
+            >
+              <option value="workday">{t('dashboard.mode_workday')}</option>
+              <option value="measured">{t('dashboard.mode_measured')}</option>
+            </select>
+          </label>
           {(desdeFecha || hastaFecha || espacioFiltro) && (
             <button
               type="button"
@@ -283,6 +319,10 @@ export default function Dashboard({ spaces = [] }) {
                 valor={formatDuration(media)}
               />
             </section>
+
+            <p className="-mt-6 mb-8 text-xs text-panel-muted">
+              {t(`dashboard.mode_hint_${modo || 'workday'}`)}
+            </p>
 
             {/* El tiempo declarado a mano se enseña aparte del medido. Si un
                 día el total no cuadra con lo que uno recuerda, lo primero que

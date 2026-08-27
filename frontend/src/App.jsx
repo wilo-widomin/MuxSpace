@@ -6,6 +6,8 @@ import { api, ApiError } from './api.js'
 import { initialSpace, UNASSIGNED } from './spaces.js'
 import { porNombre } from './lib/orden.js'
 import { useWorkClock } from './useWorkClock.js'
+import { useWorkPause } from './useWorkPause.js'
+import PauseQuestion from './components/PauseQuestion.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import { useT } from './i18n/index.jsx'
 
@@ -342,6 +344,10 @@ export default function App() {
   // En la vista de tiempos no se cuenta: mirar cuánto has trabajado no es
   // trabajar en un proyecto, y contarlo ahí ensuciaría el espacio activo.
   const workClock = useWorkClock(activeSpace, activeName, authed && !esDashboard)
+  // Las pausas van aparte del reloj: el reloj mide dónde estás, la pausa dice
+  // que no estás en ninguna parte. En la vista de tiempos también valen —irse
+  // a comer se marca igual desde el dashboard.
+  const workPause = useWorkPause(authed)
 
   // Si la tile con foco desaparece del grid (cierre/kill), liberamos el foco.
   useEffect(() => {
@@ -706,13 +712,20 @@ export default function App() {
   // el reloj de trabajo no cuenta: mirar los tiempos no es trabajar en un
   // proyecto.
   if (esDashboard) {
-    return <Dashboard spaces={spacesOrdenados} />
+    return (
+      <>
+        <Dashboard spaces={spacesOrdenados} />
+        <PauseQuestion hueco={workPause.pregunta} onResponder={workPause.responder} />
+      </>
+    )
   }
 
   return (
     <div className="flex h-full w-full bg-panel-bg">
+      <PauseQuestion hueco={workPause.pregunta} onResponder={workPause.responder} />
       <Sidebar
         workClock={workClock}
+        workPause={workPause}
         collapsed={sidebarCollapsed}
         onToggleCollapse={toggleSidebar}
         width={sidebarWidth}

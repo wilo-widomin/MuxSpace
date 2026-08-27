@@ -89,18 +89,22 @@ export const api = {
   // ventana que sigue contando). Si no se manda, decide el servidor. Los dos
   // endpoints tienen que recibir el MISMO: si no, la lista de tramos no suma
   // el total que se pinta encima.
-  workBlocks: ({ desde, hasta, space, bridge } = {}) => {
+  workBlocks: ({ desde, hasta, space, bridge, modo } = {}) => {
     const params = new URLSearchParams()
     if (desde) params.set('desde', String(Math.floor(desde / 1000)))
     if (hasta) params.set('hasta', String(Math.floor(hasta / 1000)))
     if (space) params.set('space', space)
     if (bridge !== undefined && bridge !== null) params.set('bridge', String(bridge))
+    if (modo) params.set('modo', modo)
+    // El desfase local: en 'workday' el servidor necesita saber dónde empieza
+    // TU día para no estirar la jornada por la noche.
+    params.set('tz', String(-new Date().getTimezoneOffset()))
     return request(`/api/worklog/blocks?${params.toString()}`)
   },
   // `space` filtra el resumen ENTERO (total, días, media), no solo el reparto
   // por espacio: la vista de tiempos lo pide junto a los tramos y las cifras
   // de arriba tienen que hablar de lo mismo que la lista de abajo.
-  workSummary: ({ desde, hasta, tz, bridge, space } = {}) => {
+  workSummary: ({ desde, hasta, tz, bridge, space, modo } = {}) => {
     const params = new URLSearchParams()
     if (desde) params.set('desde', String(Math.floor(desde / 1000)))
     if (hasta) params.set('hasta', String(Math.floor(hasta / 1000)))
@@ -109,8 +113,32 @@ export const api = {
     if (tz !== undefined) params.set('tz', String(tz))
     if (bridge !== undefined && bridge !== null) params.set('bridge', String(bridge))
     if (space) params.set('space', space)
+    if (modo) params.set('modo', modo)
     return request(`/api/worklog/summary?${params.toString()}`)
   },
+  // Pausas: el único dato que el panel no puede deducir. La duración de un
+  // hueco no dice si fue trabajo (medido: uno de 87 min fue mitad trabajo y
+  // uno de 60 fue trabajo entero), así que lo decide el usuario.
+  workPauses: ({ desde, hasta } = {}) => {
+    const params = new URLSearchParams()
+    if (desde) params.set('desde', String(Math.floor(desde / 1000)))
+    if (hasta) params.set('hasta', String(Math.floor(hasta / 1000)))
+    return request(`/api/worklog/pauses?${params.toString()}`)
+  },
+  workPause: () => request('/api/worklog/pause', { method: 'POST' }),
+  workResume: () => request('/api/worklog/resume', { method: 'POST' }),
+  // Una pausa YA pasada: la respuesta a «¿estabas fuera?» al volver de un
+  // hueco largo. Nadie se acuerda de marcarla antes de levantarse.
+  markPause: (desde, hasta) =>
+    request('/api/worklog/pauses', {
+      method: 'POST',
+      body: JSON.stringify({
+        start: Math.floor(desde / 1000),
+        end: Math.floor(hasta / 1000),
+      }),
+    }),
+  deletePause: (desde) =>
+    request(`/api/worklog/pauses/${Math.floor(desde / 1000)}`, { method: 'DELETE' }),
   // Conversación de la sesión de Claude que corre en ese panel, para poder
   // buscarla: lo que Claude ya sacó de pantalla no está en ningún buffer del
   // terminal (ocupa la pantalla alternativa), pero sí en su transcript.

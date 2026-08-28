@@ -112,6 +112,14 @@ Navegador ──HTTP──────> FastAPI (API + frontend estático)
 - Cada *tile* tiene una cabecera con el nombre de la sesión y un control de
   cierre (**X**) que retira la vista del grid (no destruye la sesión de
   tmux).
+- **Doble clic sobre el nombre lo renombra ahí mismo**: el nombre se
+  convierte en un campo (Enter guarda, Escape o salir del campo cancelan) y
+  llama a `POST /api/rename-session`, el mismo camino que el renombrado de
+  la barra lateral. Existe porque las sesiones que salen de un proyecto se
+  llaman como el proyecto con un número detrás (`muxspace`, `muxspace-2`…),
+  y con varias abiertas ese número no dice cuál es cuál; ir a buscarlas al
+  catálogo de la barra lateral para distinguirlas era el camino largo.
+  Mientras se edita, la cabecera deja de ser asa de arrastre.
 - El icono de **terminal** de la cabecera abre otra sesión en el **mismo
   directorio** que esa terminal, con nombre automático (`Terminal`,
   `Terminal (2)`…). El directorio lo resuelve el backend leyendo

@@ -10,8 +10,9 @@ backend.
 Qué hace:
 
 - **Sesiones de tmux**: listar, crear, abrir/cerrar su vista en un *grid*
-  responsivo equitativo, renombrar, separar (*detach*), enviar comandos y
-  destruir.
+  responsivo equitativo, renombrar (desde la barra lateral o con doble clic
+  en el nombre de la cabecera de la ventana), separar (*detach*), enviar
+  comandos y destruir.
 - **Terminales xterm.js** propias conectadas por WebSocket a un puente PTY
   del backend (`tmux attach`), con copia al portapapeles controlada por el
   cliente (incluido OSC 52).

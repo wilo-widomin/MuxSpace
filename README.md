@@ -29,7 +29,10 @@ Un único proceso sirve la API, el WebSocket de las terminales y el frontend
 compilado, todo en un **solo puerto local**. No depende de systemd, Docker ni
 de ningún proxy (opcionales para exponerlo al exterior).
 
-Especificación completa en [`docs/muxspace.md`](docs/muxspace.md).
+Especificación completa en [`docs/muxspace.md`](docs/muxspace.md). Si vienes a
+tocar código —o eres un agente—, empieza por
+[`docs/agent-context/INDEX.md`](docs/agent-context/INDEX.md): un documento corto
+por dominio con lo que hace falta saber antes de abrir un archivo.
 
 > **¿Empezar desde cero?** Sigue la guía de
 > [`docs/onboarding.md`](docs/onboarding.md): clonar, configurar, arrancar
@@ -359,6 +362,7 @@ muxspace/
 ├── scripts/
 │   └── dev.sh             # Arranca backend + frontend (Vite HMR)
 └── docs/
+    ├── agent-context/         # Contexto por dominios, escrito para agentes
     ├── img/                   # Capturas usadas en la documentación
     ├── onboarding.md          # Guía de puesta en marcha paso a paso
     ├── muxspace.md            # Especificación

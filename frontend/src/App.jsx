@@ -770,6 +770,7 @@ export default function App() {
           onClose={handleClose}
           onKill={handleKillSession}
           onSpawn={handleSpawnTerminal}
+          onRename={handleRenameSession}
           onReorder={handleReorder}
           commands={commandsOrdenados}
           projects={projects}

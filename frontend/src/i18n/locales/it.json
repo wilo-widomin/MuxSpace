@@ -22,6 +22,8 @@
   "grid.restore_all": "Ripristina tutte le ridotte",
   "grid.all_minimized": "Tutti i terminali sono ridotti a icona. Clicca una scheda in alto per rimetterne uno nella griglia.",
   "tile.drag_hint": "Trascina per riordinare",
+  "tile.rename": "Rinomina la sessione",
+  "tile.rename_hint": "Doppio clic per rinominare",
   "tile.kill": "Termina la sessione tmux (kill-session)",
   "tile.close": "Chiudi e ferma il terminale",
   "tile.maximize": "Ingrandisci",

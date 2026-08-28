@@ -22,6 +22,8 @@
   "grid.restore_all": "Restaurar todas as minimizadas",
   "grid.all_minimized": "Todos os terminais estão minimizados. Clica num separador acima para devolver um à grelha.",
   "tile.drag_hint": "Arrasta para reordenar",
+  "tile.rename": "Renomear a sessão",
+  "tile.rename_hint": "Duplo clique para renomear",
   "tile.kill": "Terminar a sessão de tmux (kill-session)",
   "tile.close": "Fechar e parar o terminal",
   "tile.maximize": "Maximizar",

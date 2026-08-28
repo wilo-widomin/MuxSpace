@@ -72,6 +72,7 @@ export default function SessionGrid({
   onClose,
   onKill,
   onSpawn = () => {},
+  onRename = async () => {},
   onReorder,
   commands,
   projects = [],
@@ -328,6 +329,7 @@ export default function SessionGrid({
                 onClose={onClose}
                 onKill={onKill}
                 onSpawn={onSpawn}
+                onRename={onRename}
                 commands={commands}
                 links={linksByProject.get(session.project) || []}
                 dragging={dragName !== null}

@@ -91,3 +91,47 @@ describe('TerminalTile: el desplegable de comandos', () => {
     expect(screen.queryByPlaceholderText('Filter commands…')).not.toBeInTheDocument()
   })
 })
+
+describe('TerminalTile: renombrar desde la cabecera', () => {
+  it('el doble clic sobre el nombre lo convierte en un campo editable', async () => {
+    const onRename = vi.fn().mockResolvedValue(undefined)
+    renderTile({ session: { name: 'muxspace-2' }, onRename })
+
+    fireEvent.doubleClick(screen.getByText('muxspace-2'))
+    const campo = screen.getByRole('textbox', { name: 'Rename the session' })
+    // Arrancar con el nombre puesto es lo que permite retocarlo en vez de
+    // teclearlo entero.
+    expect(campo).toHaveValue('muxspace-2')
+
+    fireEvent.change(campo, { target: { value: '  despliegue  ' } })
+    fireEvent.submit(campo)
+
+    // El nombre viaja recortado: un espacio al final no es un nombre distinto.
+    expect(onRename).toHaveBeenCalledWith('muxspace-2', 'despliegue')
+  })
+
+  it('Escape cancela y deja el nombre como estaba', () => {
+    const onRename = vi.fn()
+    renderTile({ session: { name: 'muxspace-2' }, onRename })
+
+    fireEvent.doubleClick(screen.getByText('muxspace-2'))
+    const campo = screen.getByRole('textbox', { name: 'Rename the session' })
+    fireEvent.change(campo, { target: { value: 'otro' } })
+    fireEvent.keyDown(campo, { key: 'Escape' })
+
+    expect(onRename).not.toHaveBeenCalled()
+    expect(screen.getByText('muxspace-2')).toBeInTheDocument()
+  })
+
+  it('un nombre vacío no llega al servidor', () => {
+    const onRename = vi.fn()
+    renderTile({ session: { name: 'muxspace-2' }, onRename })
+
+    fireEvent.doubleClick(screen.getByText('muxspace-2'))
+    const campo = screen.getByRole('textbox', { name: 'Rename the session' })
+    fireEvent.change(campo, { target: { value: '   ' } })
+    fireEvent.submit(campo)
+
+    expect(onRename).not.toHaveBeenCalled()
+  })
+})

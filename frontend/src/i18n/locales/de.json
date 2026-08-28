@@ -22,6 +22,8 @@
   "grid.restore_all": "Alle minimierten wiederherstellen",
   "grid.all_minimized": "Alle Terminals sind minimiert. Klicke oben auf einen Tab, um eines zurückzuholen.",
   "tile.drag_hint": "Zum Umsortieren ziehen",
+  "tile.rename": "Sitzung umbenennen",
+  "tile.rename_hint": "Zum Umbenennen doppelklicken",
   "tile.kill": "tmux-Session beenden (kill-session)",
   "tile.close": "Terminal schließen und stoppen",
   "tile.maximize": "Maximieren",

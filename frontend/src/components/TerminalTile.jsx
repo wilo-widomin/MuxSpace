@@ -57,6 +57,7 @@ export default function TerminalTile({
   onToggleFocus,
   onMinimize,
   onSpawn = () => {},
+  onRename = async () => {},
   focusToken = 0,
 }) {
   const { t, tError } = useT()
@@ -73,7 +74,16 @@ export default function TerminalTile({
   // terminal, y el texto viaja al lado. Con un booleano habría que apagarlo
   // después para poder volver a pegar lo mismo.
   const [paste, setPaste] = useState({ token: 0, text: '' })
+  // Renombrar la sesión desde la propia cabecera. El nombre que trae una
+  // sesión abierta desde un proyecto es el del proyecto con un número
+  // detrás, y con tres ventanas de lo mismo en pantalla ese número no
+  // dice cuál es cuál: aquí se le pone el nombre que toque sin ir a la
+  // barra lateral a buscar la sesión entre todas las demás.
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const [renameError, setRenameError] = useState(null)
   const inputRef = useRef(null)
+  const renameRef = useRef(null)
 
   // La lista se ofrece ORDENADA alfabéticamente: es un catálogo que se mira,
   // no un historial, y el orden en que se creó cada comando no le dice nada a
@@ -116,6 +126,38 @@ export default function TerminalTile({
     window.addEventListener('keydown', alPulsar, true)
     return () => window.removeEventListener('keydown', alPulsar, true)
   }, [showDropdown])
+
+  // Al entrar en edición el texto queda seleccionado: lo normal es
+  // sustituir el nombre entero, no añadirle algo al final.
+  useEffect(() => {
+    if (renaming) renameRef.current?.select()
+  }, [renaming])
+
+  const startRename = () => {
+    setRenameValue(session.name)
+    setRenameError(null)
+    setRenaming(true)
+  }
+
+  const cancelRename = () => {
+    setRenaming(false)
+    setRenameError(null)
+  }
+
+  const submitRename = async (e) => {
+    e.preventDefault()
+    const nuevo = renameValue.trim()
+    if (!nuevo || nuevo === session.name) {
+      cancelRename()
+      return
+    }
+    try {
+      await onRename(session.name, nuevo)
+      cancelRename()
+    } catch (err) {
+      setRenameError(tError(err))
+    }
+  }
 
   const handleKill = () => {
     // Texto completo en una sola clave (saltos de línea incluidos): partirlo
@@ -163,7 +205,7 @@ export default function TerminalTile({
       } ${isDragSource ? 'opacity-50' : ''}`}
     >
       <div
-        draggable
+        draggable={!renaming}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
         onMouseDown={() => onFocus()}
@@ -172,7 +214,35 @@ export default function TerminalTile({
       >
         <span className="flex min-w-0 items-center gap-2 truncate text-sm font-medium text-gray-100">
           <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" />
-          <span className="truncate">{session.name}</span>
+          {renaming ? (
+            <form onSubmit={submitRename} className="min-w-0 flex-1">
+              <input
+                ref={renameRef}
+                type="text"
+                value={renameValue}
+                aria-label={t('tile.rename')}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') cancelRename()
+                }}
+                onBlur={cancelRename}
+                title={renameError || undefined}
+                className={`w-full rounded border bg-panel-bg px-1 py-0.5 text-sm text-gray-100 outline-none ${
+                  renameError ? 'border-red-500' : 'border-panel-accent'
+                }`}
+              />
+            </form>
+          ) : (
+            <span
+              onDoubleClick={startRename}
+              title={t('tile.rename_hint')}
+              className="cursor-text truncate"
+            >
+              {session.name}
+            </span>
+          )}
         </span>
 
         {/* Enlaces del proyecto. `overflow-x-auto` sin barra visible: en un

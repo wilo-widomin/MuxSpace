@@ -1,7 +1,7 @@
 ---
 dominio: jornada
 accion: contar-la-jornada
-actualizado: 2026-08-28
+actualizado: 2026-08-29
 archivos:
   - backend/worklog.py
   - backend/config.py
@@ -24,9 +24,11 @@ mismo dato se cuenta de dos maneras distintas.
   *globalmente*. Si otro proyecto reclamó algo en medio, no hay puente; sin
   ranura posterior, tampoco.
 - **`workday`** (por defecto) — cuenta el **día local entero**, de la primera a
-  la última señal, menos las pausas. Las señales solo deciden **en qué
-  proyecto** cae cada tramo, repartiendo por cercanía temporal y desempatando a
-  favor de las señales tuyas. Tope `WORKLOG_MAX_DAY_HOURS` (10 h) aplicado
+  la última señal, menos las pausas y menos las **ausencias**: los huecos sin
+  ninguna señal de más de `WORKLOG_ABSENCE_MIN` (30 min), que se descuentan
+  solos y se recuperan de un clic desde el dashboard. Las señales solo deciden
+  **en qué proyecto** cae cada tramo, repartiendo por cercanía temporal y
+  desempatando a favor de las señales tuyas. Tope `WORKLOG_MAX_DAY_HOURS` (10 h) aplicado
   sobre lo contado, no sobre el horario: al revés castigaría a quien marca
   pausas.
 

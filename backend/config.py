@@ -153,6 +153,20 @@ WORKLOG_MODE: str = (
     os.getenv("MUXSPACE_WORKLOG_MODE", "workday").strip().lower() or "workday"
 )
 
+# Hueco sin NINGUNA señal —ni latido del panel ni línea de transcript— a
+# partir del cual el modo 'workday' deja de contar por su cuenta, en minutos.
+# Es lo que evita que irse a comer, o dejar el panel abierto toda la tarde,
+# apunte horas que no se trabajaron. Un hueco así aparece en la vista de
+# tiempos y se puede reclamar como trabajo de un clic: la carga de la prueba
+# está en lo excepcional, no en lo normal.
+#
+# 30 min por la distribución real de huecos: por debajo son saltos de ventana
+# dentro de una misma sesión de trabajo. 0 lo apaga (la jornada vuelve a
+# contar entera).
+WORKLOG_ABSENCE_MIN: int = max(
+    0, min(int(os.getenv("MUXSPACE_WORKLOG_ABSENCE_MIN", "30")), 24 * 60)
+)
+
 # Tope de una jornada en horas: la red para el día en que se olvide marcar la
 # pausa. Acotado para que un valor absurdo no pueda apuntar una semana.
 WORKLOG_MAX_DAY_HOURS: int = max(

@@ -269,9 +269,9 @@ el dashboard) y con el de por defecto en `MUXSPACE_WORKLOG_MODE`:
 
 - **`measured`** — el original. Solo cuenta lo que dejó rastro.
 - **`workday`** — la jornada cuenta **entera** entre la primera y la última
-  señal del día, **menos las pausas marcadas**. Las señales dejan de decidir
-  *si* trabajaste y pasan a decidir solo *en qué proyecto*, que es lo único
-  que saben de verdad.
+  señal del día, **menos las pausas y las ausencias**. Las señales dejan de
+  decidir *si* trabajaste y pasan a decidir sobre todo *en qué proyecto*, que
+  es lo único que saben de verdad.
 
 Los dos salen de los mismos datos y no se guarda nada distinto según el modo,
 así que se pueden comparar el mismo día y volver atrás sin perder nada.
@@ -283,13 +283,23 @@ ventana. Se indexan a ranuras en la misma base (`worklog_signals.py`) porque
 son 263 MB en 177 archivos y releerlos en cada consulta es inviable; el
 escaneo es incremental y recuerda por qué byte iba cada archivo.
 
-**Las pausas** son el único dato que el panel no puede deducir. La duración de
-un hueco no dice si fue trabajo: en el día medido, un hueco de 87 minutos fue
-mitad trabajo, uno de 60 fue trabajo entero y uno de 89 fue casi todo
-ausencia. Ningún umbral separa esos tres casos, así que lo decide el usuario
-con el botón de pausa, o respondiendo a la pregunta que salta al volver de un
-hueco largo. El hueco se detecta por **falta de latidos** y no por saltos del
-reloj: irse a comer dejando el panel abierto no mueve ningún reloj.
+**Las ausencias deducidas** son lo que impide que la jornada apunte de más. Un
+hueco sin **ninguna** señal —ni una tecla ni una línea de agente, en ningún
+proyecto— más largo que `MUXSPACE_WORKLOG_ABSENCE_MIN` (30 min) no se cuenta.
+Irse a comer, o dejar el panel abierto toda la tarde, deja un rastro
+reconocible: nada en absoluto durante media hora. Y como el descuento solo
+puede tapar ranuras que nadie latió, no borra tiempo medido nunca.
+
+El panel **no pregunta** por esos huecos. Preguntar al volver era interrumpir
+para cobrar una respuesta que se pulsa sin leer, y una respuesta pulsada sin
+leer es peor que ninguna. En su lugar, los huecos descontados se listan en la
+vista de tiempos, junto al resto del día: ahí se ven en contexto y el que sí
+era trabajo —una reunión, una tarde de pizarra— se recupera de un clic. Ese
+reclamo sí se guarda (`work_claims`), porque es lo único que no se deduce.
+
+**Las pausas** siguen estando para la ausencia corta, la que no llega al
+umbral: el botón «me voy / ya estoy» del sidebar, o marcarla a posteriori
+desde el dashboard.
 
 **El tope de jornada** (`MUXSPACE_WORKLOG_MAX_DAY_HOURS`, 10 h) es la red para
 el día en que se olvide marcar la pausa. Se mide sobre lo **contado**, nunca

@@ -127,8 +127,8 @@ export const api = {
   },
   workPause: () => request('/api/worklog/pause', { method: 'POST' }),
   workResume: () => request('/api/worklog/resume', { method: 'POST' }),
-  // Una pausa YA pasada: la respuesta a «¿estabas fuera?» al volver de un
-  // hueco largo. Nadie se acuerda de marcarla antes de levantarse.
+  // Una pausa YA pasada, marcada desde la vista de tiempos: nadie se acuerda
+  // de pulsar «me voy» antes de levantarse.
   markPause: (desde, hasta) =>
     request('/api/worklog/pauses', {
       method: 'POST',
@@ -139,6 +139,26 @@ export const api = {
     }),
   deletePause: (desde) =>
     request(`/api/worklog/pauses/${Math.floor(desde / 1000)}`, { method: 'DELETE' }),
+  // Ausencias deducidas: los huecos largos sin ninguna señal, que la jornada
+  // NO cuenta. No se guardan en ninguna parte, se derivan al leer igual que
+  // los tramos; lo que sí se guarda es el reclamo de que uno sí era trabajo.
+  workGaps: ({ desde, hasta } = {}) => {
+    const params = new URLSearchParams()
+    if (desde) params.set('desde', String(Math.floor(desde / 1000)))
+    if (hasta) params.set('hasta', String(Math.floor(hasta / 1000)))
+    params.set('tz', String(-new Date().getTimezoneOffset()))
+    return request(`/api/worklog/gaps?${params.toString()}`)
+  },
+  claimGap: (desde, hasta) =>
+    request('/api/worklog/gaps', {
+      method: 'POST',
+      body: JSON.stringify({
+        start: Math.floor(desde / 1000),
+        end: Math.floor(hasta / 1000),
+      }),
+    }),
+  unclaimGap: (desde) =>
+    request(`/api/worklog/gaps/${Math.floor(desde / 1000)}`, { method: 'DELETE' }),
   // Conversación de la sesión de Claude que corre en ese panel, para poder
   // buscarla: lo que Claude ya sacó de pantalla no está en ningún buffer del
   // terminal (ocupa la pantalla alternativa), pero sí en su transcript.

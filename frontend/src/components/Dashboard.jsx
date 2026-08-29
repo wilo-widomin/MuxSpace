@@ -87,6 +87,8 @@ export default function Dashboard({ spaces = [] }) {
     }
   })
   const [pausasDelPeriodo, setPausasDelPeriodo] = useState([])
+  // Los huecos que la jornada NO ha contado, con lo que se haya reclamado.
+  const [ausencias, setAusencias] = useState([])
 
   useEffect(() => {
     try {
@@ -127,7 +129,7 @@ export default function Dashboard({ spaces = [] }) {
       // Las tres consultas comparten modo y tope: con criterios distintos, la
       // lista de abajo no sumaría el total de arriba y parecería un error de
       // cuentas que no lo es.
-      const [resumen, bloques, pausas] = await Promise.all([
+      const [resumen, bloques, pausas, huecos] = await Promise.all([
         api.workSummary({
           desde,
           hasta,
@@ -143,10 +145,12 @@ export default function Dashboard({ spaces = [] }) {
           modo,
         }),
         api.workPauses({ desde, hasta }),
+        api.workGaps({ desde, hasta }),
       ])
       setDatos(resumen)
       setTramos(bloques)
       setPausasDelPeriodo(pausas.pauses || [])
+      setAusencias(huecos.gaps || [])
       // Sin modo elegido a mano manda el del servidor, y hay que saberlo para
       // poder explicar en pantalla qué se está contando.
       if (!modo && pausas.mode) setModo(pausas.mode)
@@ -167,6 +171,22 @@ export default function Dashboard({ spaces = [] }) {
     async (inicio) => {
       try {
         await api.deletePause(inicio * 1000)
+        await cargar()
+      } catch (e) {
+        setError(e instanceof ApiError ? e : new ApiError(0))
+      }
+    },
+    [cargar],
+  )
+
+  // Reclamar un hueco (o devolverlo a ausencia). Es la corrección manual del
+  // descuento automático: el umbral acierta en lo normal y falla en lo raro
+  // —una reunión, una tarde de pizarra—, así que lo raro se marca aquí.
+  const alternarAusencia = useCallback(
+    async (hueco) => {
+      try {
+        if (hueco.claimed) await api.unclaimGap(hueco.start * 1000)
+        else await api.claimGap(hueco.start * 1000, hueco.end * 1000)
         await cargar()
       } catch (e) {
         setError(e instanceof ApiError ? e : new ApiError(0))
@@ -459,6 +479,55 @@ export default function Dashboard({ spaces = [] }) {
                           className="ml-auto text-xs text-panel-muted underline-offset-2 hover:text-gray-100 hover:underline"
                         >
                           {t('dashboard.pause_delete')}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+
+            {/* Las ausencias que el servidor ha descontado solo. Se enseñan
+                porque un descuento invisible no se puede corregir, y se
+                pueden recuperar: ningún umbral distingue una reunión de una
+                siesta, pero el usuario sí, y aquí lo dice de un clic sin que
+                nadie le haya interrumpido para preguntárselo. */}
+            {modo === 'workday' && (
+              <section className="mt-8">
+                <h2 className="mb-1 text-sm font-medium">{t('dashboard.gaps')}</h2>
+                <p className="mb-2 text-xs text-panel-muted">
+                  {t('dashboard.gaps_hint')}
+                </p>
+                {ausencias.length === 0 ? (
+                  <p className="text-sm text-panel-muted">{t('dashboard.no_gaps')}</p>
+                ) : (
+                  <ul className="text-sm">
+                    {ausencias.map((hueco) => (
+                      <li
+                        key={hueco.start}
+                        className="flex items-center gap-3 border-b border-panel-border/50 py-1"
+                      >
+                        <span className="tabular-nums text-gray-200">
+                          {formatDate(hueco.start)} {formatTime(hueco.start)}
+                          {' → '}
+                          {formatTime(hueco.end)}
+                        </span>
+                        <span className="text-xs text-panel-muted">
+                          {formatDuration(hueco.seconds)}
+                        </span>
+                        {hueco.claimed && (
+                          <span className="text-xs text-panel-accent">
+                            {t('dashboard.gap_claimed')}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => alternarAusencia(hueco)}
+                          className="ml-auto text-xs text-panel-muted underline-offset-2 hover:text-gray-100 hover:underline"
+                        >
+                          {hueco.claimed
+                            ? t('dashboard.gap_unclaim')
+                            : t('dashboard.gap_claim')}
                         </button>
                       </li>
                     ))}

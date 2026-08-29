@@ -59,9 +59,17 @@ algo hace menos de tres minutos?» y con un agente construyendo la respuesta es
 que no casi todo el rato.
 
 El modo `workday` invierte la carga de la prueba: la jornada cuenta entera
-entre la primera y la última señal del día, y lo que hay que declarar es la
-**ausencia**. Las señales —latidos y transcripts de Claude— dejan de decidir
-*si* trabajaste y pasan a decidir solo *en qué proyecto*. Ver `MODOS`.
+entre la primera y la última señal del día. Las señales —latidos y transcripts
+de Claude— dejan de decidir *si* trabajaste y pasan a decidir sobre todo *en
+qué proyecto*. Ver `MODOS`.
+
+Con una excepción, que es lo que impide que la jornada apunte de más: un hueco
+sin **ninguna** señal —ni una tecla, ni una línea de agente— más largo que
+`AUSENCIA_MIN` no se cuenta. Irse a comer, o dejar el panel abierto toda la
+tarde, deja un rastro reconocible: nada en absoluto durante media hora. Lo que
+sí es excepcional —una tarde de pizarra, una reunión con el portátil cerrado—
+se reclama con un clic desde la vista de tiempos, y ese reclamo sí se guarda
+(`work_claims`). Se declara lo raro, no lo normal.
 
 Los dos modos leen exactamente los mismos datos: elegir uno u otro no escribe
 nada distinto, así que se pueden comparar el mismo día y volver atrás sin
@@ -122,9 +130,18 @@ CREATE TABLE IF NOT EXISTS work_pauses (
     -- sola al leer: cerrarla a ojo apuntaría trabajo que quizá no existió,
     -- y el tope de jornada ya acota el daño del olvido.
     end   INTEGER,
-    -- 'manual' (la marcaste al irte) o 'answer' (respondiste a la pregunta
-    -- del panel al volver de un hueco largo).
+    -- 'manual' (la marcaste al irte) o 'answer' (declarada a posteriori
+    -- desde la vista de tiempos).
     source TEXT NOT NULL DEFAULT 'manual'
+);
+
+CREATE TABLE IF NOT EXISTS work_claims (
+    -- Hueco largo reclamado como trabajo: la excepción a la regla de que un
+    -- rato sin ninguna señal es ausencia. Se guarda el reclamo y no la
+    -- ausencia porque las ausencias son la norma y se deducen solas; lo que
+    -- no se puede deducir es la tarde de pizarra sin tocar el teclado.
+    start INTEGER PRIMARY KEY,
+    end   INTEGER NOT NULL
 );
 """
 
@@ -151,6 +168,11 @@ FUENTES = ("auto", "manual")
 # irse) están todos por encima de la media hora. Entre 10 y 20 el total apenas
 # se mueve, así que el valor no es delicado.
 PUENTE_MINUTOS = config.WORKLOG_BRIDGE_MIN
+
+# Hueco sin ninguna señal a partir del cual la jornada deja de contar sola, en
+# MINUTOS. Ver config.WORKLOG_ABSENCE_MIN. 0 lo apaga.
+AUSENCIA_MIN = config.WORKLOG_ABSENCE_MIN
+
 
 # Cómo se decide cuánto dura el día.
 #
@@ -516,32 +538,20 @@ def _dia_local(slot: int, tz_offset_min: int) -> str:
     return time.strftime("%Y-%m-%d", time.gmtime(slot + tz_offset_min * 60))
 
 
-def _ranuras_jornada(
-    desde: float | None,
-    hasta: float | None,
-    tz_offset_min: int,
-    tope_horas: int | None = None,
-) -> list[tuple[int, str, str | None, str | None, str]]:
-    """Ranuras del modo 'workday': el día entero menos las pausas.
+def _cargar_señales(
+    inicio: int, fin: int
+) -> tuple[list[tuple], list[tuple[int, int]], list[tuple[int, int]]]:
+    """Todo lo que el modo 'workday' necesita leer: señales, pausas y reclamos.
 
-    El reparto por proyecto se hace por **cercanía**: cada ranura se la lleva
-    aquella cuya señal más próxima en el tiempo sea suya, con las tuyas —un
-    mensaje que escribiste— ganando los empates. Las señales son los latidos
-    del panel Y los transcripts de Claude, que es lo que permite atribuir el
-    rato en que un agente construye y tú miras otra ventana.
+    Sale a una función propia porque lo leen dos caminos —el cálculo de las
+    ranuras y el listado de ausencias del panel— y si cada uno cargara lo suyo
+    acabarían enseñando huecos que el total no descuenta.
 
-    La jornada se calcula **por día local**: si el rango se tomara entero, la
-    noche entre dos días contaría como trabajo.
-
-    Una ranura sigue teniendo un único dueño, así que el invariante de siempre
-    —la suma de los espacios nunca supera el tiempo real— se mantiene.
+    Una señal es `(slot, space, session, command, source, es_tuyo)`. Los
+    latidos cuentan como tuyos porque son entrada real del usuario; las líneas
+    del transcript, solo cuando las escribiste tú.
     """
-    import bisect
-
     import worklog_signals
-
-    inicio, fin = _rango(desde, hasta)
-    tope = max(1, min(int(JORNADA_MAX_HORAS if tope_horas is None else tope_horas), 24))
 
     with _conexion() as con:
         worklog_signals.indexar(con, SLOT_SECONDS)
@@ -561,18 +571,152 @@ def _ranuras_jornada(
                 (inicio, fin),
             )
         ]
+        reclamos = [
+            (int(f[0]), int(f[1]))
+            for f in con.execute(
+                "SELECT start, end FROM work_claims WHERE end > ? AND start < ?",
+                (inicio, fin),
+            )
+        ]
 
-    # Señal: (slot, space, session, command, source, es_tuyo). Los latidos
-    # pesan como tuyos porque son entrada real del usuario.
     señales: list[tuple] = [(f[0], f[1], f[2], f[3], f[4], True) for f in latidos]
     conocidas = {(f[0], f[1]) for f in latidos}
     for slot, espacio, es_tuyo in transcritas:
         if (slot, espacio) not in conocidas:
             señales.append((slot, espacio, None, "claude", "signal", bool(es_tuyo)))
+    señales.sort(key=lambda s: s[0])
+    return señales, tramos_pausa, reclamos
+
+
+def _umbral_ausencia(minutos: int | None) -> int:
+    """Umbral de ausencia en segundos. `None` = el de la configuración."""
+    if minutos is None:
+        minutos = AUSENCIA_MIN
+    return max(0, min(int(minutos), 24 * 60)) * 60
+
+
+def _ausencias(
+    señales: list[tuple], tz_offset_min: int, umbral_min: int | None = None
+) -> list[tuple[int, int]]:
+    """Huecos del día sin NINGUNA señal más largos que el umbral.
+
+    Es la corrección al modelo de «la jornada cuenta entera»: contarla entera
+    de verdad apunta la comida, la siesta y la tarde en que el panel se quedó
+    abierto. Un hueco así se reconoce sin preguntar nada — durante media hora
+    no hubo ni una tecla ni una línea de agente en NINGÚN proyecto —, y lo
+    excepcional (una tarde de pizarra) se reclama a mano.
+
+    Solo se miran huecos DENTRO de un mismo día local: la noche entre dos días
+    no es un hueco que descontar, es que la jornada se acabó.
+    """
+    umbral = _umbral_ausencia(umbral_min)
+    if not umbral:
+        return []
+    huecos: list[tuple[int, int]] = []
+    for previa, siguiente in zip(señales, señales[1:], strict=False):
+        principio = previa[0] + SLOT_SECONDS
+        final = siguiente[0]
+        if final - principio < umbral:
+            continue
+        if _dia_local(principio, tz_offset_min) != _dia_local(final, tz_offset_min):
+            continue
+        huecos.append((principio, final))
+    return huecos
+
+
+def huecos(
+    desde: float | None = None,
+    hasta: float | None = None,
+    tz_offset_min: int = 0,
+    umbral_min: int | None = None,
+) -> list[dict]:
+    """Las ausencias deducidas del periodo, con lo que se haya reclamado.
+
+    Es lo que sustituye a la pregunta al volver: en vez de interrumpir para
+    cobrar una respuesta que se pulsa sin leer, el panel descuenta el hueco y
+    lo enseña en la vista de tiempos, donde se ve junto al resto del día y se
+    puede recuperar de un clic.
+    """
+    inicio, fin = _rango(desde, hasta)
+    señales, _, reclamos = _cargar_señales(inicio, fin)
+    salida = []
+    for principio, final in _ausencias(señales, tz_offset_min, umbral_min):
+        recuperados = sum(
+            max(0, min(final, b) - max(principio, a)) for a, b in reclamos
+        )
+        salida.append(
+            {
+                "start": principio,
+                "end": final,
+                "seconds": final - principio,
+                # Parcial cuando el reclamo cubre solo un trozo: pasa al bajar
+                # el umbral, que parte en dos un hueco ya reclamado.
+                "claimed_seconds": recuperados,
+                "claimed": recuperados >= final - principio,
+            }
+        )
+    return salida
+
+
+def reclamar_hueco(inicio: float, fin: float) -> dict:
+    """Cuenta como trabajo un hueco que se había descontado por ausencia.
+
+    UPSERT por inicio, igual que las pausas: reclamar dos veces el mismo hueco
+    corrige, no duplica.
+    """
+    ini = slot_de(inicio)
+    final = max(slot_de(fin), ini)
+    with _conexion() as con:
+        con.execute(
+            "INSERT INTO work_claims (start, end) VALUES (?, ?)"
+            " ON CONFLICT(start) DO UPDATE SET end = excluded.end",
+            (ini, final),
+        )
+    return {"start": ini, "end": final}
+
+
+def borrar_reclamo(inicio: float) -> bool:
+    """Devuelve el hueco a ser ausencia: reclamar de más se deshace igual."""
+    with _conexion() as con:
+        cur = con.execute("DELETE FROM work_claims WHERE start = ?", (slot_de(inicio),))
+    return cur.rowcount > 0
+
+
+def _ranuras_jornada(
+    desde: float | None,
+    hasta: float | None,
+    tz_offset_min: int,
+    tope_horas: int | None = None,
+    umbral_min: int | None = None,
+) -> list[tuple[int, str, str | None, str | None, str]]:
+    """Ranuras del modo 'workday': el día entero menos pausas y ausencias.
+
+    El reparto por proyecto se hace por **cercanía**: cada ranura se la lleva
+    aquella cuya señal más próxima en el tiempo sea suya, con las tuyas —un
+    mensaje que escribiste— ganando los empates. Las señales son los latidos
+    del panel Y los transcripts de Claude, que es lo que permite atribuir el
+    rato en que un agente construye y tú miras otra ventana.
+
+    No se cuenta lo que cae en una pausa marcada ni en una **ausencia**: un
+    hueco largo sin ninguna señal (ver `_ausencias`), salvo que se haya
+    reclamado como trabajo desde la vista de tiempos.
+
+    La jornada se calcula **por día local**: si el rango se tomara entero, la
+    noche entre dos días contaría como trabajo.
+
+    Una ranura sigue teniendo un único dueño, así que el invariante de siempre
+    —la suma de los espacios nunca supera el tiempo real— se mantiene.
+    """
+    import bisect
+
+    inicio, fin = _rango(desde, hasta)
+    tope = max(1, min(int(JORNADA_MAX_HORAS if tope_horas is None else tope_horas), 24))
+
+    señales, tramos_pausa, reclamos = _cargar_señales(inicio, fin)
     if not señales:
         return []
-    señales.sort(key=lambda s: s[0])
     tiempos = [s[0] for s in señales]
+    ausencias = _ausencias(señales, tz_offset_min, umbral_min)
 
     # La jornada de cada día local: de su primera señal a su última.
     dias: dict[str, list[int]] = {}
@@ -603,6 +747,11 @@ def _ranuras_jornada(
                 continue
             if _en_pausa(slot, tramos_pausa):
                 continue
+            # La ausencia solo tapa lo que nadie latió: una ranura con señal
+            # propia no puede caer dentro de un hueco «sin ninguna señal», así
+            # que este descuento nunca borra tiempo medido.
+            if _en_pausa(slot, ausencias) and not _en_pausa(slot, reclamos):
+                continue
             restantes -= 1
             propia = por_slot.get(slot)
             if propia is not None:
@@ -622,8 +771,6 @@ def _ranuras_jornada(
 
     salida.sort(key=lambda s: s[0])
     return salida
-
-
 def resumen(
     desde: float | None = None,
     hasta: float | None = None,

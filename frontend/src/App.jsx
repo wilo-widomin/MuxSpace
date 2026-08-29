@@ -7,7 +7,6 @@ import { initialSpace, UNASSIGNED } from './spaces.js'
 import { porNombre } from './lib/orden.js'
 import { useWorkClock } from './useWorkClock.js'
 import { useWorkPause } from './useWorkPause.js'
-import PauseQuestion from './components/PauseQuestion.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import { useT } from './i18n/index.jsx'
 
@@ -712,17 +711,11 @@ export default function App() {
   // el reloj de trabajo no cuenta: mirar los tiempos no es trabajar en un
   // proyecto.
   if (esDashboard) {
-    return (
-      <>
-        <Dashboard spaces={spacesOrdenados} />
-        <PauseQuestion hueco={workPause.pregunta} onResponder={workPause.responder} />
-      </>
-    )
+    return <Dashboard spaces={spacesOrdenados} />
   }
 
   return (
     <div className="flex h-full w-full bg-panel-bg">
-      <PauseQuestion hueco={workPause.pregunta} onResponder={workPause.responder} />
       <Sidebar
         workClock={workClock}
         workPause={workPause}

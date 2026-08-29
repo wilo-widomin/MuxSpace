@@ -8,16 +8,21 @@ construye— la respuesta es que no casi todo el rato. Medido sobre un día real
 del usuario: 3 h 25 apuntadas de una jornada de 8 h 30.
 
 El modo 'workday' invierte la carga de la prueba. La jornada cuenta entera
-entre la primera y la última señal del día, y lo que hay que declarar es la
-**ausencia**, no el trabajo. Las señales —latidos y transcripts— dejan de
-decidir *si* trabajaste y pasan a decidir solo *en qué proyecto*.
+entre la primera y la última señal del día. Las señales —latidos y
+transcripts— dejan de decidir *si* trabajaste y pasan a decidir sobre todo *en
+qué proyecto*.
 
 ## Cómo puede mentir este modo
 
-Al revés que el otro: **contando de más**. Sus tres formas de fallar son
-dejarse una pausa sin restar, estirar la jornada más allá del día (la noche
-entre dos jornadas), y no parar nunca si se olvida marcar el final. Contra
-esas tres van los tests.
+Al revés que el otro: **contando de más**. Sus formas de fallar son dejarse
+una pausa sin restar, apuntar el rato en que no había nadie delante, estirar
+la jornada más allá del día (la noche entre dos jornadas), y no parar nunca si
+se olvida marcar el final. Contra esas van los tests.
+
+Contra la segunda va la **ausencia deducida**: un hueco sin ninguna señal —ni
+una tecla ni una línea de agente, en ningún proyecto— más largo que el umbral
+no se cuenta. Y como ningún umbral acierta siempre, lo excepcional se reclama:
+un hueco reclamado vuelve a contar.
 
 Y sigue vigente el invariante de siempre, que ningún modo puede romper: una
 ranura tiene un único dueño, así que la suma de los espacios jamás supera el
@@ -55,27 +60,40 @@ def total(**kwargs) -> int:
     return worklog.resumen(modo="workday", **kwargs)["total_seconds"]
 
 
+def jornada(espacio: str, desde: str, hasta: str, cada: int = 10 * MINUTO) -> None:
+    """Late en ese espacio cada `cada` segundos, extremos incluidos.
+
+    Una jornada de verdad deja señales repartidas por el día; los tests que
+    solo ponen dos latidos separados por horas describen precisamente lo que
+    ya NO cuenta (ver los tests de ausencia).
+    """
+    principio, final = epoch(desde), epoch(hasta)
+    instante = principio
+    while instante <= final:
+        worklog.registrar(espacio, ahora=instante)
+        instante += cada
+
+
 # --- La jornada ---------------------------------------------------------
 
 
 def test_la_jornada_cuenta_entera_entre_la_primera_y_la_ultima_senal():
-    """Dos latidos separados por una hora son una hora, no un minuto.
+    """Los ratos entre latidos cuentan: el agente construía y tú esperabas.
 
-    Es el cambio de fondo respecto a 'measured': el rato de en medio no dejó
-    rastro porque el agente estaba construyendo, y ese rato es trabajo.
+    Es el cambio de fondo respecto a 'measured'. Los latidos van cada 10 min,
+    que es lo que deja una jornada real: por debajo del umbral de ausencia, el
+    hueco entre dos es trabajo.
     """
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 09:00:00"))
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 10:00:00"))
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 10:00:00")
 
     assert total() == HORA + worklog.SLOT_SECONDS
 
 
 def test_en_modo_medido_ese_mismo_dia_cuenta_solo_lo_que_dejo_rastro():
-    """El contraste que justifica todo el modo: los mismos datos, un minuto."""
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 09:00:00"))
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 10:00:00"))
+    """El contraste que justifica todo el modo: los mismos datos, 3 minutos."""
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 10:00:00")
 
-    assert worklog.resumen(modo="measured")["total_seconds"] == 2 * worklog.SLOT_SECONDS
+    assert worklog.resumen(modo="measured")["total_seconds"] == 7 * worklog.SLOT_SECONDS
 
 
 def test_la_jornada_no_salta_de_un_dia_al_siguiente():
@@ -94,8 +112,7 @@ def test_la_jornada_no_salta_de_un_dia_al_siguiente():
 
 
 def test_una_pausa_marcada_se_resta_de_la_jornada():
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 09:00:00"))
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 12:00:00"))
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 12:00:00")
     worklog.marcar_pausa(epoch("2026-08-15 10:00:00"), epoch("2026-08-15 10:59:30"))
 
     # Tres horas de jornada menos una de pausa.
@@ -131,8 +148,7 @@ def test_una_pausa_abierta_no_se_cierra_sola():
 
 def test_borrar_una_pausa_la_devuelve_a_la_jornada():
     """Marcar de más tiene que poder deshacerse."""
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 09:00:00"))
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 11:00:00"))
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 11:00:00")
     pausa = worklog.marcar_pausa(
         epoch("2026-08-15 10:00:00"), epoch("2026-08-15 10:59:30")
     )
@@ -148,8 +164,7 @@ def test_borrar_una_pausa_la_devuelve_a_la_jornada():
 def test_el_tope_de_jornada_acota_el_olvido(monkeypatch: pytest.MonkeyPatch):
     """Irse dejando el panel abierto no puede apuntar el día entero."""
     monkeypatch.setattr(worklog, "JORNADA_MAX_HORAS", 4)
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 08:00:00"))
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 20:00:00"))
+    jornada("sp_a", "2026-08-15 08:00:00", "2026-08-15 20:00:00")
 
     assert total() == 4 * HORA
 
@@ -163,11 +178,99 @@ def test_el_tope_se_mide_sobre_lo_contado_no_sobre_el_horario(
     bajo un tope de 4 h. Si el tope recortara el horario, se quedarían en 2.
     """
     monkeypatch.setattr(worklog, "JORNADA_MAX_HORAS", 4)
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 08:00:00"))
-    worklog.registrar("sp_a", ahora=epoch("2026-08-15 14:00:00"))
+    jornada("sp_a", "2026-08-15 08:00:00", "2026-08-15 14:00:00")
     worklog.marcar_pausa(epoch("2026-08-15 10:00:00"), epoch("2026-08-15 11:59:30"))
 
     assert total() == 4 * HORA
+
+
+# --- Las ausencias deducidas --------------------------------------------
+
+
+def test_un_hueco_largo_sin_ninguna_senal_no_cuenta():
+    """La comida no se apunta, y no hay que declararla.
+
+    Media hora sin una tecla ni una línea de agente en NINGÚN proyecto no es
+    trabajo esperando a un agente: no había nadie delante.
+    """
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 10:00:00")
+    jornada("sp_a", "2026-08-15 12:00:00", "2026-08-15 13:00:00")
+
+    # Las dos horas de verdad, sin las dos de la ausencia de en medio.
+    assert total() == 2 * HORA + 2 * worklog.SLOT_SECONDS
+
+
+def test_el_hueco_reclamado_vuelve_a_contar():
+    """Una tarde de pizarra no deja señales y sigue siendo trabajo.
+
+    Ningún umbral distingue una reunión de una siesta, así que la excepción la
+    marca el usuario. Y solo la excepción: reclamar es un clic al revisar los
+    tiempos, no una pregunta cada vez que uno se levanta.
+    """
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 10:00:00")
+    jornada("sp_a", "2026-08-15 12:00:00", "2026-08-15 13:00:00")
+    sin_reclamar = total()
+
+    hueco = worklog.huecos()[0]
+    worklog.reclamar_hueco(hueco["start"], hueco["end"])
+
+    assert total() == sin_reclamar + hueco["seconds"]
+
+
+def test_quitar_el_reclamo_devuelve_el_hueco_a_la_ausencia():
+    """Reclamar de más se deshace igual que marcar una pausa de más."""
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 10:00:00")
+    jornada("sp_a", "2026-08-15 12:00:00", "2026-08-15 13:00:00")
+    sin_reclamar = total()
+    hueco = worklog.huecos()[0]
+    worklog.reclamar_hueco(hueco["start"], hueco["end"])
+
+    assert worklog.borrar_reclamo(hueco["start"]) is True
+    assert total() == sin_reclamar
+
+
+def test_el_hueco_se_lista_con_su_duracion_y_si_esta_reclamado():
+    """El panel enseña lo descontado: un descuento invisible no se corrige."""
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 10:00:00")
+    jornada("sp_a", "2026-08-15 12:00:00", "2026-08-15 13:00:00")
+
+    [hueco] = worklog.huecos()
+    assert hueco["start"] == epoch("2026-08-15 10:00:30")
+    assert hueco["end"] == epoch("2026-08-15 12:00:00")
+    assert hueco["claimed"] is False
+
+    worklog.reclamar_hueco(hueco["start"], hueco["end"])
+    assert worklog.huecos()[0]["claimed"] is True
+
+
+def test_una_ausencia_nunca_borra_tiempo_medido():
+    """El descuento solo puede tapar ranuras que nadie latió.
+
+    Es lo que hace que el cambio sea seguro: por definición, dentro de un hueco
+    «sin ninguna señal» no hay ninguna señal que borrar.
+    """
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 13:00:00", cada=45 * MINUTO)
+
+    medido = worklog.resumen(modo="measured")["total_seconds"]
+    assert total() >= medido
+
+
+def test_la_noche_no_es_un_hueco_que_descontar():
+    """Entre dos días no hay ausencia: la jornada se acabó y ya está."""
+    jornada("sp_a", "2026-08-15 17:00:00", "2026-08-15 18:00:00")
+    jornada("sp_a", "2026-08-16 09:00:00", "2026-08-16 10:00:00")
+
+    assert worklog.huecos() == []
+
+
+def test_el_umbral_a_cero_apaga_el_descuento():
+    """Volver al modelo anterior es una variable, no un despliegue."""
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 10:00:00")
+    jornada("sp_a", "2026-08-15 12:00:00", "2026-08-15 13:00:00")
+
+    assert worklog.huecos(umbral_min=0) == []
+    ranuras = worklog._ranuras_jornada(None, None, 0, umbral_min=0)
+    assert len(ranuras) * worklog.SLOT_SECONDS == 4 * HORA + worklog.SLOT_SECONDS
 
 
 # --- El reparto por proyecto --------------------------------------------
@@ -176,15 +279,16 @@ def test_el_tope_se_mide_sobre_lo_contado_no_sobre_el_horario(
 def test_la_ranura_se_la_lleva_el_proyecto_mas_cercano_en_el_tiempo():
     """El hueco entre dos proyectos se parte por dónde estabas más cerca."""
     worklog.registrar("sp_a", ahora=epoch("2026-08-15 09:00:00"))
-    worklog.registrar("sp_b", ahora=epoch("2026-08-15 10:00:00"))
+    worklog.registrar("sp_b", ahora=epoch("2026-08-15 09:20:00"))
 
     por_espacio = {
         e["space"]: e["seconds"]
         for e in worklog.resumen(modo="workday")["by_space"]
     }
-    # La primera media hora es de A y la segunda de B: nada se pierde y nada
-    # se cuenta dos veces.
-    assert por_espacio["sp_a"] + por_espacio["sp_b"] == HORA + worklog.SLOT_SECONDS
+    # Los primeros diez minutos son de A y los otros diez de B: nada se pierde
+    # y nada se cuenta dos veces.
+    contado = por_espacio["sp_a"] + por_espacio["sp_b"]
+    assert contado == 20 * MINUTO + worklog.SLOT_SECONDS
     assert abs(por_espacio["sp_a"] - por_espacio["sp_b"]) <= worklog.SLOT_SECONDS
 
 

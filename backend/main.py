@@ -1135,10 +1135,9 @@ def get_work_pauses(
         "mode": worklog.MODO_POR_DEFECTO,
         "max_day_hours": worklog.JORNADA_MAX_HORAS,
         "pauses": worklog.pausas(desde, hasta),
-        # Última ranura con actividad. Es lo que permite al panel detectar una
-        # ausencia SIN depender de que la máquina se haya dormido: irse a comer
-        # dejando el panel abierto no produce ningún salto de reloj, pero sí
-        # deja de haber latidos.
+        # Última ranura con actividad. El panel ya no pregunta nada con esto
+        # —los huecos largos se descuentan solos—, pero sigue sirviendo para
+        # saber si el registro está vivo.
         "last_slot": worklog.ultima_ranura(),
     }
 
@@ -1158,11 +1157,11 @@ def post_work_resume(user: str = _auth) -> dict:
 
 @app.post("/api/worklog/pauses")
 def post_work_pause_range(rango: PauseRange, user: str = _auth) -> dict:
-    """Marca una pausa YA pasada.
+    """Marca una pausa YA pasada, desde la vista de tiempos.
 
-    Es la respuesta a la pregunta del panel al volver de un hueco largo: nadie
-    se acuerda de marcar la pausa ANTES de levantarse, pero sí puede decir al
-    volver qué era ese hueco.
+    Es para las ausencias cortas, las que no llegan al umbral que descuenta
+    solo: nadie se acuerda de pulsar «me voy» antes de levantarse, y media
+    hora de reunión sí se puede apuntar después.
     """
     if rango.end < rango.start:
         raise HTTPException(status_code=400, detail="rango_invalido")
@@ -1173,6 +1172,49 @@ def post_work_pause_range(rango: PauseRange, user: str = _auth) -> dict:
 def delete_work_pause(inicio: float, user: str = _auth) -> dict:
     """Quita una pausa: marcar de más tiene que poder deshacerse."""
     return {"deleted": worklog.borrar_pausa(inicio)}
+
+
+class GapRange(BaseModel):
+    """Un hueco que sí era trabajo: el reclamo de una ausencia deducida."""
+
+    start: float
+    end: float
+
+
+@app.get("/api/worklog/gaps")
+def get_work_gaps(
+    desde: float | None = None,
+    hasta: float | None = None,
+    tz: int = 0,
+    umbral: int | None = None,
+    user: str = _auth,
+) -> dict:
+    """Ausencias deducidas del periodo: huecos largos sin ninguna señal.
+
+    No están guardadas en ninguna parte: se derivan al leer, igual que los
+    tramos. Por eso cambiar el umbral recalcula el histórico entero sin tocar
+    un dato, y por eso lo que se guarda es lo contrario —el reclamo de que un
+    hueco sí era trabajo—, que es lo único que no se puede deducir.
+    """
+    tz = max(-14 * 60, min(tz, 14 * 60))
+    return {
+        "absence_minutes": worklog.AUSENCIA_MIN,
+        "gaps": worklog.huecos(desde, hasta, tz, umbral),
+    }
+
+
+@app.post("/api/worklog/gaps")
+def post_work_gap_claim(rango: GapRange, user: str = _auth) -> dict:
+    """Recupera un hueco descontado: «ese rato sí estaba trabajando»."""
+    if rango.end < rango.start:
+        raise HTTPException(status_code=400, detail="rango_invalido")
+    return worklog.reclamar_hueco(rango.start, rango.end)
+
+
+@app.delete("/api/worklog/gaps/{inicio}")
+def delete_work_gap_claim(inicio: float, user: str = _auth) -> dict:
+    """Quita el reclamo: el hueco vuelve a descontarse."""
+    return {"deleted": worklog.borrar_reclamo(inicio)}
 
 
 @app.get("/api/terminal/{name}/transcript")

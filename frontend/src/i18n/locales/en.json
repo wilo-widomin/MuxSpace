@@ -322,5 +322,12 @@
   "dashboard.gap_claim": "Count as work",
   "dashboard.gap_unclaim": "Discount again",
   "dashboard.gap_claimed": "counted",
+  "gap.question": "You were idle for {time}. Were you working?",
+  "gap.hint": "From {from} to {to}. That stretch was not counted; if you were working, it counts again.",
+  "gap.was_working": "Working",
+  "gap.was_away": "Away",
+  "gap.never_ask": "Stop asking",
+  "dashboard.ask": "Ask in the panel",
+  "dashboard.ask_hint": "Flags every discounted stretch as it happens, in the window you have in front of you. Off, gaps are only reviewed here.",
   "dashboard.day_seconds": "Covered by workday"
 }

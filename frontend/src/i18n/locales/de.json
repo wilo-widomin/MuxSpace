@@ -322,5 +322,12 @@
   "dashboard.gap_claim": "Als Arbeit zählen",
   "dashboard.gap_unclaim": "Wieder abziehen",
   "dashboard.gap_claimed": "gezählt",
+  "gap.question": "Du warst {time} ohne Aktivität. Hast du gearbeitet?",
+  "gap.hint": "Von {from} bis {to}. Diese Zeit wurde nicht gezählt; wenn du gearbeitet hast, zählt sie wieder.",
+  "gap.was_working": "Gearbeitet",
+  "gap.was_away": "Weg",
+  "gap.never_ask": "Nicht mehr fragen",
+  "dashboard.ask": "Im Panel fragen",
+  "dashboard.ask_hint": "Meldet jede abgezogene Zeit sofort, im Fenster, das du gerade vor dir hast. Aus bleiben die Abwesenheiten nur hier zur Durchsicht.",
   "dashboard.day_seconds": "Covered by workday"
 }

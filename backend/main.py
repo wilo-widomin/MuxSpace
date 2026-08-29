@@ -1175,10 +1175,13 @@ def delete_work_pause(inicio: float, user: str = _auth) -> dict:
 
 
 class GapRange(BaseModel):
-    """Un hueco que sí era trabajo: el reclamo de una ausencia deducida."""
+    """La respuesta a una ausencia deducida: si ese hueco era trabajo o no."""
 
     start: float
     end: float
+    # 'false' es «estaba fuera»: no cambia ningún total, pero se guarda para
+    # que la pregunta del panel no vuelva a saltar en la siguiente ventana.
+    worked: bool = True
 
 
 @app.get("/api/worklog/gaps")
@@ -1205,15 +1208,20 @@ def get_work_gaps(
 
 @app.post("/api/worklog/gaps")
 def post_work_gap_claim(rango: GapRange, user: str = _auth) -> dict:
-    """Recupera un hueco descontado: «ese rato sí estaba trabajando»."""
+    """Responde a un hueco descontado: «ese rato sí estaba trabajando» o no.
+
+    La respuesta vive en el SERVIDOR, no en la pestaña. Es lo que permite que
+    pregunte una sola ventana: se contesta en la que estás mirando y las demás
+    lo saben en cuanto vuelven a consultar.
+    """
     if rango.end < rango.start:
         raise HTTPException(status_code=400, detail="rango_invalido")
-    return worklog.reclamar_hueco(rango.start, rango.end)
+    return worklog.reclamar_hueco(rango.start, rango.end, rango.worked)
 
 
 @app.delete("/api/worklog/gaps/{inicio}")
 def delete_work_gap_claim(inicio: float, user: str = _auth) -> dict:
-    """Quita el reclamo: el hueco vuelve a descontarse."""
+    """Borra la respuesta: el hueco vuelve a descontarse (y a preguntarse)."""
     return {"deleted": worklog.borrar_reclamo(inicio)}
 
 

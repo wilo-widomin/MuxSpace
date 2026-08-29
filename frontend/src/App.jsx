@@ -7,6 +7,8 @@ import { initialSpace, UNASSIGNED } from './spaces.js'
 import { porNombre } from './lib/orden.js'
 import { useWorkClock } from './useWorkClock.js'
 import { useWorkPause } from './useWorkPause.js'
+import { useGapQuestion } from './useGapQuestion.js'
+import GapQuestion from './components/GapQuestion.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import { useT } from './i18n/index.jsx'
 
@@ -347,6 +349,9 @@ export default function App() {
   // que no estás en ninguna parte. En la vista de tiempos también valen —irse
   // a comer se marca igual desde el dashboard.
   const workPause = useWorkPause(authed)
+  // La pregunta por los huecos descontados. Va apagada por defecto y solo
+  // pregunta la ventana que tiene el foco (ver `useGapQuestion`).
+  const gapQuestion = useGapQuestion(authed && !esDashboard)
 
   // Si la tile con foco desaparece del grid (cierre/kill), liberamos el foco.
   useEffect(() => {
@@ -716,6 +721,11 @@ export default function App() {
 
   return (
     <div className="flex h-full w-full bg-panel-bg">
+      <GapQuestion
+        hueco={gapQuestion.hueco}
+        onResponder={gapQuestion.responder}
+        onNoPreguntar={gapQuestion.dejarDePreguntar}
+      />
       <Sidebar
         workClock={workClock}
         workPause={workPause}

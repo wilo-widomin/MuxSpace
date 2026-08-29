@@ -149,12 +149,16 @@ export const api = {
     params.set('tz', String(-new Date().getTimezoneOffset()))
     return request(`/api/worklog/gaps?${params.toString()}`)
   },
-  claimGap: (desde, hasta) =>
+  // Responder a un hueco. `worked: false` es «estaba fuera»: no cambia ningún
+  // total, pero se guarda para que la pregunta no vuelva a saltar en la
+  // siguiente ventana.
+  claimGap: (desde, hasta, worked = true) =>
     request('/api/worklog/gaps', {
       method: 'POST',
       body: JSON.stringify({
         start: Math.floor(desde / 1000),
         end: Math.floor(hasta / 1000),
+        worked,
       }),
     }),
   unclaimGap: (desde) =>

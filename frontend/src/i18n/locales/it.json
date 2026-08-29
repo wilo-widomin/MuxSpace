@@ -322,5 +322,12 @@
   "dashboard.gap_claim": "Conta come lavoro",
   "dashboard.gap_unclaim": "Scontalo di nuovo",
   "dashboard.gap_claimed": "contato",
+  "gap.question": "Sei stato {time} senza attività. Stavi lavorando?",
+  "gap.hint": "Dalle {from} alle {to}. Quel periodo non è stato contato; se stavi lavorando, torna a contare.",
+  "gap.was_working": "Stavo lavorando",
+  "gap.was_away": "Assente",
+  "gap.never_ask": "Non chiedere più",
+  "dashboard.ask": "Chiedi nel pannello",
+  "dashboard.ask_hint": "Segnala a caldo ogni periodo scontato, nella finestra che hai davanti. Spento, le assenze si rivedono solo qui.",
   "dashboard.day_seconds": "Covered by workday"
 }

@@ -322,5 +322,12 @@
   "dashboard.gap_claim": "Contar como trabalho",
   "dashboard.gap_unclaim": "Voltar a descontar",
   "dashboard.gap_claimed": "contado",
+  "gap.question": "Estiveste {time} sem atividade. Estavas a trabalhar?",
+  "gap.hint": "Das {from} às {to}. Esse período não foi contado; se estavas a trabalhar, volta a contar.",
+  "gap.was_working": "A trabalhar",
+  "gap.was_away": "Ausente",
+  "gap.never_ask": "Não perguntar mais",
+  "dashboard.ask": "Perguntar no painel",
+  "dashboard.ask_hint": "Avisa a quente de cada período descontado, na janela que tens à frente. Desligado, as ausências só se reveem aqui.",
   "dashboard.day_seconds": "Covered by workday"
 }

@@ -322,5 +322,12 @@
   "dashboard.gap_claim": "Contar como trabajo",
   "dashboard.gap_unclaim": "Volver a descontar",
   "dashboard.gap_claimed": "contado",
+  "gap.question": "Has estado {time} sin actividad. ¿Estabas trabajando?",
+  "gap.hint": "De {from} a {to}. Ese rato no se ha contado; si estabas trabajando, vuelve a sumar.",
+  "gap.was_working": "Trabajando",
+  "gap.was_away": "Fuera",
+  "gap.never_ask": "No preguntar más",
+  "dashboard.ask": "Preguntar en el panel",
+  "dashboard.ask_hint": "Avisa en caliente de cada rato descontado, en la ventana que tengas delante. Apagado, los huecos solo se revisan aquí.",
   "dashboard.day_seconds": "Cubierto por la jornada"
 }

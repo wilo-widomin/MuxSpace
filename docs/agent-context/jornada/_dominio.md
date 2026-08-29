@@ -8,6 +8,8 @@ archivos:
   - frontend/src/worklog.js
   - frontend/src/useWorkClock.js
   - frontend/src/useWorkPause.js
+  - frontend/src/useGapQuestion.js
+  - frontend/src/components/GapQuestion.jsx
   - frontend/src/components/Dashboard.jsx
 depende_de: [espacios/_dominio, biblioteca/_dominio]
 ---
@@ -32,9 +34,10 @@ Todos los instantes son **epoch en segundos UTC**.
   las horas con agente delante) y `source`.
 - `work_pauses` — `start` PK, `end` **NULL significa pausa abierta**, `source`
   `manual` (botón) o `answer` (declarada a posteriori).
-- `work_claims` — `start` PK, `end`. Huecos largos reclamados como trabajo. Se
-  guarda el reclamo y no la ausencia: la ausencia es la norma y se deduce al
-  leer.
+- `work_claims` — `start` PK, `end`, `worked`. La **respuesta** a un hueco
+  largo: `1` lo devuelve a la jornada, `0` es «estaba fuera» y no cambia nada,
+  pero deja el hueco por respondido para todas las ventanas. Se guarda la
+  respuesta y no la ausencia: la ausencia es la norma y se deduce al leer.
 - `transcript_slots` / `transcript_files` — ranuras derivadas de los `.jsonl`
   de Claude Code, con escaneo incremental por offset y mtime.
 - Un **bloque no se persiste**: se deriva al leer agrupando ranuras
@@ -48,7 +51,10 @@ Todos los instantes son **epoch en segundos UTC**.
 - **La salida del PTY no es actividad.** Contarla invertiría el dato: se mide
   al usuario, no al programa.
 - **Un hueco sin ninguna señal no es trabajo.** Por encima de 30 min se
-  descuenta sin preguntar; lo excepcional se reclama a mano.
+  descuenta solo; lo excepcional se reclama a mano.
+- **Interrumpir se pide.** La pregunta por un hueco va detrás de un
+  interruptor apagado por defecto, pregunta una sola ventana y se contesta una
+  sola vez.
 - Los datos del worklog son los únicos irreconstruibles: el esquema se migra
   con `ALTER TABLE`, nunca recreando la tabla.
 

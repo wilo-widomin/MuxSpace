@@ -322,5 +322,12 @@
   "dashboard.gap_claim": "Compter comme travail",
   "dashboard.gap_unclaim": "Décompter à nouveau",
   "dashboard.gap_claimed": "comptée",
+  "gap.question": "Tu es resté {time} sans activité. Tu travaillais ?",
+  "gap.hint": "De {from} à {to}. Ce laps n'a pas été compté ; si tu travaillais, il recompte.",
+  "gap.was_working": "Je travaillais",
+  "gap.was_away": "Absent",
+  "gap.never_ask": "Ne plus demander",
+  "dashboard.ask": "Demander dans le panneau",
+  "dashboard.ask_hint": "Signale à chaud chaque laps décompté, dans la fenêtre que tu as devant toi. Désactivé, les absences se revoient seulement ici.",
   "dashboard.day_seconds": "Covered by workday"
 }

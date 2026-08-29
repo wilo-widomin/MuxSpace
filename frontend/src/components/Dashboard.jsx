@@ -7,6 +7,7 @@ import {
   formatDurationExact,
   formatTime,
 } from '../worklog.js'
+import { leerPreguntar, guardarPreguntar } from '../useGapQuestion.js'
 import { useT } from '../i18n/index.jsx'
 
 // Vista de tiempos: cuántas horas MÍAS lleva cada proyecto.
@@ -89,6 +90,9 @@ export default function Dashboard({ spaces = [] }) {
   const [pausasDelPeriodo, setPausasDelPeriodo] = useState([])
   // Los huecos que la jornada NO ha contado, con lo que se haya reclamado.
   const [ausencias, setAusencias] = useState([])
+  // El interruptor de la pregunta: si el panel avisa en caliente de un hueco
+  // descontado o se espera a que uno lo revise aquí. Apagado por defecto.
+  const [preguntar, setPreguntar] = useState(leerPreguntar)
 
   useEffect(() => {
     try {
@@ -324,6 +328,23 @@ export default function Dashboard({ spaces = [] }) {
               <option value="measured">{t('dashboard.mode_measured')}</option>
             </select>
           </label>
+          {/* Preguntar o no. Es una preferencia de ESTE aparato: la tableta
+              en la mesa no tiene por qué interrumpir igual que el portátil
+              donde se trabaja. */}
+          {modo === 'workday' && (
+            <label className="flex items-center gap-1" title={t('dashboard.ask_hint')}>
+              <input
+                type="checkbox"
+                checked={preguntar}
+                onChange={(e) => {
+                  setPreguntar(e.target.checked)
+                  guardarPreguntar(e.target.checked)
+                }}
+                className="accent-panel-accent"
+              />
+              {t('dashboard.ask')}
+            </label>
+          )}
           {(desdeFecha || hastaFecha || espacioFiltro) && (
             <button
               type="button"

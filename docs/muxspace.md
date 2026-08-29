@@ -297,6 +297,14 @@ vista de tiempos, junto al resto del día: ahí se ven en contexto y el que sí
 era trabajo —una reunión, una tarde de pizarra— se recupera de un clic. Ese
 reclamo sí se guarda (`work_claims`), porque es lo único que no se deduce.
 
+**La pregunta es opcional.** El panel puede avisar en caliente de un hueco
+recién descontado —«has estado 40 min sin actividad, ¿estabas trabajando?»—,
+pero solo con el interruptor «Preguntar en el panel» encendido en el
+dashboard; por defecto está apagado, y el banner mismo lleva un «no preguntar
+más». Pregunta **una sola ventana**, la que tiene el foco, y **una sola vez**:
+la respuesta se guarda en el servidor —también el «estaba fuera», que no
+cambia ningún total— así que al cambiar de ventana ya está contestada.
+
 **Las pausas** siguen estando para la ausencia corta, la que no llega al
 umbral: el botón «me voy / ya estoy» del sidebar, o marcarla a posteriori
 desde el dashboard.

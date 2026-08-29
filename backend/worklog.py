@@ -136,12 +136,16 @@ CREATE TABLE IF NOT EXISTS work_pauses (
 );
 
 CREATE TABLE IF NOT EXISTS work_claims (
-    -- Hueco largo reclamado como trabajo: la excepción a la regla de que un
-    -- rato sin ninguna señal es ausencia. Se guarda el reclamo y no la
-    -- ausencia porque las ausencias son la norma y se deducen solas; lo que
-    -- no se puede deducir es la tarde de pizarra sin tocar el teclado.
+    -- La respuesta a un hueco largo. Se guarda la respuesta y no la ausencia
+    -- porque las ausencias son la norma y se deducen solas; lo que no se
+    -- puede deducir es la tarde de pizarra sin tocar el teclado.
     start INTEGER PRIMARY KEY,
-    end   INTEGER NOT NULL
+    end   INTEGER NOT NULL,
+    -- 1 = «sí estaba trabajando», y el hueco vuelve a contar.
+    -- 0 = «estaba fuera»: no cuenta, pero queda RESPONDIDO. Esa fila es lo
+    -- que impide que la pregunta del panel vuelva a saltar en la siguiente
+    -- ventana; sin ella, contestar en una pestaña no serviría en las demás.
+    worked INTEGER NOT NULL DEFAULT 1
 );
 """
 
@@ -235,6 +239,14 @@ def _migrar(con: sqlite3.Connection) -> None:
         # Lo anterior a esta columna se midió con foco y entrada: 'auto'.
         con.execute(
             "ALTER TABLE work_slots ADD COLUMN source TEXT NOT NULL DEFAULT 'auto'"
+        )
+
+    columnas = {fila[1] for fila in con.execute("PRAGMA table_info(work_claims)")}
+    if "worked" not in columnas:
+        # Antes de esta columna solo se guardaba el reclamo, y reclamar era
+        # siempre «sí estaba trabajando».
+        con.execute(
+            "ALTER TABLE work_claims ADD COLUMN worked INTEGER NOT NULL DEFAULT 1"
         )
 
 
@@ -540,8 +552,8 @@ def _dia_local(slot: int, tz_offset_min: int) -> str:
 
 def _cargar_señales(
     inicio: int, fin: int
-) -> tuple[list[tuple], list[tuple[int, int]], list[tuple[int, int]]]:
-    """Todo lo que el modo 'workday' necesita leer: señales, pausas y reclamos.
+) -> tuple[list[tuple], list[tuple[int, int]], list[tuple[int, int, bool]]]:
+    """Todo lo que el modo 'workday' necesita leer: señales, pausas y respuestas.
 
     Sale a una función propia porque lo leen dos caminos —el cálculo de las
     ranuras y el listado de ausencias del panel— y si cada uno cargara lo suyo
@@ -571,10 +583,11 @@ def _cargar_señales(
                 (inicio, fin),
             )
         ]
-        reclamos = [
-            (int(f[0]), int(f[1]))
+        respuestas = [
+            (int(f[0]), int(f[1]), bool(f[2]))
             for f in con.execute(
-                "SELECT start, end FROM work_claims WHERE end > ? AND start < ?",
+                "SELECT start, end, worked FROM work_claims"
+                " WHERE end > ? AND start < ?",
                 (inicio, fin),
             )
         ]
@@ -585,7 +598,7 @@ def _cargar_señales(
         if (slot, espacio) not in conocidas:
             señales.append((slot, espacio, None, "claude", "signal", bool(es_tuyo)))
     señales.sort(key=lambda s: s[0])
-    return señales, tramos_pausa, reclamos
+    return señales, tramos_pausa, respuestas
 
 
 def _umbral_ausencia(minutos: int | None) -> int:
@@ -638,11 +651,13 @@ def huecos(
     puede recuperar de un clic.
     """
     inicio, fin = _rango(desde, hasta)
-    señales, _, reclamos = _cargar_señales(inicio, fin)
+    señales, _, respuestas = _cargar_señales(inicio, fin)
     salida = []
     for principio, final in _ausencias(señales, tz_offset_min, umbral_min):
+        tocan = [r for r in respuestas if r[0] < final and r[1] > principio]
         recuperados = sum(
-            max(0, min(final, b) - max(principio, a)) for a, b in reclamos
+            max(0, min(final, b) - max(principio, a)) for a, b, trabajado in tocan
+            if trabajado
         )
         salida.append(
             {
@@ -653,30 +668,38 @@ def huecos(
                 # el umbral, que parte en dos un hueco ya reclamado.
                 "claimed_seconds": recuperados,
                 "claimed": recuperados >= final - principio,
+                # Respondido incluye el «estaba fuera», que no recupera nada
+                # pero cierra la pregunta para TODAS las ventanas.
+                "answered": bool(tocan),
             }
         )
     return salida
 
 
-def reclamar_hueco(inicio: float, fin: float) -> dict:
-    """Cuenta como trabajo un hueco que se había descontado por ausencia.
+def reclamar_hueco(inicio: float, fin: float, trabajado: bool = True) -> dict:
+    """Responde a un hueco descontado por ausencia.
 
-    UPSERT por inicio, igual que las pausas: reclamar dos veces el mismo hueco
-    corrige, no duplica.
+    Con `trabajado`, el hueco vuelve a contar. Sin él se guarda igualmente la
+    respuesta —«estaba fuera»— aunque no cambie ningún total: es lo que hace
+    que la pregunta del panel sea de una vez y no de una vez POR VENTANA.
+
+    UPSERT por inicio, igual que las pausas: responder dos veces el mismo
+    hueco corrige, no duplica.
     """
     ini = slot_de(inicio)
     final = max(slot_de(fin), ini)
     with _conexion() as con:
         con.execute(
-            "INSERT INTO work_claims (start, end) VALUES (?, ?)"
-            " ON CONFLICT(start) DO UPDATE SET end = excluded.end",
-            (ini, final),
+            "INSERT INTO work_claims (start, end, worked) VALUES (?, ?, ?)"
+            " ON CONFLICT(start) DO UPDATE SET end = excluded.end,"
+            "   worked = excluded.worked",
+            (ini, final, 1 if trabajado else 0),
         )
-    return {"start": ini, "end": final}
+    return {"start": ini, "end": final, "worked": bool(trabajado)}
 
 
 def borrar_reclamo(inicio: float) -> bool:
-    """Devuelve el hueco a ser ausencia: reclamar de más se deshace igual."""
+    """Borra la respuesta: el hueco vuelve a ser ausencia y a preguntarse."""
     with _conexion() as con:
         cur = con.execute("DELETE FROM work_claims WHERE start = ?", (slot_de(inicio),))
     return cur.rowcount > 0
@@ -712,7 +735,10 @@ def _ranuras_jornada(
     inicio, fin = _rango(desde, hasta)
     tope = max(1, min(int(JORNADA_MAX_HORAS if tope_horas is None else tope_horas), 24))
 
-    señales, tramos_pausa, reclamos = _cargar_señales(inicio, fin)
+    señales, tramos_pausa, respuestas = _cargar_señales(inicio, fin)
+    # Solo recuperan tiempo las respuestas afirmativas; el «estaba fuera» se
+    # guarda para no repetir la pregunta, no para cambiar el total.
+    reclamos = [(a, b) for a, b, trabajado in respuestas if trabajado]
     if not señales:
         return []
     tiempos = [s[0] for s in señales]

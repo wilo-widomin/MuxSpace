@@ -229,6 +229,39 @@ def test_quitar_el_reclamo_devuelve_el_hueco_a_la_ausencia():
     assert total() == sin_reclamar
 
 
+def test_responder_que_estabas_fuera_no_cambia_el_total_pero_queda_guardado():
+    """La respuesta vive en el servidor, no en la pestaña.
+
+    Es lo que permite que pregunte UNA sola ventana: se contesta en la que
+    estás mirando y las demás lo saben. Guardar solo el «sí trabajaba» dejaría
+    el «estaba fuera» indistinguible de «nadie ha contestado todavía», y la
+    pregunta volvería a saltar en la ventana siguiente.
+    """
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 10:00:00")
+    jornada("sp_a", "2026-08-15 12:00:00", "2026-08-15 13:00:00")
+    antes = total()
+    hueco = worklog.huecos()[0]
+    assert hueco["answered"] is False
+
+    worklog.reclamar_hueco(hueco["start"], hueco["end"], trabajado=False)
+
+    assert total() == antes
+    respondido = worklog.huecos()[0]
+    assert respondido["answered"] is True
+    assert respondido["claimed"] is False
+
+
+def test_borrar_la_respuesta_vuelve_a_dejar_el_hueco_por_preguntar():
+    """Deshacer una respuesta la borra entera, no la cambia de signo."""
+    jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 10:00:00")
+    jornada("sp_a", "2026-08-15 12:00:00", "2026-08-15 13:00:00")
+    hueco = worklog.huecos()[0]
+    worklog.reclamar_hueco(hueco["start"], hueco["end"], trabajado=False)
+
+    assert worklog.borrar_reclamo(hueco["start"]) is True
+    assert worklog.huecos()[0]["answered"] is False
+
+
 def test_el_hueco_se_lista_con_su_duracion_y_si_esta_reclamado():
     """El panel enseña lo descontado: un descuento invisible no se corrige."""
     jornada("sp_a", "2026-08-15 09:00:00", "2026-08-15 10:00:00")

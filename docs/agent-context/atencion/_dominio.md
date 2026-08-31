@@ -72,6 +72,11 @@ Documentación para humanos: `docs/avisos-de-atencion.md`.
   terminal y su WebSocket (ver `terminal/_dominio`).
 - El token se genera en el `lifespan`, no al primer uso: un hook que se
   instala antes de que nadie haya marcado tiene que poder leer el fichero.
+- **El nombre de sesión va codificado en la URL.** No son slugs: los que
+  nacen de un proyecto llevan espacios y paréntesis (ver `sesiones/_dominio`),
+  y curl rechaza la URL antes de salir a la red. El script lo codifica byte a
+  byte con `LC_ALL=C`, que es lo que hace falta para que un acento no salga
+  partido.
 - Marcar **no comprueba que la sesión exista** en tmux. Quien marca corre
   dentro de ella; un `list-sessions` de por medio solo añadiría una forma de
   perder el aviso.

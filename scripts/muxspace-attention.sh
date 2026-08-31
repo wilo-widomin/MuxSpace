@@ -28,9 +28,38 @@ fi
 
 SESSION="$(tmux display-message -p '#S')"
 
+# Los nombres de sesión llevan espacios y paréntesis con toda normalidad
+# («Terminal (2)», los que nacen de un proyecto), y meterlos crudos en la URL
+# hace que curl la rechace antes de salir a la red. Se codifica BYTE A BYTE
+# con LC_ALL=C: con acentos, recorrer la cadena por caracteres produciría
+# secuencias UTF-8 a medias.
+urlencode() {
+  local LC_ALL=C cadena="$1" salida="" i caracter
+  for ((i = 0; i < ${#cadena}; i++)); do
+    caracter="${cadena:i:1}"
+    case "$caracter" in
+      [a-zA-Z0-9.~_-]) salida+="$caracter" ;;
+      *)
+        printf -v caracter '%%%02X' "'$caracter"
+        salida+="$caracter"
+        ;;
+    esac
+  done
+  printf '%s' "$salida"
+}
+
+# Lo mismo por el otro lado: una etiqueta con comillas o barras invertidas
+# rompería el JSON a mano de más abajo.
+json_escape() {
+  local cadena="$1"
+  cadena="${cadena//\\/\\\\}"
+  cadena="${cadena//\"/\\\"}"
+  printf '%s' "$cadena"
+}
+
 if [ ! -r "$TOKEN_FILE" ]; then
-  # El secreto lo genera el backend la primera vez que alguien marca o
-  # arranca el panel; si no está, lo que falta es el backend.
+  # El secreto lo crea el backend al arrancar; si no está, lo que falta es el
+  # backend, no un paso de instalación.
   echo "muxspace-attention: no se puede leer $TOKEN_FILE" >&2
   exit 1
 fi
@@ -40,8 +69,8 @@ TOKEN="$(cat "$TOKEN_FILE")"
 # imprimir el cuerpo y devolver 0. Un hook que falla en silencio es peor que
 # uno que no existe: se descubre el día que se esperaba el aviso.
 curl --fail --silent --show-error \
-  -X POST "$URL/api/attention/$SESSION" \
+  -X POST "$URL/api/attention/$(urlencode "$SESSION")" \
   -H "X-Muxspace-Token: $TOKEN" \
   -H "Content-Type: application/json" \
-  -d "$(printf '{"label": "%s"}' "${LABEL//\"/\\\"}")" \
+  -d "$(printf '{"label": "%s"}' "$(json_escape "$LABEL")")" \
   -o /dev/null

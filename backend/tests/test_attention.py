@@ -10,6 +10,8 @@ El tmux de verdad no participa: se sustituye por un conjunto de nombres.
 """
 from __future__ import annotations
 
+from urllib.parse import quote
+
 import pytest
 
 import attention_store
@@ -148,6 +150,22 @@ def test_la_etiqueta_larga_se_recorta_en_vez_de_fallar(client_auth, tmux_falso):
     )
     assert resp.status_code == 200
     assert len(resp.json()["label"]) == attention_store.MAX_LABEL
+
+
+def test_un_nombre_con_espacios_y_acentos_llega_entero(client, tmux_falso):
+    """Los nombres de sesión NO son slugs.
+
+    Los que nacen de un proyecto o de un comando llevan espacios, paréntesis
+    y acentos («Terminal (2)»), y el aviso tiene que quedar apuntado a ese
+    nombre exacto: si se guardara por una versión codificada, el listado
+    nunca casaría y la marca no aparecería en ninguna parte.
+    """
+    nombre = "Prueba ñandú (2)"
+    resp = client.post(
+        f"/api/attention/{quote(nombre)}", headers=_cabecera_hook()
+    )
+    assert resp.status_code == 200, resp.text
+    assert attention_store.get(nombre) is not None
 
 
 def test_el_secreto_se_guarda_a_0600(client, data_dir):

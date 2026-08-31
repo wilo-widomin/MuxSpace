@@ -24,6 +24,10 @@ El script pregunta a tmux en qué sesión está (`tmux display-message -p '#S'`)
 lee el secreto de `backend/data/attention_token` y hace un `POST` al backend
 por su puerto local. La etiqueta es opcional y se recorta a 120 caracteres.
 
+El nombre se codifica para la URL antes de mandarlo: los nombres de sesión no
+son slugs —«Terminal (2)» es de lo más normal— y curl rechaza una URL con
+espacios antes siquiera de salir a la red.
+
 Como hook de Claude Code, en `.claude/settings.json` del proyecto:
 
 ```json

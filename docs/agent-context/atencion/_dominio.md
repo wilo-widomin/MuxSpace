@@ -35,7 +35,8 @@ Documentación para humanos: `docs/avisos-de-atencion.md`.
   WebSocket `/api/events` y el campo `attention` de `SessionInfo`.
 - `useAttentionEvents.js` — el WebSocket del cliente, con reconexión.
 - `chime.js` — la campanilla, sintetizada con WebAudio (no hay .wav).
-- `scripts/muxspace-attention.sh` — lo que llama un hook de Claude Code.
+- `scripts/muxspace-attention.sh` — lo que llama un hook de Claude Code,
+  instalado en `~/.claude/settings.json` (todos los proyectos).
 
 ## Invariantes
 
@@ -72,6 +73,12 @@ Documentación para humanos: `docs/avisos-de-atencion.md`.
   terminal y su WebSocket (ver `terminal/_dominio`).
 - El token se genera en el `lifespan`, no al primer uso: un hook que se
   instala antes de que nadie haya marcado tiene que poder leer el fichero.
+- **`--quiet` separa "no aplica" de "falla".** El hook es global: corre en
+  cada proyecto y en cada terminal, también fuera de tmux y con el panel
+  apagado. Sin tmux, sin token o con el panel sin responder (curl 7 y 28) sale
+  0 y callado; un 401 sigue saliendo ruidoso con su código. Quitar esa
+  distinción da a elegir entre un error rojo por cada sesión de fuera del
+  panel, o un aviso mal configurado que nadie descubre.
 - **El nombre de sesión va codificado en la URL.** No son slugs: los que
   nacen de un proyecto llevan espacios y paréntesis (ver `sesiones/_dominio`),
   y curl rechaza la URL antes de salir a la red. El script lo codifica byte a

@@ -6,6 +6,16 @@
 # largo, un despliegue, un script que termina.
 #
 #   scripts/muxspace-attention.sh "espera tu respuesta"
+#   scripts/muxspace-attention.sh --quiet "espera tu respuesta"
+#
+# Con `--quiet` el script se calla y devuelve 0 cuando el aviso simplemente
+# NO APLICA: no hay tmux alrededor, o el panel no está levantado. Es el modo
+# para un hook instalado globalmente, que se ejecuta en cada proyecto y en
+# cada terminal, también donde MuxSpace no pinta nada; sin él, el usuario
+# vería un error rojo por cada sesión abierta fuera del panel.
+#
+# Lo que `--quiet` NO se traga es un fallo de verdad —un 401, un 500—: eso
+# significa que el aviso se ha configurado mal y hay que enterarse.
 #
 # La sesión NO se pasa como argumento: se pregunta a tmux. Quien ejecuta esto
 # corre dentro del pane, así que la sesión correcta es siempre la suya, y
@@ -19,11 +29,24 @@ set -euo pipefail
 
 URL="${MUXSPACE_URL:-http://127.0.0.1:8000}"
 TOKEN_FILE="${MUXSPACE_TOKEN_FILE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/backend/data/attention_token}"
+
+QUIET=0
+if [ "${1:-}" = "--quiet" ]; then
+  QUIET=1
+  shift
+fi
 LABEL="${1:-}"
 
+# "No aplica": el sitio donde corre esto no tiene panel al que avisar. En modo
+# hook se sale en silencio; a mano se dice por qué, que es lo que uno quiere
+# saber cuando lo ejecuta y no pasa nada.
+no_aplica() {
+  [ "$QUIET" -eq 1 ] || echo "muxspace-attention: $1" >&2
+  exit 0
+}
+
 if [ -z "${TMUX:-}" ]; then
-  echo "muxspace-attention: no se está ejecutando dentro de tmux" >&2
-  exit 1
+  no_aplica "no se está ejecutando dentro de tmux"
 fi
 
 SESSION="$(tmux display-message -p '#S')"
@@ -58,19 +81,40 @@ json_escape() {
 }
 
 if [ ! -r "$TOKEN_FILE" ]; then
-  # El secreto lo crea el backend al arrancar; si no está, lo que falta es el
-  # backend, no un paso de instalación.
-  echo "muxspace-attention: no se puede leer $TOKEN_FILE" >&2
-  exit 1
+  # El secreto lo crea el backend al arrancar; que no esté significa que el
+  # panel no ha arrancado nunca, no que falte un paso de instalación.
+  no_aplica "no se puede leer $TOKEN_FILE"
 fi
 TOKEN="$(cat "$TOKEN_FILE")"
 
 # `--fail` para que un 401 o un 404 salgan como error del script en vez de
 # imprimir el cuerpo y devolver 0. Un hook que falla en silencio es peor que
 # uno que no existe: se descubre el día que se esperaba el aviso.
-curl --fail --silent --show-error \
-  -X POST "$URL/api/attention/$(urlencode "$SESSION")" \
-  -H "X-Muxspace-Token: $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "$(printf '{"label": "%s"}' "$(json_escape "$LABEL")")" \
-  -o /dev/null
+#
+# `--max-time` porque esto corre DENTRO del hook, o sea delante del usuario:
+# un backend que acepta la conexión y no contesta dejaría a Claude Code
+# esperando. Dos segundos es de sobra contra un servidor de la propia
+# máquina.
+set +e
+SALIDA="$(
+  curl --fail --silent --show-error --max-time 2 \
+    -X POST "$URL/api/attention/$(urlencode "$SESSION")" \
+    -H "X-Muxspace-Token: $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$(printf '{"label": "%s"}' "$(json_escape "$LABEL")")" \
+    -o /dev/null 2>&1
+)"
+CODIGO=$?
+set -e
+
+if [ "$CODIGO" -ne 0 ]; then
+  # 7 (no se pudo conectar) y 28 (se agotó el tiempo) son "el panel no está
+  # levantado", no un error de configuración: los demás sí.
+  case "$CODIGO" in
+    7 | 28) no_aplica "el panel no responde en $URL" ;;
+    *)
+      echo "muxspace-attention: ${SALIDA:-curl salió con $CODIGO}" >&2
+      exit "$CODIGO"
+      ;;
+  esac
+fi

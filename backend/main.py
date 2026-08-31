@@ -12,6 +12,7 @@ Ver `docs/muxspace.md` para la especificación completa.
 """
 from __future__ import annotations
 
+import asyncio
 import errno
 import os
 import re
@@ -33,8 +34,10 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import attention_store
 import audit
 import claude_transcript
+import events
 import config
 import library_store
 import logs
@@ -158,6 +161,13 @@ def _next_label_name(base: str) -> str:
 # ----------------------------------------------------------------------
 # Modelos de respuesta
 # ----------------------------------------------------------------------
+class AttentionInfo(BaseModel):
+    """Aviso pendiente de una sesión: cuándo lo pidió y con qué etiqueta."""
+
+    at: float
+    label: str | None = None
+
+
 class SessionInfo(BaseModel):
     name: str
     windows: int
@@ -170,6 +180,16 @@ class SessionInfo(BaseModel):
     # Proyecto del que salió la sesión, o None si se creó a mano. El cliente
     # lo usa para pintar los enlaces del proyecto en la cabecera del tile.
     project: str | None = None
+    # Aviso pendiente, o None si la sesión no reclama nada. Va aquí y no solo
+    # por el bus de eventos para que una pestaña recién abierta —o recargada—
+    # vea las marcas que se emitieron mientras no estaba.
+    attention: AttentionInfo | None = None
+
+
+class AttentionBody(BaseModel):
+    """Cuerpo opcional de la marca: una etiqueta corta de una línea."""
+
+    label: str | None = None
 
 
 class SpaceInfo(BaseModel):
@@ -439,6 +459,9 @@ async def lifespan(app: FastAPI):
     # Lo primero de todo: sin esto, cualquier mensaje que se emita más abajo
     # saldría al nivel que hubiera quedado por defecto.
     logs.configurar()
+    # El bus de eventos reparte desde el loop; los endpoints `def` corren en
+    # el threadpool y necesitan esta referencia para agendar el reparto.
+    events.bind_loop(asyncio.get_running_loop())
     _log.info("MuxSpace arrancando (auth=%s, modo=%s)",
               config.AUTH_ENABLED, config.AUTH_MODE)
     # Todo lo de data/ es del usuario y solo suyo, pero se venía escribiendo
@@ -446,6 +469,11 @@ async def lifespan(app: FastAPI):
     # en una máquina donde el panel ya da una shell. Las escrituras nuevas
     # ya salen a 0600 (`datafiles`); esto cierra las que quedaron de antes.
     harden_tree(_DATA_DIR)
+    # El secreto con el que los hooks del host marcan atención se crea aquí y
+    # no la primera vez que alguien marca: quien lo necesita es un script que
+    # lo LEE, y un fichero que aparece al primer uso no existe todavía cuando
+    # se instala el hook. Ver `docs/avisos-de-atencion.md`.
+    attention_store.hook_token()
     migrados = _migrar_espacios_de_proyectos()
     if migrados:
         _log.info("Espacio asignado a %d proyectos que no tenían", migrados)
@@ -1276,6 +1304,7 @@ def get_sessions(user: str = _auth) -> list[SessionInfo]:
 
     by_name = space_store.assignments()
     by_project = library_store.session_projects()
+    avisos = attention_store.pending()
     por_titulo = _project_by_name()
 
     def proyecto_de(nombre: str) -> str | None:
@@ -1292,6 +1321,7 @@ def get_sessions(user: str = _auth) -> list[SessionInfo]:
             created=s.created,
             space=by_name.get(s.name),
             project=proyecto_de(s.name),
+            attention=_aviso(avisos.get(s.name)),
         )
         for s in sessions
     ]
@@ -1399,6 +1429,8 @@ def kill_session_endpoint(
     # crea otra con el mismo nombre, no debe heredar el espacio de la vieja.
     space_store.forget_session(name)
     library_store.forget_session(name)
+    attention_store.forget_session(name)
+    _publicar_atencion(name, None)
     audit.record(
         "kill-session", request=request, user=user, target=name,
         detail={"killed": killed},
@@ -1466,11 +1498,138 @@ def rename_session_endpoint(
 
     space_store.rename_session(name, new_name)
     library_store.rename_session(name, new_name)
+    if new_name != name:
+        attention_store.rename_session(name, new_name)
+        _publicar_atencion(name, None)
+        _publicar_atencion(new_name, attention_store.get(new_name))
     audit.record(
         "rename-session", request=request, user=user, target=name,
         detail={"new_name": new_name},
     )
     return MessageResponse(message="ok")
+
+
+# ---------------------------------------------------------------------- #
+# Atención: qué sesiones reclaman al usuario                             #
+# ---------------------------------------------------------------------- #
+# Cabecera con el secreto del host. La marca la pide un hook que corre en la
+# máquina, sin navegador ni cookie; ver `attention_store.hook_token`.
+_HOOK_TOKEN_HEADER = "X-Muxspace-Token"
+
+# Segundos de silencio antes de mandar un latido por el bus de eventos.
+_EVENTS_PING = 30.0
+
+
+def _aviso(pendiente: attention_store.Attention | None) -> AttentionInfo | None:
+    """Traduce el aviso interno al modelo que sale por la API."""
+    if pendiente is None:
+        return None
+    return AttentionInfo(at=pendiente.at, label=pendiente.label)
+
+
+def _publicar_atencion(
+    name: str, pendiente: attention_store.Attention | None
+) -> None:
+    """Anuncia a las pestañas abiertas que una sesión marcó o desmarcó.
+
+    `attention: None` es el evento de apagado. Se manda siempre, también
+    cuando no había marca, para que una pestaña que se perdió el encendido no
+    se quede con una señal que ya nadie tiene.
+    """
+    aviso = _aviso(pendiente)
+    events.publish({
+        "type": "attention",
+        "session": name,
+        "attention": aviso.model_dump() if aviso else None,
+    })
+
+
+def _attention_auth(request: Request) -> str:
+    """Autoriza a marcar: secreto del host, o sesión del panel.
+
+    El hook presenta el secreto; el panel, su cookie. Se comprueba primero el
+    secreto porque el hook nunca traerá cookie y no tiene sentido hacerle
+    pagar un 401 antes.
+    """
+    if attention_store.token_matches(request.headers.get(_HOOK_TOKEN_HEADER)):
+        return "hook"
+    return require_auth(request)
+
+
+@app.post("/api/attention/{name}", response_model=AttentionInfo)
+async def mark_attention(
+    name: str,
+    body: AttentionBody | None = Body(default=None),
+    user: str = Depends(_attention_auth),
+) -> AttentionInfo:
+    """Marca que la sesión `name` reclama la atención del usuario.
+
+    No se comprueba que la sesión exista en tmux: quien marca es un proceso
+    que corre DENTRO de ella, así que existe por construcción, y un `tmux
+    list-sessions` de más en el camino solo añadiría una forma de que el
+    aviso se pierda.
+    """
+    pendiente = attention_store.mark(name, body.label if body else None)
+    _publicar_atencion(name, pendiente)
+    return _aviso(pendiente)
+
+
+@app.delete("/api/attention/{name}", response_model=MessageResponse)
+async def clear_attention(name: str, user: str = _auth) -> MessageResponse:
+    """Apaga la marca de `name`: el usuario ya ha atendido esa terminal.
+
+    Idempotente y silencioso si no había marca. Lo llama el panel al teclear
+    o pulsar en el tile, y eso pasa constantemente: un 404 aquí solo serviría
+    para llenar la consola del navegador de errores que no lo son.
+    """
+    attention_store.clear(name)
+    _publicar_atencion(name, None)
+    return MessageResponse(message="ok")
+
+
+@app.delete("/api/attention", response_model=MessageResponse)
+async def clear_all_attention(user: str = _auth) -> MessageResponse:
+    """Apaga todas las marcas de golpe."""
+    for nombre in attention_store.clear_all():
+        _publicar_atencion(nombre, None)
+    return MessageResponse(message="ok")
+
+
+@app.websocket("/api/events")
+async def events_ws(websocket: WebSocket) -> None:
+    """Avisos empujados a la pestaña: uno por pestaña, no por terminal.
+
+    Existe porque el sondeo del listado se detiene con la pestaña oculta, que
+    es cuando hace falta enterarse. Se autentica igual que el terminal (la
+    cookie del handshake) y cierra con 1008 sin distinguir causa.
+    """
+    ws_ip = websocket.client.host if websocket.client else ""
+    if is_ip_banned(ws_ip):
+        await websocket.close(code=1008)
+        return
+    ws_origin = websocket.headers.get("origin", "").rstrip("/")
+    if ws_origin and ws_origin not in _ALLOWED_ORIGINS:
+        await websocket.close(code=1008)
+        return
+    if ws_user(websocket) is None:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    async with events.subscribe() as cola:
+        try:
+            while True:
+                try:
+                    evento = await asyncio.wait_for(cola.get(), timeout=_EVENTS_PING)
+                except asyncio.TimeoutError:
+                    # Latido: un WebSocket callado el tiempo suficiente lo
+                    # corta el proxy de delante, y el cliente se enteraría de
+                    # que está desconectado justo cuando llega un aviso.
+                    evento = {"type": "ping"}
+                await websocket.send_json(evento)
+        except Exception:
+            # Cliente que se va (pestaña cerrada, red que cae): no es un
+            # error del servidor y no merece ruido en el registro.
+            pass
 
 
 # ---------------------------------------------------------------------- #

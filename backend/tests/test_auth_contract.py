@@ -60,6 +60,17 @@ import main
 # ampliarla es un cambio consciente y revisable en el diff.
 RUTAS_PUBLICAS = frozenset({"/api/health", "/api/login", "/api/logout"})
 
+# Rutas que NO declaran `require_auth` porque tienen una segunda puerta: el
+# secreto del host (`attention_store.hook_token`), que presenta un proceso de
+# la máquina sin navegador ni cookie. No son públicas —sin secreto y sin
+# cookie responden 401— pero su dependencia es `main._attention_auth`, que
+# solo cae en `require_auth` cuando el secreto no vale.
+#
+# Se enumeran una a una y con su propio test más abajo, por lo mismo que
+# `RUTAS_PUBLICAS`: abrir esta puerta en una ruta nueva tiene que aparecer en
+# el diff de este archivo.
+RUTAS_CON_SECRETO_DEL_HOST = frozenset({"/api/attention/{name}"})
+
 # Suelo del censo, no cifra exacta (hoy son 32 rutas protegidas). Un número
 # exacto obligaría a tocar este archivo en cada endpoint nuevo y acabaría
 # actualizándose a ciegas; un suelo solo salta cuando el censo se DERRUMBA,
@@ -224,7 +235,23 @@ def _exige_401_sin_credenciales(client: TestClient, metodo: str, url: str) -> No
 # ----------------------------------------------------------------------
 # El censo, calculado una vez en tiempo de colección.
 # ----------------------------------------------------------------------
-_PROTEGIDAS = [r for r in rutas_api(main.app) if r.path not in RUTAS_PUBLICAS]
+# Las del secreto del host quedan fuera de la capa DECLARATIVA (no declaran
+# `require_auth`) pero siguen en la de COMPORTAMIENTO: sin credenciales tienen
+# que responder 401 como cualquier otra.
+# La excusa es por RUTA, no por path: `/api/attention/{name}` es POST (marca,
+# con secreto) y DELETE (apaga, solo sesión del panel), y el segundo sigue
+# obligado a declarar `require_auth` como cualquier otro.
+_CON_SECRETO = [
+    r
+    for r in rutas_api(main.app)
+    if r.path in RUTAS_CON_SECRETO_DEL_HOST and not _protege(r)
+]
+
+_PROTEGIDAS = [
+    r
+    for r in rutas_api(main.app)
+    if r.path not in RUTAS_PUBLICAS and r not in _CON_SECRETO
+]
 
 # El método entra en el id porque un mismo path aparece varias veces con
 # métodos distintos (`/api/pastes/{filename}` es GET y DELETE, y son dos
@@ -233,7 +260,7 @@ _PROTEGIDAS = [r for r in rutas_api(main.app) if r.path not in RUTAS_PUBLICAS]
 _IDS_RUTAS = [f"{'+'.join(_metodos(r))} {r.path}" for r in _PROTEGIDAS]
 
 # Pares (ruta, método) para los tests que hacen el recorrido real.
-_CASOS = [(r, m) for r in _PROTEGIDAS for m in _metodos(r)]
+_CASOS = [(r, m) for r in _PROTEGIDAS + _CON_SECRETO for m in _metodos(r)]
 _IDS_CASOS = [f"{m} {r.path}" for r, m in _CASOS]
 
 
@@ -263,12 +290,43 @@ def test_las_rutas_publicas_son_exactamente_las_declaradas() -> None:
     igual); comprobar solo que las de la lista están abiertas deja pasar una
     ruta nueva sin autenticar.
     """
-    abiertas = set(rutas_api_sin_auth(main.app, frozenset()))
+    abiertas = set(rutas_api_sin_auth(main.app, RUTAS_CON_SECRETO_DEL_HOST))
     assert abiertas == set(RUTAS_PUBLICAS), (
         f"Rutas abiertas no declaradas: {sorted(abiertas - RUTAS_PUBLICAS)}; "
         f"entradas obsoletas en RUTAS_PUBLICAS: "
         f"{sorted(RUTAS_PUBLICAS - abiertas)}"
     )
+
+
+@pytest.mark.parametrize(
+    "r", _CON_SECRETO, ids=[r.path for r in _CON_SECRETO]
+)
+def test_la_puerta_del_secreto_del_host_acaba_en_require_auth(r: APIRoute) -> None:
+    """Las rutas del secreto no se saltan la autenticación: la aplazan.
+
+    Es lo que impide que `RUTAS_CON_SECRETO_DEL_HOST` sirva de coladero: una
+    ruta metida ahí con una dependencia cualquiera —o sin ninguna— haría que
+    la igualdad de conjuntos del test anterior dejara de verla, y este test
+    es el que exige que la dependencia declarada sea la que sabe volver a
+    `require_auth`.
+    """
+    declaradas = _dependencias(r.dependant)
+    assert main._attention_auth in declaradas, (
+        f"{r.path} está declarada con secreto del host pero su dependencia "
+        f"no es `_attention_auth`: "
+        f"{sorted(getattr(d, '__name__', repr(d)) for d in declaradas)}"
+    )
+
+
+def test_el_secreto_del_host_abre_solo_lo_suyo(client: TestClient) -> None:
+    """Con el secreto se marca; sin él, 401. Es toda la potestad que da."""
+    import attention_store
+
+    cabecera = {main._HOOK_TOKEN_HEADER: attention_store.hook_token()}
+    assert client.post("/api/attention/x", headers=cabecera).status_code == 200
+    assert client.post("/api/attention/x").status_code == 401
+    # El secreto no vale para nada más que marcar.
+    assert client.get("/api/sessions", headers=cabecera).status_code == 401
 
 
 def test_el_censo_de_rutas_no_esta_vacio() -> None:

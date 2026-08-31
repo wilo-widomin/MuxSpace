@@ -817,12 +817,26 @@ export default function Sidebar({
                           dicen el fondo de la fila, el nombre atenuado y la ✕
                           de ocultar, que solo existe si lo está. */}
                         <span className="flex items-center gap-2 truncate">
+                          {/* El punto dice dos cosas por orden de urgencia:
+                            si la sesión RECLAMA (ámbar y latiendo) y, si no,
+                            si está enganchada. Se prefiere una marca que
+                            sustituye a una que se añade porque esta fila es
+                            estrecha y ya se le quitaron dos indicadores para
+                            que cupiera el nombre. */}
                           <span
                             className={`h-2 w-2 shrink-0 rounded-full ${
-                              s.attached ? 'bg-green-400' : 'bg-panel-muted'
+                              s.attention
+                                ? 'animate-pulse bg-amber-400'
+                                : s.attached
+                                  ? 'bg-green-400'
+                                  : 'bg-panel-muted'
                             }`}
                             title={
-                              s.attached ? t('sidebar.attached') : t('sidebar.detached')
+                              s.attention
+                                ? s.attention.label || t('sidebar.attention')
+                                : s.attached
+                                  ? t('sidebar.attached')
+                                  : t('sidebar.detached')
                             }
                           />
                           <span

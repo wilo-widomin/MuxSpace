@@ -39,6 +39,10 @@ ni ve ni valida.
 
 ## Invariantes
 
+- Hay **una segunda puerta**, y solo una: el secreto de
+  `data/attention_token` autoriza a marcar atención (`POST /api/attention`) a
+  un proceso del host sin cookie ni contraseña. No sirve para nada más y está
+  enumerada en `test_auth_contract.py`. Ver `atencion/_dominio`.
 - Con `AUTH_ENABLED=false` el único control anti-CSRF que queda es el guard de
   Origin: configurar mal `CORS_ORIGINS` abre POSTs desde otro sitio contra un
   panel que da shell.

@@ -84,6 +84,7 @@ export default function SessionGrid({
   onRestoreAllMinimized = () => {},
   focusName = null,
   focusToken = 0,
+  onAttended = () => {},
 }) {
   const { t } = useT()
   // Enlaces por id de proyecto, para dárselos a la cabecera de cada tile.
@@ -325,7 +326,12 @@ export default function SessionGrid({
               <TerminalTile
                 session={session}
                 isActive={activeName === session.name}
-                onFocus={() => onSetActive(session.name)}
+                onFocus={() => {
+                  onSetActive(session.name)
+                  // Poner el foco en una terminal ES atenderla: es el gesto
+                  // que hace el usuario cuando ve la marca y va a mirar.
+                  onAttended(session.name)
+                }}
                 onClose={onClose}
                 onKill={onKill}
                 onSpawn={onSpawn}
@@ -348,6 +354,7 @@ export default function SessionGrid({
                   onSetFocused(session.name === focusedName ? null : session.name)
                 }
                 focusToken={focusName === session.name ? focusToken : 0}
+                onAttended={onAttended}
               />
             </div>
           )

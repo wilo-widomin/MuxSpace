@@ -95,6 +95,7 @@ if str(_BACKEND) not in sys.path:
 # ----------------------------------------------------------------------
 # Bloque 3 · Ya se puede importar el backend.
 # ----------------------------------------------------------------------
+import attention_store  # noqa: E402
 import audit  # noqa: E402
 import auth  # noqa: E402
 import claude_transcript  # noqa: E402
@@ -163,6 +164,12 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(space_store, "_STORE_PATH", datos / "spaces.json")
     monkeypatch.setattr(upload_store, "_STORE_PATH", datos / "upload_history.json")
     monkeypatch.setattr(auth, "_FAILURES_PATH", datos / "login_failures.json")
+    # El secreto que autoriza a marcar atención se GENERA al usarse: sin este
+    # parche, el primer test que marcara escribiría un fichero nuevo en los
+    # datos reales del usuario. `_token` se resetea porque es caché de proceso
+    # y arrastraría el valor entre tests.
+    monkeypatch.setattr(attention_store, "_TOKEN_PATH", datos / "attention_token")
+    monkeypatch.setattr(attention_store, "_token", None)
     monkeypatch.setattr(auth, "_BANNED_PATH", datos / "banned_ips.json")
     monkeypatch.setattr(main, "_PASTE_DIR", datos / "pastes")
     # El log de auditoría (US-018) escribe por su cuenta, sin pasar por los
@@ -180,6 +187,10 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     # cambiaría los permisos de los ficheros reales del usuario.
     monkeypatch.setattr(main, "_DATA_DIR", datos)
     monkeypatch.setattr(config, "DIR_SUGGESTION_ROOTS", [str(raiz)])
+
+    # Los avisos de atención también son estado de proceso: uno dejado por un
+    # test aparecería como marca en el listado de sesiones del siguiente.
+    monkeypatch.setattr(attention_store, "_pending", {})
 
     # Las sesiones viven en memoria y son globales del módulo: sin este reset,
     # una sesión abierta en un test seguiría valiendo en el siguiente.

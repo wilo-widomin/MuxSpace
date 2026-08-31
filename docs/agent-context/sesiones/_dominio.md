@@ -28,6 +28,8 @@ estado de cliente**.
   no viven en tmux:
   - `space: str|None` — id de espacio; `None` es «Sin asignar», que es la
     ausencia de entrada, no una fila.
+  - `attention: {at, label}|None` — aviso pendiente. Es la otra excepción al
+    "todo es estado de cliente": ver `atencion/_dominio`.
   - `project: str|None` — **id** de proyecto, no objeto. Sale del vínculo
     explícito `session_projects`, y como plan B de casar el nombre sin el
     sufijo ` (N)` contra el título saneado de cada proyecto.
@@ -41,8 +43,8 @@ estado de cliente**.
   paréntesis. Por eso existen nombres («Terminal (2)») que el usuario no podría
   teclear. El `$` se filtra porque tmux lo lee como prefijo de id de sesión y
   esa sesión quedaría inmatable.
-- `kill-session` llama a `forget_session` de espacios y biblioteca **aunque la
-  sesión no existiera**, para que un nombre reutilizado no herede nada.
+- `kill-session` llama a `forget_session` de espacios, biblioteca y avisos
+  **aunque la sesión no existiera**, para que un nombre reutilizado no herede nada.
 - Cerrar la vista no toca el servidor; matar es otra acción distinta.
 
 ## Acciones documentadas

@@ -91,8 +91,11 @@ atenderlas. También se puede apagar todo de golpe con
 
 ## La campanilla
 
-Se sintetiza en el navegador (`src/lib/chime.js`), sin fichero de audio. Suena
-solo cuando la marca se **enciende** —no al refrescarse—, nunca en la terminal
+Se sintetiza en el navegador (`src/lib/chime.js`), sin fichero de audio: tres
+notas ascendentes con su octava por encima, que es lo que le da timbre de
+campana y lo que la hace oírse desde la habitación de al lado sin recurrir a
+una onda cuadrada, que suena a alarma. Suena solo cuando la marca se
+**enciende** —no al refrescarse—, nunca en la terminal
 que ya tenía el foco, y como mucho una vez cada tres segundos.
 
 El navegador no deja sonar hasta que el usuario ha tocado la página, así que

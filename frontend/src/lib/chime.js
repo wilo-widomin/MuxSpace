@@ -52,9 +52,9 @@ export function armChime() {
 /**
  * Toca la campanilla. Silenciosa si el navegador aún no ha dado permiso.
  *
- * @param {number} volume - Ganancia de pico, 0..1. Discreta por defecto.
+ * @param {number} volume - Ganancia de pico, 0..1.
  */
-export function chime(volume = 0.12) {
+export function chime(volume = 0.3) {
   const c = contexto()
   if (!c) return
   const ahora = Date.now()
@@ -67,24 +67,41 @@ export function chime(volume = 0.12) {
     if (c.state === 'suspended') return
   }
 
-  // Dos notas ascendentes (La5, Mi6) con caída exponencial: se lee como
-  // "atiende" y no como "error". Ondas senoidales, sin armónicos: un pitido
-  // cuadrado en una habitación silenciosa es una alarma de incendios.
+  // Tres notas ascendentes (La5, Do#6, Mi6): un arpegio mayor, que se lee
+  // como "atiende" y no como "error". Con dos notas se confundía con el
+  // pitido de cualquier otra cosa; la tercera es lo que lo convierte en una
+  // frase reconocible desde la habitación de al lado.
+  //
+  // Cada nota lleva su OCTAVA por encima a un quinto del volumen. Ese
+  // armónico es lo que le da timbre de campana y lo que la hace destacar
+  // sobre el ruido de fondo sin subir el volumen hasta molestar: una senoide
+  // pelada es fácil de perder, y una onda cuadrada —el otro modo de
+  // destacar— suena a alarma de incendios.
   const t0 = c.currentTime
-  for (const [freq, retraso] of [
+  const NOTAS = [
     [880, 0],
-    [1318.5, 0.09],
-  ]) {
-    const osc = c.createOscillator()
-    const gain = c.createGain()
-    osc.type = 'sine'
-    osc.frequency.value = freq
-    const inicio = t0 + retraso
-    gain.gain.setValueAtTime(0.0001, inicio)
-    gain.gain.exponentialRampToValueAtTime(volume, inicio + 0.01)
-    gain.gain.exponentialRampToValueAtTime(0.0001, inicio + 0.32)
-    osc.connect(gain).connect(c.destination)
-    osc.start(inicio)
-    osc.stop(inicio + 0.35)
+    [1108.7, 0.1],
+    [1318.5, 0.2],
+  ]
+  for (const [freq, retraso] of NOTAS) {
+    // La última nota se sostiene más: es la que queda sonando cuando ya has
+    // levantado la cabeza, y es la que decide si el aviso se oyó o no.
+    const cola = retraso === 0.2 ? 0.75 : 0.4
+    for (const [multiplo, peso] of [
+      [1, 1],
+      [2, 0.2],
+    ]) {
+      const osc = c.createOscillator()
+      const gain = c.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq * multiplo
+      const inicio = t0 + retraso
+      gain.gain.setValueAtTime(0.0001, inicio)
+      gain.gain.exponentialRampToValueAtTime(volume * peso, inicio + 0.012)
+      gain.gain.exponentialRampToValueAtTime(0.0001, inicio + cola)
+      osc.connect(gain).connect(c.destination)
+      osc.start(inicio)
+      osc.stop(inicio + cola + 0.05)
+    }
   }
 }

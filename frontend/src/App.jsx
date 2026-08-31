@@ -8,6 +8,8 @@ import { porNombre } from './lib/orden.js'
 import { useWorkClock } from './useWorkClock.js'
 import { useWorkPause } from './useWorkPause.js'
 import { useGapQuestion } from './useGapQuestion.js'
+import { useAttentionEvents } from './useAttentionEvents.js'
+import { armChime, chime } from './lib/chime.js'
 import GapQuestion from './components/GapQuestion.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import { useT } from './i18n/index.jsx'
@@ -333,6 +335,85 @@ export default function App() {
     [handleAuthFailure, tError],
   )
 
+  // Refs espejo de dos estados que los callbacks de atención necesitan LEER
+  // sin volver a crearse por ellos: si `handleAttended` cambiara en cada
+  // sondeo, el tile entero se re-renderizaría ocho veces por minuto.
+  const sessionsRef = useRef(sessions)
+  sessionsRef.current = sessions
+  const focusedNameRef = useRef(focusedName)
+  focusedNameRef.current = focusedName
+
+  // ---- Avisos de atención ----
+  // Una sesión "reclama" cuando algo que corre dentro (un hook de Claude, un
+  // script que termina) marcó su nombre en el backend. El estado llega por
+  // dos caminos que dicen lo mismo: el listado de sesiones —que es la fuente
+  // de verdad y lo que ve una pestaña recién abierta— y el bus de eventos,
+  // que solo adelanta la noticia para que la campanilla suene ahora y no en
+  // el sondeo siguiente.
+  //
+  // Por eso el evento no guarda estado aparte: PARCHEA `sessions`. Con dos
+  // listas habría que decidir cuál gana cada vez que discrepan, y discrepan
+  // siempre (el sondeo va ocho segundos por detrás).
+  const applyAttention = useCallback(
+    (name, attention) => {
+      let habiaAviso = false
+      let conocida = false
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.name !== name) return s
+          conocida = true
+          habiaAviso = Boolean(s.attention)
+          return { ...s, attention }
+        }),
+      )
+      // Una sesión que el listado aún no conoce (se acaba de crear y ya
+      // reclama) no se puede parchear: se pide el listado, que la traerá con
+      // su aviso puesto.
+      if (!conocida && attention) loadSessions(true)
+      // La campanilla suena al ENCENDERSE la marca, no al refrescarse: un
+      // agente que avisa tres veces seguidas es una sola noticia.
+      if (attention && !habiaAviso && name !== focusedNameRef.current) chime()
+    },
+    [loadSessions],
+  )
+
+  useAttentionEvents(
+    useCallback(
+      (evento) => {
+        if (evento.type !== 'attention') return
+        applyAttention(evento.session, evento.attention || null)
+      },
+      [applyAttention],
+    ),
+  )
+
+  // El audio del navegador nace bloqueado y solo lo desbloquea un gesto del
+  // usuario: se prepara al montar el panel, mucho antes del primer aviso.
+  useEffect(() => armChime(), [])
+
+  // Atender una terminal apaga su marca en el SERVIDOR, así que se apaga
+  // también en los demás dispositivos: si lo miro en el portátil, la tablet
+  // deja de reclamarlo. Se llama en cada foco y en cada tecla, de ahí el
+  // corte previo: sin marca no hay nada que apagar y no se molesta al backend.
+  const handleAttended = useCallback(
+    (name) => {
+      const sesion = sessionsRef.current.find((s) => s.name === name)
+      if (!sesion?.attention) return
+      applyAttention(name, null)
+      api.clearAttention(name).catch(() => {
+        // Si falla, la marca vuelve con el siguiente sondeo. Reintentar aquí
+        // solo serviría para insistir mientras el backend no está.
+      })
+    },
+    [applyAttention],
+  )
+
+  // Cuántas sesiones reclaman, para el título de la pestaña.
+  const attentionCount = useMemo(
+    () => sessions.filter((s) => s.attention).length,
+    [sessions],
+  )
+
   // Todo lo que se lista va ordenado alfabéticamente (ver `porNombre`).
   const commandsOrdenados = useMemo(() => porNombre(commands, 'label'), [commands])
   const projectsOrdenados = useMemo(() => porNombre(projects, 'title'), [projects])
@@ -399,9 +480,12 @@ export default function App() {
       activeSpace === UNASSIGNED
         ? t('spaces.unassigned')
         : spaces.find((s) => s.id === activeSpace)?.title
-    document.title =
+    const base =
       authed && espacio ? t('app.title_space', { space: espacio }) : t('app.title')
-  }, [authed, activeSpace, spaces, t])
+    // El contador va DELANTE: en una pestaña estrecha el navegador recorta el
+    // final del título, y lo que no se puede recortar es la señal.
+    document.title = attentionCount > 0 ? `(${attentionCount}) ${base}` : base
+  }, [authed, activeSpace, spaces, t, attentionCount])
 
   // ---- Login ----
   // El backend valida y deja la sesión en una cookie HttpOnly; aquí no se
@@ -788,6 +872,7 @@ export default function App() {
           onRestoreAllMinimized={restoreAllMinimized}
           focusName={focusReq.name}
           focusToken={focusReq.token}
+          onAttended={handleAttended}
         />
       </main>
     </div>

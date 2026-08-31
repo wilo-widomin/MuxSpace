@@ -72,6 +72,13 @@ export const api = {
   logout: () => request('/api/logout', { method: 'POST' }),
   me: () => request('/api/me'),
   listSessions: () => request('/api/sessions'),
+  // ---- Avisos de atención ----
+  // Apagar la marca de una sesión: el usuario ya la ha atendido. No existe
+  // aquí el "marcar": eso lo hace un proceso del host con el secreto de
+  // `data/attention_token`, nunca el navegador.
+  clearAttention: (name) =>
+    request(`/api/attention/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  clearAllAttention: () => request('/api/attention', { method: 'DELETE' }),
   // ---- Registro de tiempo de trabajo ----
   // El latido dice QUE hubo entrada del usuario, nunca qué se tecleó. La hora
   // la pone el servidor: el reloj del navegador no es de fiar para esto.

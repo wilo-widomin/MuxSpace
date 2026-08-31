@@ -13,6 +13,7 @@ haber mirado su documento.
 | lo que pasa dentro de la terminal: WebSocket, PTY, xterm, portapapeles, OSC 52, scroll, búsqueda, pegar texto largo, transcript de Claude | `terminal/` |
 | comandos guardados, proyectos, directorio y enlaces de un proyecto, ejecutar o lanzar algo desde la biblioteca | `biblioteca/` |
 | espacios, agrupar sesiones, «Sin asignar», filtrar la vista por cliente o proyecto | `espacios/` |
+| avisos de que una sesión reclama, campanilla, marca en el tile, hooks que llaman al panel desde el host | `atencion/` |
 | horas trabajadas, cronómetro, latidos, bloques, pausas, dashboard, informes de tiempo | `jornada/` |
 | subir archivos, pegar imágenes para Claude, elegir o crear carpetas, rutas que se copian al portapapeles | `archivos/` |
 | login, cookie, sesión caducada, rate-limit, IPs baneadas, auditoría, CSP y cabeceras, mTLS y certificados de dispositivo | `acceso/` |

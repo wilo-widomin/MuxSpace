@@ -57,6 +57,7 @@ export default function TerminalTile({
   onToggleFocus,
   onMinimize,
   onSpawn = () => {},
+  onAttended = () => {},
   onRename = async () => {},
   focusToken = 0,
 }) {
@@ -213,7 +214,21 @@ export default function TerminalTile({
         title={t('tile.drag_hint')}
       >
         <span className="flex min-w-0 items-center gap-2 truncate text-sm font-medium text-gray-100">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" />
+          {/* El mismo punto de siempre cambia de color y late cuando la
+              sesión reclama. Se reutiliza en vez de añadir un icono al lado
+              porque la zona izquierda de la cabecera es la identidad de la
+              ventana y cualquier cosa nueva ahí le come el ancho al nombre,
+              que en un grid de cuatro es lo único que las distingue. */}
+          <span
+            className={`h-2 w-2 shrink-0 rounded-full ${
+              session.attention ? 'animate-pulse bg-amber-400' : 'bg-green-400'
+            }`}
+            title={
+              session.attention
+                ? session.attention.label || t('tile.attention')
+                : undefined
+            }
+          />
           {renaming ? (
             <form onSubmit={submitRename} className="min-w-0 flex-1">
               <input
@@ -355,6 +370,10 @@ export default function TerminalTile({
         <XtermTerminal
           name={session.name}
           onFocus={() => onFocus()}
+          // Teclear también es atender: sin esto, la marca de la terminal en
+          // la que ya estabas escribiendo no se apagaría hasta que pulsaras
+          // en otra y volvieras.
+          onActivity={() => onAttended(session.name)}
           focusToken={focusToken}
           searchToken={searchToken}
           pasteRequest={paste}

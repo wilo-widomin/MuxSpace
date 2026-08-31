@@ -28,6 +28,7 @@ import TranscriptSearch from './TranscriptSearch.jsx'
 export default function XtermTerminal({
   name,
   onFocus,
+  onActivity,
   focusToken = 0,
   searchToken = 0,
   pasteRequest = null,
@@ -73,6 +74,11 @@ export default function XtermTerminal({
   // momento de escribirla en pantalla.
   const tRef = useRef(t)
   tRef.current = t
+  // Ref espejo, por lo mismo que `tRef`: el efecto principal depende SOLO de
+  // `[name]`, y meter aquí un callback del padre recrearía la terminal y su
+  // WebSocket en cada render de arriba.
+  const onActivityRef = useRef(onActivity)
+  onActivityRef.current = onActivity
 
   useEffect(() => {
     const container = containerRef.current
@@ -314,6 +320,10 @@ export default function XtermTerminal({
 
     const dataDisp = term.onData((d) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(enc.encode(d))
+      // Escribir en la terminal es la forma más clara de atenderla. El padre
+      // corta enseguida si no había marca: aquí no se sabe si la hay, y
+      // consultarlo obligaría a meter ese estado en las dependencias.
+      onActivityRef.current?.()
     })
 
     // ---- Ajuste de tamaño ----

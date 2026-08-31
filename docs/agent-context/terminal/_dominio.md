@@ -57,6 +57,8 @@ texto largo y búsqueda del transcript de Claude Code.
   best-effort e ignorando errores de tmux antiguos.
 - **No se intercepta Ctrl/Cmd+V**: xterm.js ya gestiona el pegado nativo;
   añadirlo pegaría dos veces. El clic derecho sí pega a mano.
+- `onActivity` (teclear = atender un aviso, ver `atencion/_dominio`) entra por
+  ref espejo, no como dependencia, por lo que dice el punto siguiente.
 - El efecto principal de `XtermTerminal` depende **solo de `[name]`**: meterle
   otra dependencia (el `t` del i18n, por ejemplo) recrearía la terminal y el
   WebSocket al cambiar de idioma. De ahí las refs espejo.

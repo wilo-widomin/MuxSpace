@@ -28,7 +28,10 @@ El nombre se codifica para la URL antes de mandarlo: los nombres de sesión no
 son slugs —«Terminal (2)» es de lo más normal— y curl rechaza una URL con
 espacios antes siquiera de salir a la red.
 
-Como hook de Claude Code, en `.claude/settings.json` del proyecto:
+### Como hook de Claude Code, en todos los proyectos
+
+En `~/.claude/settings.json`, que aplica a cualquier proyecto sin tener que
+tocar ninguno:
 
 ```json
 {
@@ -38,7 +41,19 @@ Como hook de Claude Code, en `.claude/settings.json` del proyecto:
         "hooks": [
           {
             "type": "command",
-            "command": "/ruta/a/muxspace/scripts/muxspace-attention.sh 'Claude espera tu respuesta'"
+            "command": "bash /ruta/a/muxspace/scripts/muxspace-attention.sh --quiet 'Claude espera tu respuesta'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /ruta/a/muxspace/scripts/muxspace-attention.sh --quiet 'Claude ha terminado'",
+            "timeout": 5
           }
         ]
       }
@@ -46,6 +61,17 @@ Como hook de Claude Code, en `.claude/settings.json` del proyecto:
   }
 }
 ```
+
+`Notification` salta cuando Claude pide permiso o lleva un rato esperando;
+`Stop`, al terminar cada turno. Si ya hay hooks en esos eventos, este se
+**añade** al array, no lo sustituye.
+
+**`--quiet` es imprescindible en un hook global.** Ese hook se ejecuta en cada
+proyecto y en cada terminal, también fuera de tmux y con el panel apagado.
+Con `--quiet` el script se calla y devuelve 0 cuando el aviso no aplica —no
+hay tmux alrededor, o el panel no responde—, y sigue gritando cuando el fallo
+es de verdad: un 401 sale con su mensaje y su código de salida, porque eso
+significa que está mal configurado y hay que enterarse.
 
 Variables que acepta el script: `MUXSPACE_URL` (por defecto
 `http://127.0.0.1:8000`) y `MUXSPACE_TOKEN_FILE`.

@@ -103,3 +103,38 @@ def test_sin_directorio_conocido_la_terminal_se_crea_igual(
 
     assert respuesta.status_code == 200, respuesta.text
     assert tmux_falso[respuesta.json()["name"]] is None
+
+
+def test_la_terminal_hija_hereda_el_proyecto_de_la_madre(
+    client_no_auth, data_dir: Path, tmux_falso: dict[str, str | None]
+) -> None:
+    """Sin el vínculo, la hija se queda sin los enlaces de la cabecera."""
+    proyecto = client_no_auth.post(
+        "/api/projects",
+        json={
+            "title": "MuxSpace",
+            "commands": ["bun dev"],
+            "links": [{"url": "https://ejemplo.test/", "title": "Panel"}],
+        },
+    ).json()
+    tmux_falso["Madre"] = "/tmp/proyecto"
+    import library_store
+
+    library_store.link_session("Madre", proyecto["id"])
+
+    nueva = client_no_auth.post("/api/sessions/Madre/spawn").json()["name"]
+
+    sesiones = {s["name"]: s for s in client_no_auth.get("/api/sessions").json()}
+    assert sesiones[nueva]["project"] == proyecto["id"]
+
+
+def test_la_hija_de_una_sesion_sin_proyecto_no_inventa_ninguno(
+    client_no_auth, data_dir: Path, tmux_falso: dict[str, str | None]
+) -> None:
+    """Una terminal suelta engendra terminales sueltas."""
+    tmux_falso["Madre"] = "/tmp/suelta"
+
+    nueva = client_no_auth.post("/api/sessions/Madre/spawn").json()["name"]
+
+    sesiones = {s["name"]: s for s in client_no_auth.get("/api/sessions").json()}
+    assert sesiones[nueva]["project"] is None

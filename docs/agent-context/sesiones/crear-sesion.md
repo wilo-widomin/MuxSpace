@@ -1,7 +1,7 @@
 ---
 dominio: sesiones
 accion: crear-sesion
-actualizado: 2026-08-28
+actualizado: 2026-09-01
 archivos:
   - backend/tmux_service.py
   - backend/main.py
@@ -25,7 +25,9 @@ usuario elegir el nombre.
    `handleSelect()`. El orden importa: sin la asignación, la sesión nueva cae
    en «Sin asignar» y no aparece en el espacio que estás mirando.
 3. Spawn: `TerminalTile` → `SessionGrid` → `App.jsx:handleSpawnTerminal` →
-   `POST /api/sessions/{name}/spawn`.
+   `POST /api/sessions/{name}/spawn`. El **espacio** lo pone el cliente
+   (`assignToActiveSpace`, igual que el formulario); el **proyecto** lo hereda
+   el backend de la sesión de origen.
 
 ## Reglas
 
@@ -35,6 +37,11 @@ usuario elegir el nombre.
   El comando va sin escapar: es shell por diseño.
 - **El cwd del spawn no viaja desde el cliente**: lo lee el servidor con
   `pane_info` (`pane_current_path`). Si no lo sabe, crea la sesión sin `cd`.
+- **El spawn hereda el proyecto de la sesión madre**: el endpoint lo resuelve
+  con `_project_of(name)` —vínculo explícito y, si no hay, el plan B por
+  título— y escribe `library_store.link_session(new_name, ...)`. Sin ese
+  vínculo explícito la hija se quedaría sin los enlaces de la cabecera para
+  siempre, porque su nombre (`Terminal (N)`) no casa con ningún título.
 - `_next_label_name(base)` cuenta las existentes que casan `base` o `base (n)`
   y usa `count+1`, incrementando si choca; hay un reintento y luego 409.
 

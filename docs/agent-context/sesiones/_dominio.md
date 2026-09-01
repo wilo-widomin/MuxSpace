@@ -1,6 +1,6 @@
 ---
 dominio: sesiones
-actualizado: 2026-08-28
+actualizado: 2026-09-01
 archivos:
   - backend/tmux_service.py
   - backend/main.py
@@ -23,13 +23,17 @@ estado de cliente**.
 
 - `TmuxSession` (`backend/tmux_service.py`) — `windows` (0 si tmux no lo da),
   `attached` (solo pinta el punto verde/gris), `created` epoch **en string** y
-  nulable. El parser descarta en silencio una línea sin `name`.
+  nulable, más `cwd` y `command` del panel activo. El parser descarta en
+  silencio una línea sin `name`.
 - `SessionInfo` (`GET /api/sessions`, `backend/main.py`) añade dos campos que
   no viven en tmux:
   - `space: str|None` — id de espacio; `None` es «Sin asignar», que es la
     ausencia de entrada, no una fila.
   - `attention: {at, label}|None` — aviso pendiente. Es la otra excepción al
     "todo es estado de cliente": ver `atencion/_dominio`.
+  - `cwd: str|None` — directorio del panel activo, **ya abreviado con `~`**
+    (`_abbreviate_home`): el navegador no sabe cuál es el home del backend.
+    Junto a `command`, es lo que el tile enseña en el tooltip del nombre.
   - `project: str|None` — **id** de proyecto, no objeto. Sale del vínculo
     explícito `session_projects`, y como plan B de casar el nombre sin el
     sufijo ` (N)` contra el título saneado de cada proyecto.
@@ -46,6 +50,13 @@ estado de cliente**.
 - `kill-session` llama a `forget_session` de espacios, biblioteca y avisos
   **aunque la sesión no existiera**, para que un nombre reutilizado no herede nada.
 - Cerrar la vista no toca el servidor; matar es otra acción distinta.
+- `cwd` y `command` salen del **mismo `list-sessions`** del sondeo (van en
+  `_FORMAT`), no de una llamada por sesión. `pane_current_path` va el último
+  del formato porque es el único campo que puede contener un tabulador, y el
+  `split` con tope lo deja entero.
+- tmux los lee del proceso en primer plano del panel, no de la shell: con
+  `claude` dentro, `cwd` es el directorio desde el que se lanzó y NO cambia
+  con los `cd` que el agente haga en sus subprocesos.
 
 ## Acciones documentadas
 

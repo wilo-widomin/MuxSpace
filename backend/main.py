@@ -186,6 +186,11 @@ class SessionInfo(BaseModel):
     # por el bus de eventos para que una pestaña recién abierta —o recargada—
     # vea las marcas que se emitieron mientras no estaba.
     attention: AttentionInfo | None = None
+    # Directorio de trabajo del panel activo y programa que lo ocupa, tal y
+    # como los ve tmux. Salen del mismo `list-sessions` del sondeo, así que
+    # no cuestan ninguna llamada extra.
+    cwd: str | None = None
+    command: str | None = None
 
 
 class AttentionBody(BaseModel):
@@ -1353,6 +1358,23 @@ def get_transcript(name: str, user: str = _auth) -> dict:
 _SUFIJO_REPETIDA = re.compile(r" \(\d+\)$")
 
 
+def _abbreviate_home(path: str | None) -> str | None:
+    """`/home/willy/proyectos/x` -> `~/proyectos/x`, para enseñarlo al usuario.
+
+    La abreviatura se hace aquí y no en el cliente porque el navegador no sabe
+    cuál es el home del usuario que corre el backend. Es solo para mostrar:
+    nada del panel vuelve a resolver esta ruta.
+    """
+    if not path:
+        return path
+    home = str(Path.home())
+    if path == home:
+        return "~"
+    if path.startswith(home + "/"):
+        return "~" + path[len(home) :]
+    return path
+
+
 def _project_by_name() -> dict[str, str]:
     """`nombre de sesión que produciría cada proyecto -> id del proyecto`.
 
@@ -1394,6 +1416,8 @@ def get_sessions(user: str = _auth) -> list[SessionInfo]:
             space=by_name.get(s.name),
             project=proyecto_de(s.name),
             attention=_aviso(avisos.get(s.name)),
+            cwd=_abbreviate_home(s.cwd),
+            command=s.command,
         )
         for s in sessions
     ]

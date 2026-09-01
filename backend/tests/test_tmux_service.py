@@ -582,12 +582,20 @@ def test_list_sessions_devuelve_la_sesion_con_todos_sus_campos(
     assert s.created is not None and s.created.isdigit()
     assert antes - 5 <= int(s.created) <= int(time.time()) + 5
 
-    # El dict que viaja al frontend lleva las mismas cuatro claves.
+    # El directorio del panel, contra tmux de verdad: una sesión creada sin
+    # `cwd` nace donde esté el proceso, así que basta con que sea una ruta
+    # absoluta y no un campo vacío.
+    assert s.cwd is not None and s.cwd.startswith("/")
+    assert s.command
+
+    # El dict que viaja al frontend lleva las mismas claves.
     assert s.to_dict() == {
         "name": sesion,
         "windows": 1,
         "attached": False,
         "created": s.created,
+        "cwd": s.cwd,
+        "command": s.command,
     }
 
 
@@ -1569,3 +1577,30 @@ def test_un_arranque_fallido_no_marca_el_flag_y_se_reintenta(
     antes = intentos.stat().st_size
     assert tmux_service._ensure_tmux_server() is False
     assert intentos.stat().st_size == antes
+
+
+def test_list_sessions_trae_el_directorio_y_el_programa_del_panel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """El cwd viaja en el mismo `list-sessions` del sondeo, sin llamadas extra.
+
+    Y va el ÚLTIMO en el formato porque es el único campo que puede llevar un
+    tabulador dentro: un directorio se puede llamar como quiera, y partirlo
+    dejaría media ruta en el campo del programa.
+    """
+    _tmux_de_mentira(
+        tmp_path,
+        monkeypatch,
+        salida=(
+            "panel\t1\t1\t1700000000\tclaude\t/home/usuario/proyectos/muxspace\n"
+            "vieja\t1\t0\t1700000000\n"  # sin los campos nuevos
+            "rara\t1\t0\t1700000000\tzsh\t/tmp/con\ttab\n"
+        ),
+    )
+
+    por_nombre = {s.name: s for s in tmux_service.list_sessions()}
+
+    assert por_nombre["panel"].cwd == "/home/usuario/proyectos/muxspace"
+    assert por_nombre["panel"].command == "claude"
+    assert (por_nombre["vieja"].cwd, por_nombre["vieja"].command) == (None, None)
+    assert por_nombre["rara"].cwd == "/tmp/con\ttab"

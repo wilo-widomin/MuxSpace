@@ -1,9 +1,10 @@
 ---
 dominio: sesiones
 accion: estado-del-grid
-actualizado: 2026-08-28
+actualizado: 2026-09-01
 archivos:
   - frontend/src/App.jsx
+  - frontend/src/lib/grid.js
   - frontend/src/components/SessionGrid.jsx
   - frontend/src/spaces.js
 depende_de: [espacios/_dominio]
@@ -40,6 +41,13 @@ Claves de `localStorage`: `muxspace:hidden-sessions`, `muxspace:session-order`,
   cada recarga te sacaría del espacio en el que trabajas.
 
 ## Trampas
+
+- **`sesionesDelGrid` (`frontend/src/lib/grid.js`) recorta cada sesión** a los
+  campos que el tile usa (`CAMPOS`: name, project, cwd, command), para que el
+  `useMemo` no cambie de identidad cuando el sondeo trae algo que el grid no
+  pinta. Un campo nuevo del tile **pasa por esa lista**: se ha comido ya
+  `project` (badges que no salían) y `cwd` (tooltip sin directorio), y las dos
+  veces el componente estaba bien y sus tests en verde.
 
 - Minimizar y ocultar **no desmontan** el tile (CSS `display:none`):
   desmontarlo cerraría el WebSocket y perdería el scrollback de xterm.

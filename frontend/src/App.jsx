@@ -4,6 +4,7 @@ import SessionGrid, { LAYOUTS } from './components/SessionGrid.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
 import { api, ApiError } from './api.js'
 import { initialSpace, UNASSIGNED } from './spaces.js'
+import { sesionesDelGrid } from './lib/grid.js'
 import { porNombre } from './lib/orden.js'
 import { useWorkClock } from './useWorkClock.js'
 import { useWorkPause } from './useWorkPause.js'
@@ -217,30 +218,10 @@ export default function App() {
   // Sesiones del espacio activo que no están ocultas: exactamente lo que
   // se renderiza en el grid. Es un valor DERIVADO, no un estado propio; por
   // eso el sondeo periódico ya no puede reañadir nada a la vista.
-  const openSessions = useMemo(() => {
-    const inSpace = sessions.filter((s) =>
-      activeSpace === UNASSIGNED ? !s.space : s.space === activeSpace,
-    )
-    const visible = inSpace.filter((s) => !hidden.has(s.name))
-    // Orden manual primero; las que no aparecen en él (sesiones nuevas) van
-    // al final, alfabéticamente, en vez de en un orden arbitrario.
-    const rank = new Map(order.map((name, i) => [name, i]))
-    return (
-      visible
-        .slice()
-        .sort((a, b) => {
-          const ra = rank.has(a.name) ? rank.get(a.name) : Infinity
-          const rb = rank.has(b.name) ? rank.get(b.name) : Infinity
-          if (ra !== rb) return ra - rb
-          return a.name.localeCompare(b.name)
-        })
-        // Se recorta a lo que el grid necesita, y `project` es parte de eso:
-        // es lo que le dice a la cabecera de cada terminal qué enlaces del
-        // proyecto tiene que pintar. Cuando aquí solo iba el nombre, las badges
-        // no aparecían nunca y el tile no tenía forma de saber por qué.
-        .map((s) => ({ name: s.name, project: s.project ?? null }))
-    )
-  }, [sessions, activeSpace, hidden, order])
+  const openSessions = useMemo(
+    () => sesionesDelGrid(sessions, activeSpace, UNASSIGNED, hidden, order),
+    [sessions, activeSpace, hidden, order],
+  )
 
   // ---- Sesión caducada ----
   // Memoizada y con `t` en las dependencias: la usan los tres cargadores de

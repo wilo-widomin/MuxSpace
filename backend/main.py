@@ -36,6 +36,7 @@ from pydantic import BaseModel
 
 import attention_store
 import audit
+import chime_store
 import claude_transcript
 import events
 import config
@@ -79,6 +80,7 @@ from library_store import (
     update_project,
 )
 from pty_bridge import _prepare_session, bridge
+from chime_store import ChimeError
 from space_store import SpaceError
 from tmux_service import (
     TmuxError,
@@ -313,6 +315,24 @@ class PasteImageResponse(BaseModel):
 class PasteInfo(BaseModel):
     filename: str
     path: str
+
+
+class ChimeNote(BaseModel):
+    freq: float  # hercios
+    delay: float  # segundos desde el inicio de la campanilla
+    duration: float  # segundos que tarda en apagarse
+
+
+class ChimeConfig(BaseModel):
+    """La receta de la campanilla, no el audio: lo sintetiza el navegador."""
+
+    mode: str  # preset | custom | file
+    preset: str
+    volume: float
+    muted: bool
+    notes: list[ChimeNote]
+    timbre: str  # sine | bell
+    file: str | None = None  # nombre del audio propio subido, si lo hay
 
 
 class DirBrowseResponse(BaseModel):
@@ -849,6 +869,58 @@ def get_paste(filename: str, user: str = _auth) -> FileResponse:
     if not target.is_file():
         raise http_error(404, "err.paste_not_found")
     return FileResponse(str(target))
+
+
+# ----------------------------------------------------------------------
+# Campanilla del aviso de atención
+# ----------------------------------------------------------------------
+# Todo lo de aquí exige sesión del panel. El secreto del host (el que usan
+# los hooks) sirve para MARCAR atención y para nada más: quien pueda avisar
+# no tiene por qué poder cambiar lo que suena, ni subir un fichero.
+@app.get("/api/chime", response_model=ChimeConfig)
+def get_chime(user: str = _auth) -> ChimeConfig:
+    """Ajuste actual de la campanilla."""
+    return ChimeConfig(**chime_store.get())
+
+
+@app.put("/api/chime", response_model=ChimeConfig)
+def put_chime(cfg: ChimeConfig, user: str = _auth) -> ChimeConfig:
+    """Guarda el ajuste. El nombre del audio lo decide el servidor."""
+    try:
+        return ChimeConfig(**chime_store.save(cfg.model_dump()))
+    except ChimeError as exc:
+        raise http_from(exc.status, exc) from exc
+
+
+@app.post("/api/chime/audio", response_model=ChimeConfig)
+async def upload_chime_audio(request: Request, user: str = _auth) -> ChimeConfig:
+    """Sube una campanilla propia (bytes crudos, tipo en el Content-Type)."""
+    content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    data = await _read_capped(
+        request, chime_store.AUDIO_MAX_BYTES, "err.chime_audio_too_large"
+    )
+    try:
+        return ChimeConfig(**chime_store.save_audio(data, content_type))
+    except ChimeError as exc:
+        raise http_from(exc.status, exc) from exc
+
+
+@app.get("/api/chime/audio")
+def get_chime_audio(user: str = _auth) -> FileResponse:
+    """Sirve la campanilla propia para que el navegador la reproduzca."""
+    path = chime_store.audio_file()
+    if path is None:
+        raise http_error(404, "err.chime_no_audio")
+    return FileResponse(path)
+
+
+@app.delete("/api/chime/audio", response_model=ChimeConfig)
+def delete_chime_audio(user: str = _auth) -> ChimeConfig:
+    """Borra la campanilla propia y vuelve al sonido del panel."""
+    try:
+        return ChimeConfig(**chime_store.delete_audio())
+    except ChimeError as exc:
+        raise http_from(exc.status, exc) from exc
 
 
 @app.delete("/api/pastes/{filename}", response_model=MessageResponse)

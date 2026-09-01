@@ -98,6 +98,7 @@ if str(_BACKEND) not in sys.path:
 import attention_store  # noqa: E402
 import audit  # noqa: E402
 import auth  # noqa: E402
+import chime_store  # noqa: E402
 import claude_transcript  # noqa: E402
 import config  # noqa: E402
 import library_store  # noqa: E402
@@ -171,6 +172,8 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(attention_store, "_TOKEN_PATH", datos / "attention_token")
     monkeypatch.setattr(attention_store, "_token", None)
     monkeypatch.setattr(auth, "_BANNED_PATH", datos / "banned_ips.json")
+    monkeypatch.setattr(chime_store, "_STORE_PATH", datos / "chime.json")
+    monkeypatch.setattr(chime_store, "AUDIO_DIR", datos / "chime")
     monkeypatch.setattr(main, "_PASTE_DIR", datos / "pastes")
     # El log de auditoría (US-018) escribe por su cuenta, sin pasar por los
     # stores: si no se apunta también a `tmp_path`, cada test que ejecute algo

@@ -55,11 +55,12 @@ texto largo y búsqueda del transcript de Claude Code.
   `TextDecoder('utf-8')`; hacerlo directo convierte los acentos en mojibake. El
   backend activa `allow-passthrough on` y `set-clipboard on` en cada apertura,
   best-effort e ignorando errores de tmux antiguos.
-- **Shift+Enter manda `ESC`+`CR` (`\x1b\r`), no `\r`**: un terminal pierde la
+- **Shift+Enter manda `\n` (0x0a), no `\r`**: un terminal pierde la
   modificación de Enter, así que Claude Code y opencode obligarían a Ctrl+J.
-  Esa secuencia es la que configura `/terminal-setup` en iTerm2 o VSCode. Se
-  aplica siempre, también fuera de pantalla alternativa: en una shell normal
-  equivale a Enter.
+  `\n` es exactamente lo que produce Ctrl+J, así que no depende de que el
+  programa entienda ninguna secuencia especial. Se probó antes con `ESC`+`CR`
+  (lo que configura `/terminal-setup` en iTerm2) y **no funcionó a través de
+  tmux**. Se aplica siempre, también fuera de pantalla alternativa.
 - **No se intercepta Ctrl/Cmd+V**: xterm.js ya gestiona el pegado nativo;
   añadirlo pegaría dos veces. El clic derecho sí pega a mano.
 - `onActivity` (teclear = atender un aviso, ver `atencion/_dominio`) entra por

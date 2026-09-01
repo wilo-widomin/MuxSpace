@@ -197,12 +197,13 @@ export default function XtermTerminal({
       }
       // Shift+Enter = salto de línea sin enviar. Un terminal manda `\r` tanto
       // con Enter como con Shift+Enter, así que Claude Code (u opencode) no
-      // puede distinguirlos y obligan a Ctrl+J. Mandando ESC+CR —lo mismo que
-      // configura `/terminal-setup` en iTerm2 o VSCode— sí lo reconocen como
-      // nueva línea. En una shell normal es inofensivo: se trata como Enter.
+      // puede distinguirlos y obligan a Ctrl+J. Aquí se manda `\n` (0x0a), que
+      // es literalmente lo que produce Ctrl+J: no depende de que el programa
+      // entienda ninguna secuencia especial, ni de cómo trate tmux al ESC. En
+      // una shell normal `\n` se comporta como Enter, igual que ahora.
       if (e.key === 'Enter' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const sock = wsRef.current
-        if (sock && sock.readyState === WebSocket.OPEN) sock.send(enc.encode('\x1b\r'))
+        if (sock && sock.readyState === WebSocket.OPEN) sock.send(enc.encode('\n'))
         onActivityRef.current?.()
         return false
       }

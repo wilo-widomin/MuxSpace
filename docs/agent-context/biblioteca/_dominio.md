@@ -1,6 +1,6 @@
 ---
 dominio: biblioteca
-actualizado: 2026-08-28
+actualizado: 2026-09-01
 archivos:
   - backend/library_store.py
   - backend/main.py
@@ -57,6 +57,9 @@ residuo: no lo lee nadie.)
 - Los enlaces no se copian a la sesión: el frontend resuelve
   `session.project -> projects[].links` en cada render, así que editarlos se
   refleja al instante en las ventanas abiertas.
+- El vínculo `sesión -> proyecto` lo escriben dos sitios: `run-project` (al
+  lanzar) y `spawn` (que lo copia de la sesión madre). Todo lo demás depende
+  del plan B por título, que se rompe al renombrar.
 - Un `space` que apunta a un espacio borrado sigue en disco; la API lo devuelve
   como `null`.
 - Las filas de enlace a medio escribir se filtran en el cliente; sin eso el

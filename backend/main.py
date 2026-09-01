@@ -1366,6 +1366,28 @@ def _project_by_name() -> dict[str, str]:
     return {_tmux_safe_label(p.title): p.id for p in list_projects()}
 
 
+def _project_of(
+    name: str,
+    by_project: dict[str, str] | None = None,
+    por_titulo: dict[str, str] | None = None,
+) -> str | None:
+    """Proyecto del que salió la sesión `name`, o `None` si no sale de ninguno.
+
+    Manda el vínculo explícito (`session_projects`); el nombre solo se mira
+    cuando no lo hay, y es el plan B que documenta `_project_by_name`. Los
+    dos mapas se pueden pasar ya cargados para no releer la biblioteca una
+    vez por sesión al listar el catálogo entero.
+    """
+    if by_project is None:
+        by_project = library_store.session_projects()
+    explicito = by_project.get(name)
+    if explicito is not None:
+        return explicito
+    if por_titulo is None:
+        por_titulo = _project_by_name()
+    return por_titulo.get(_SUFIJO_REPETIDA.sub("", name))
+
+
 @app.get("/api/sessions", response_model=list[SessionInfo])
 def get_sessions(user: str = _auth) -> list[SessionInfo]:
     """Devuelve el catálogo de sesiones de tmux y el espacio de cada una."""
@@ -1380,10 +1402,7 @@ def get_sessions(user: str = _auth) -> list[SessionInfo]:
     por_titulo = _project_by_name()
 
     def proyecto_de(nombre: str) -> str | None:
-        explicito = by_project.get(nombre)
-        if explicito is not None:
-            return explicito
-        return por_titulo.get(_SUFIJO_REPETIDA.sub("", nombre))
+        return _project_of(nombre, by_project, por_titulo)
 
     return [
         SessionInfo(
@@ -1474,12 +1493,21 @@ def spawn_terminal_endpoint(
     if not created:
         raise http_error(409, "err.session_exists", name=new_name)
 
+    # La terminal hija hereda el proyecto de la madre: el icono significa
+    # "otra terminal aquí mismo", y "aquí" incluye los enlaces de la
+    # cabecera, no solo el directorio. El nombre nuevo es `Terminal (N)`,
+    # así que sin este vínculo explícito no lo rescataría nadie: el plan B
+    # por título nunca casaría.
+    proyecto = _project_of(name)
+    if proyecto is not None:
+        library_store.link_session(new_name, proyecto)
+
     audit.record(
         "spawn-terminal",
         request=request,
         user=user,
         target=new_name,
-        detail={"from": name, "cwd": cwd},
+        detail={"from": name, "cwd": cwd, "project_id": proyecto},
     )
     return CreateSessionResponse(name=new_name, created=True)
 

@@ -36,6 +36,12 @@ class TmuxSession:
     windows: int
     attached: bool
     created: str | None = None
+    # Directorio y programa del panel activo. tmux los lee del proceso en
+    # primer plano del panel, no de la shell: con `claude` corriendo, `cwd`
+    # es el directorio desde el que se lanzó, que es justo el proyecto en el
+    # que trabaja esa terminal.
+    cwd: str | None = None
+    command: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -43,11 +49,19 @@ class TmuxSession:
             "windows": self.windows,
             "attached": self.attached,
             "created": self.created,
+            "cwd": self.cwd,
+            "command": self.command,
         }
 
 
 # Formato controlado para parsear de forma fiable la salida de `tmux ls`.
-_FORMAT = "#{session_name}\t#{session_windows}\t#{session_attached}\t#{session_created}"
+# `pane_current_path` va EL ÚLTIMO a propósito: es el único campo que puede
+# traer un tabulador (un directorio puede llamarse como quiera), y siendo el
+# último el `split` con tope lo deja entero en vez de partirlo en dos.
+_FORMAT = (
+    "#{session_name}\t#{session_windows}\t#{session_attached}"
+    "\t#{session_created}\t#{pane_current_command}\t#{pane_current_path}"
+)
 
 
 def _run_tmux(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -144,12 +158,14 @@ def list_sessions() -> list[TmuxSession]:
         line = line.strip()
         if not line:
             continue
-        parts = line.split("\t")
+        parts = line.split("\t", 5)
         # Tolerante a campos faltantes.
         name = parts[0] if len(parts) > 0 else ""
         windows = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
         attached = parts[2] == "1" if len(parts) > 2 else False
         created = parts[3] if len(parts) > 3 and parts[3] else None
+        command = parts[4] if len(parts) > 4 and parts[4] else None
+        cwd = parts[5] if len(parts) > 5 and parts[5] else None
         if name:
             sessions.append(
                 TmuxSession(
@@ -157,6 +173,8 @@ def list_sessions() -> list[TmuxSession]:
                     windows=windows,
                     attached=attached,
                     created=created,
+                    cwd=cwd,
+                    command=command,
                 )
             )
     return sessions

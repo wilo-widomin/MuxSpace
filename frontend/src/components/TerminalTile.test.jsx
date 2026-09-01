@@ -135,3 +135,26 @@ describe('TerminalTile: renombrar desde la cabecera', () => {
     expect(onRename).not.toHaveBeenCalled()
   })
 })
+
+describe('TerminalTile: directorio de trabajo en el tooltip', () => {
+  it('el nombre lleva de tooltip la ruta y el programa del panel', () => {
+    renderTile({
+      session: {
+        name: 'panel',
+        cwd: '~/proyectos/muxspace',
+        command: 'claude',
+      },
+    })
+
+    // El recordatorio de renombrar sigue debajo: el tooltip suma, no sustituye.
+    expect(screen.getByText('panel').getAttribute('title')).toBe(
+      '~/proyectos/muxspace · claude\nDouble-click to rename',
+    )
+  })
+
+  it('sin directorio conocido queda el recordatorio de renombrar', () => {
+    renderTile()
+
+    expect(screen.getByText('panel').getAttribute('title')).not.toContain('·')
+  })
+})

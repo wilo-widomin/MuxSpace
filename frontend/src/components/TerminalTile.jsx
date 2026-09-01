@@ -134,6 +134,21 @@ export default function TerminalTile({
     if (renaming) renameRef.current?.select()
   }, [renaming])
 
+  // Tooltip del nombre: dónde está trabajando esa terminal y qué programa la
+  // ocupa, con el recordatorio de renombrar debajo. La ruta la manda el
+  // backend ya abreviada con `~`, y sale del panel activo de tmux: si dentro
+  // corre `claude`, es el directorio desde el que se lanzó, o sea el proyecto.
+  const tituloDelNombre = [
+    session.cwd
+      ? session.command
+        ? `${session.cwd} · ${session.command}`
+        : session.cwd
+      : null,
+    t('tile.rename_hint'),
+  ]
+    .filter(Boolean)
+    .join('\n')
+
   const startRename = () => {
     setRenameValue(session.name)
     setRenameError(null)
@@ -252,7 +267,7 @@ export default function TerminalTile({
           ) : (
             <span
               onDoubleClick={startRename}
-              title={t('tile.rename_hint')}
+              title={tituloDelNombre}
               className="cursor-text truncate"
             >
               {session.name}

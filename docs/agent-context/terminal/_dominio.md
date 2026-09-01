@@ -1,6 +1,6 @@
 ---
 dominio: terminal
-actualizado: 2026-08-28
+actualizado: 2026-09-01
 archivos:
   - backend/pty_bridge.py
   - backend/claude_transcript.py
@@ -55,6 +55,16 @@ texto largo y búsqueda del transcript de Claude Code.
   `TextDecoder('utf-8')`; hacerlo directo convierte los acentos en mojibake. El
   backend activa `allow-passthrough on` y `set-clipboard on` en cada apertura,
   best-effort e ignorando errores de tmux antiguos.
+- **Shift+Enter manda `\n` (0x0a), no `\r`**: un terminal pierde la
+  modificación de Enter, así que Claude Code y opencode obligarían a Ctrl+J.
+  `\n` es exactamente lo que produce Ctrl+J, así que no depende de que el
+  programa entienda ninguna secuencia especial. Se probó antes con `ESC`+`CR`
+  (lo que configura `/terminal-setup` en iTerm2) y **no funcionó a través de
+  tmux**. Se aplica siempre, también fuera de pantalla alternativa.
+  **Necesita `preventDefault()`**: devolver `false` en el manejador solo evita
+  que xterm procese el `keydown`, pero el navegador sigue emitiendo el
+  `keypress` y xterm mandaba su `\r` justo detrás; el programa recibía salto de
+  línea Y envío. Es la misma trampa que ya documenta el atajo de búsqueda.
 - **No se intercepta Ctrl/Cmd+V**: xterm.js ya gestiona el pegado nativo;
   añadirlo pegaría dos veces. El clic derecho sí pega a mano.
 - `onActivity` (teclear = atender un aviso, ver `atencion/_dominio`) entra por

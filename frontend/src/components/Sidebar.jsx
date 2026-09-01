@@ -8,7 +8,9 @@ import { UploadFiles } from './sidebar/UploadFiles.jsx'
 import { SectionCaret } from './sidebar/SectionCaret.jsx'
 import { UNASSIGNED, spaceKeyOf } from '../spaces.js'
 import logo from '../assets/logo.png'
+import { ChimeSettings } from './ChimeSettings.jsx'
 import {
+  BellIcon,
   ChartIcon,
   CheckIcon,
   ClockIcon,
@@ -100,6 +102,7 @@ export default function Sidebar({
   // sesiones muestra las de ese espacio.
   const spaceSessions = sessions.filter((s) => spaceKeyOf(s) === activeSpace)
 
+  const [chimeOpen, setChimeOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [createError, setCreateError] = useState(null)
@@ -1097,8 +1100,22 @@ export default function Sidebar({
         >
           {t('sidebar.logout')}
         </button>
-        <LanguagePicker />
+        <div className="flex items-center gap-2">
+          {/* El ajuste de la campanilla vive junto al idioma y no en el
+              menú de cada terminal: es una preferencia del panel entero,
+              no algo de una sesión concreta. */}
+          <button
+            onClick={() => setChimeOpen(true)}
+            title={t('chime.title')}
+            aria-label={t('chime.title')}
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-surface hover:text-gray-100"
+          >
+            <BellIcon />
+          </button>
+          <LanguagePicker />
+        </div>
       </footer>
+      {chimeOpen && <ChimeSettings onClose={() => setChimeOpen(false)} />}
 
       {/* ---------------- Modales (formularios) ---------------- */}
       {creating && (

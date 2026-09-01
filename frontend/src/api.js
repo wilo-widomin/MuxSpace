@@ -79,6 +79,26 @@ export const api = {
   clearAttention: (name) =>
     request(`/api/attention/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   clearAllAttention: () => request('/api/attention', { method: 'DELETE' }),
+  // ---- Campanilla del aviso ----
+  // La preferencia vive en el servidor y no en `localStorage` a propósito:
+  // el panel se abre desde varios aparatos y elegirla en cada uno es
+  // elegirla mal en casi todos.
+  getChime: () => request('/api/chime'),
+  saveChime: (cfg) =>
+    request('/api/chime', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg),
+    }),
+  // El audio propio viaja como bytes crudos con su tipo en la cabecera, igual
+  // que las imágenes pegadas: sin multipart, que aquí no aporta nada.
+  uploadChimeAudio: (file) =>
+    request('/api/chime/audio', {
+      method: 'POST',
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    }),
+  deleteChimeAudio: () => request('/api/chime/audio', { method: 'DELETE' }),
   // ---- Registro de tiempo de trabajo ----
   // El latido dice QUE hubo entrada del usuario, nunca qué se tecleó. La hora
   // la pone el servidor: el reloj del navegador no es de fiar para esto.

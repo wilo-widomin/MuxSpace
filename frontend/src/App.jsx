@@ -9,7 +9,7 @@ import { useWorkClock } from './useWorkClock.js'
 import { useWorkPause } from './useWorkPause.js'
 import { useGapQuestion } from './useGapQuestion.js'
 import { useAttentionEvents } from './useAttentionEvents.js'
-import { armChime, chime } from './lib/chime.js'
+import { armChime, chime, configure as configureChime } from './lib/chime.js'
 import GapQuestion from './components/GapQuestion.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import { useT } from './i18n/index.jsx'
@@ -390,6 +390,21 @@ export default function App() {
   // El audio del navegador nace bloqueado y solo lo desbloquea un gesto del
   // usuario: se prepara al montar el panel, mucho antes del primer aviso.
   useEffect(() => armChime(), [])
+
+  // La campanilla elegida vive en el servidor (se elige una vez, suena igual
+  // en los tres aparatos). Si la petición falla se queda la de fábrica: un
+  // aviso mudo por no haber podido leer una preferencia sería peor que uno
+  // que suena distinto de lo elegido.
+  useEffect(() => {
+    let vivo = true
+    api
+      .getChime()
+      .then((cfg) => vivo && configureChime(cfg))
+      .catch(() => {})
+    return () => {
+      vivo = false
+    }
+  }, [])
 
   // Atender una terminal apaga su marca en el SERVIDOR, así que se apaga
   // también en los demás dispositivos: si lo miro en el portátil, la tablet

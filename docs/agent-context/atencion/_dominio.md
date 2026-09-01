@@ -1,12 +1,14 @@
 ---
 dominio: atencion
-actualizado: 2026-08-31
+actualizado: 2026-09-01
 archivos:
   - backend/attention_store.py
+  - backend/chime_store.py
   - backend/events.py
   - backend/main.py
   - frontend/src/useAttentionEvents.js
   - frontend/src/lib/chime.js
+  - frontend/src/components/ChimeSettings.jsx
   - frontend/src/App.jsx
   - frontend/src/components/TerminalTile.jsx
   - frontend/src/components/Sidebar.jsx
@@ -34,12 +36,24 @@ Documentación para humanos: `docs/avisos-de-atencion.md`.
 - `main.py` — `POST/DELETE /api/attention/{name}`, `DELETE /api/attention`, el
   WebSocket `/api/events` y el campo `attention` de `SessionInfo`.
 - `useAttentionEvents.js` — el WebSocket del cliente, con reconexión.
-- `chime.js` — la campanilla, sintetizada con WebAudio (no hay .wav).
+- `chime.js` — la campanilla: el catálogo de sonidos, la síntesis con
+  WebAudio y la reproducción del audio propio.
+- `chime_store.py` — la preferencia (qué suena, volumen, silencio) en
+  `data/chime.json`, y el audio subido en `data/chime/`.
+- `ChimeSettings.jsx` — el diálogo del pie del sidebar: elegir sonido,
+  editar notas, subir un archivo.
 - `scripts/muxspace-attention.sh` — lo que llama un hook de Claude Code,
   instalado en `~/.claude/settings.json` (todos los proyectos).
 
 ## Invariantes
 
+- **El catálogo de sonidos vive en el FRONTEND**, que es quien sintetiza. El
+  backend valida la FORMA del id (slug corto), nunca la lista: dos listas
+  acaban no coincidiendo. Un id desconocido suena como el de por defecto en
+  vez de no sonar.
+- **La preferencia se persiste; el aviso no.** Son las dos caras del mismo
+  criterio: un ajuste que se borra al reiniciar no es un ajuste, y un aviso
+  que sobrevive al proceso que lo pidió es ruido.
 - **El estado vive en el servidor**, y es la excepción consciente a "todo lo
   del grid es estado de cliente" (ver `sesiones/_dominio`). Lo que se guarda
   no es una vista: es un hecho del servidor. De ahí las dos propiedades que
@@ -73,6 +87,16 @@ Documentación para humanos: `docs/avisos-de-atencion.md`.
   terminal y su WebSocket (ver `terminal/_dominio`).
 - El token se genera en el `lifespan`, no al primer uso: un hook que se
   instala antes de que nadie haya marcado tiene que poder leer el fichero.
+- **El editor de notas tiene su tope en dos sitios** (`MAX_NOTES`, 16): en el
+  frontend para no dejar añadir de más, y en el backend porque el navegador
+  no decide qué se guarda. Cambiar uno sin el otro deja un botón que sirve
+  para provocar un 400.
+- **El nombre del audio no se toma de la petición**: `_clean` mira qué hay en
+  `data/chime/`. Así el ajuste no puede apuntar a un fichero que no existe ni
+  a uno de fuera del directorio.
+- **La CSP no hace falta tocarla** para el audio propio: se sirve desde
+  `/api/chime/audio`, mismo origen, y `default-src 'self'` ya lo cubre (ver
+  `acceso/cabeceras-y-csp`).
 - **`--quiet` separa "no aplica" de "falla".** El hook es global: corre en
   cada proyecto y en cada terminal, también fuera de tmux y con el panel
   apagado. Sin tmux, sin token o con el panel sin responder (curl 7 y 28) sale

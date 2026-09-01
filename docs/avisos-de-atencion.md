@@ -121,14 +121,51 @@ atenderlas. También se puede apagar todo de golpe con
 
 ## La campanilla
 
-Se sintetiza en el navegador (`src/lib/chime.js`), sin fichero de audio: tres
-notas ascendentes con su octava por encima, que es lo que le da timbre de
-campana y lo que la hace oírse desde la habitación de al lado sin recurrir a
-una onda cuadrada, que suena a alarma. Suena solo cuando la marca se
-**enciende** —no al refrescarse—, nunca en la terminal
-que ya tenía el foco, y como mucho una vez cada tres segundos.
+Se **sintetiza en el navegador** (`src/lib/chime.js`), sin fichero de audio:
+unas notas en una tabla, que suenan igual en el portátil y en la tablet y
+pesan cero. Suena solo cuando la marca se **enciende** —no al refrescarse—,
+nunca en la terminal que ya tenía el foco, y como mucho una vez cada tres
+segundos.
 
 El navegador no deja sonar hasta que el usuario ha tocado la página, así que
 el audio se prepara con el primer clic o la primera tecla del panel. Si se
 abre el panel y no se toca nada, la primera campanilla puede no sonar: la
 marca visual sí aparece.
+
+### Cambiarla desde el panel
+
+En el pie del sidebar, el botón de la campana. De más simple a más:
+
+1. **Elegir uno de los sonidos del panel** — campana, marimba, dos tonos,
+   gota, golpe grave o insistente. Cada uno con su botón de probar.
+2. **Inventarse el suyo** — una tabla de notas (tono, cuándo entra, cuánto
+   dura), hasta 16, con o sin el armónico que da timbre de campana. Empieza
+   copiando el sonido que estuviera puesto: se trastea desde algo que ya
+   suena, no desde una lista vacía.
+3. **Subir un archivo propio** — mp3, wav, ogg o webm, hasta 2 MB. Solo hay
+   uno a la vez: subir otro sustituye al anterior.
+
+Más el volumen y un interruptor para silenciar, que **no borra lo elegido**:
+al volver a activarlo suena lo que ya estaba.
+
+Nada se guarda hasta darle a guardar (una campanilla se elige oyéndola, y
+persistir cada clic dejaría a los demás dispositivos con lo que este estaba
+tanteando); subir un archivo sí guarda, porque subirlo y que no sonara hasta
+un paso más sería una trampa.
+
+### El ajuste vive en el servidor
+
+En `data/chime.json`, y el audio propio en `data/chime/`. Es la elección
+contraria a la del resto de la vista (ver `space_store`) y por el mismo
+motivo que los avisos, leído al revés: el aviso está en el servidor porque es
+un hecho compartido, y esto porque es una preferencia de **una persona** que
+abre el panel desde tres aparatos. Elegir la campanilla tres veces es
+elegirla mal dos.
+
+A diferencia de los avisos, **se persiste en disco**: un ajuste que se borra
+al reiniciar el backend no es un ajuste.
+
+El catálogo de sonidos vive en el **frontend**, que es quien sintetiza. El
+backend valida la forma del id (un slug corto) y no la lista, para que no
+haya dos listas que un día dejen de coincidir; un id que el frontend no
+conoce suena como el de por defecto.

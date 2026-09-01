@@ -202,6 +202,11 @@ export default function XtermTerminal({
       // entienda ninguna secuencia especial, ni de cómo trate tmux al ESC. En
       // una shell normal `\n` se comporta como Enter, igual que ahora.
       if (e.key === 'Enter' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // `preventDefault` obligatorio: devolver false solo evita que xterm
+        // procese ESTE keydown, pero el navegador sigue emitiendo el keypress
+        // y xterm mandaba su `\r` detrás del nuestro. El programa recibía
+        // salto de línea Y envío, o sea justo lo que se quería evitar.
+        e.preventDefault()
         const sock = wsRef.current
         if (sock && sock.readyState === WebSocket.OPEN) sock.send(enc.encode('\n'))
         onActivityRef.current?.()

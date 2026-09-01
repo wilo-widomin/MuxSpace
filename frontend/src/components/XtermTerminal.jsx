@@ -195,6 +195,17 @@ export default function XtermTerminal({
         }
         return false
       }
+      // Shift+Enter = salto de línea sin enviar. Un terminal manda `\r` tanto
+      // con Enter como con Shift+Enter, así que Claude Code (u opencode) no
+      // puede distinguirlos y obligan a Ctrl+J. Mandando ESC+CR —lo mismo que
+      // configura `/terminal-setup` en iTerm2 o VSCode— sí lo reconocen como
+      // nueva línea. En una shell normal es inofensivo: se trata como Enter.
+      if (e.key === 'Enter' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const sock = wsRef.current
+        if (sock && sock.readyState === WebSocket.OPEN) sock.send(enc.encode('\x1b\r'))
+        onActivityRef.current?.()
+        return false
+      }
       // OJO: no interceptamos Ctrl/Cmd+V. xterm.js ya gestiona el pegado
       // nativo del navegador sobre su textarea oculto; si además llamáramos
       // aquí a doPaste() el texto se pegaría DOS veces. El pegado con el botón

@@ -318,6 +318,72 @@ export default function XtermTerminal({
     }
     container.addEventListener('wheel', onWheel, { capture: true, passive: false })
 
+    // ---- Scroll con el dedo (solo en pantalla alternativa) ----
+    // En una tableta no hay rueda, y en pantalla alternativa el historial no
+    // es de tmux sino del propio programa (Claude Code, vim, less). Ese
+    // historial solo se mueve con eventos de ratón: las flechas del teclado
+    // se las queda el programa para otra cosa —Claude Code, para su historial
+    // de prompts—, así que mandar teclas no vale. El arrastre se traduce a
+    // eventos `wheel` sintéticos y es xterm quien los codifica en el formato
+    // que el programa espera; aquí no se interpreta nada.
+    // Fuera de pantalla alternativa no se toca el gesto: ahí manda la barra
+    // propia, que en táctil ya funciona.
+    const UMBRAL_ARRASTRE = 10
+    let tactil = null
+    const onTouchStart = (e) => {
+      if (!alternateRef.current || e.touches.length !== 1) {
+        tactil = null
+        return
+      }
+      const t = e.touches[0]
+      tactil = { y: t.clientY, inicio: t.clientY, arrastrando: false }
+    }
+    const onTouchMove = (e) => {
+      if (!tactil || e.touches.length !== 1) return
+      const t = e.touches[0]
+      // Por debajo del umbral el gesto todavía puede ser un toque o el
+      // principio de una selección; secuestrarlo desde el primer píxel dejaría
+      // la tableta sin poder tocar ni seleccionar dentro del programa.
+      if (!tactil.arrastrando) {
+        if (Math.abs(t.clientY - tactil.inicio) < UMBRAL_ARRASTRE) return
+        tactil.arrastrando = true
+        tactil.y = t.clientY
+      }
+      // Sin esto el gesto cuenta dos veces: el navegador desplaza la página y
+      // xterm hace además su propio scroll del viewport. Es la misma trampa
+      // que ya obligó a llamar a preventDefault() en Shift+Enter.
+      e.preventDefault()
+      const alturaFila =
+        term.element?.querySelector('.xterm-rows > div')?.offsetHeight || 17
+      // Un delta de menos de una fila lo redondea xterm a cero y el gesto se
+      // perdería entero, así que se emite al completar cada fila y el resto se
+      // guarda para el movimiento siguiente.
+      const pasos = Math.trunc((t.clientY - tactil.y) / alturaFila)
+      if (!pasos) return
+      tactil.y += pasos * alturaFila
+      const destino = term.element || container
+      for (let i = 0; i < Math.abs(pasos); i++) {
+        destino.dispatchEvent(
+          new WheelEvent('wheel', {
+            // Bajar el dedo trae lo anterior, que es rueda hacia arriba.
+            deltaY: pasos > 0 ? -alturaFila : alturaFila,
+            deltaMode: 0,
+            clientX: t.clientX,
+            clientY: t.clientY,
+            bubbles: true,
+            cancelable: true,
+          }),
+        )
+      }
+    }
+    const onTouchEnd = () => {
+      tactil = null
+    }
+    container.addEventListener('touchstart', onTouchStart, { passive: true })
+    container.addEventListener('touchmove', onTouchMove, { passive: false })
+    container.addEventListener('touchend', onTouchEnd)
+    container.addEventListener('touchcancel', onTouchEnd)
+
     // El tamaño del historial crece con cada línea que imprime el programa, y
     // el backend solo nos informa cuando hay un gesto. Mientras el puntero
     // está encima —o sea, cuando la barra se está mirando— se refresca sola.
@@ -363,6 +429,10 @@ export default function XtermTerminal({
       container.removeEventListener('mouseup', copySelection)
       container.removeEventListener('contextmenu', onContextMenu)
       container.removeEventListener('wheel', onWheel, { capture: true })
+      container.removeEventListener('touchstart', onTouchStart)
+      container.removeEventListener('touchmove', onTouchMove)
+      container.removeEventListener('touchend', onTouchEnd)
+      container.removeEventListener('touchcancel', onTouchEnd)
       container.removeEventListener('mouseenter', onEnter)
       container.removeEventListener('mouseleave', onLeave)
       wsRef.current = null

@@ -16,7 +16,7 @@ def test_el_ciclo_completo_por_la_api(client_auth) -> None:
     sid = creado.json()["id"]
 
     assert client_auth.get("/api/snippets").json() == [
-        {"id": sid, "label": "Revisar", "text": "/code-review high"}
+        {"id": sid, "label": "Revisar", "text": "/code-review high", "submit": False}
     ]
 
     actualizado = client_auth.put(
@@ -51,6 +51,34 @@ def test_los_saltos_de_linea_llegan_intactos(client_auth) -> None:
 
     assert creado.json()["text"] == texto
     assert creado.json()["label"] == "primera línea", "la etiqueta es solo la primera"
+
+
+def test_un_texto_puede_pedir_que_se_envie_al_escribirlo(client_auth) -> None:
+    """`submit` es lo que separa "deja esto escrito" de "lanza esto"."""
+    creado = client_auth.post(
+        "/api/snippets",
+        json={"label": "Revisar", "text": "/code-review", "submit": True},
+    ).json()
+
+    assert creado["submit"] is True
+
+    quitado = client_auth.put(
+        f"/api/snippets/{creado['id']}",
+        json={"label": "Revisar", "text": "/code-review ", "submit": False},
+    ).json()
+
+    assert quitado["submit"] is False
+
+
+def test_un_texto_guardado_antes_del_flag_no_envia(client_auth) -> None:
+    """Los que ya estaban en disco no llevan la clave: no enviar es lo que
+    hacían, y cambiarles el comportamiento por una actualización sería la
+    peor sorpresa posible."""
+    creado = client_auth.post(
+        "/api/snippets", json={"label": "Viejo", "text": "hola"}
+    ).json()
+
+    assert creado["submit"] is False
 
 
 def test_sin_cookie_no_se_ven_los_textos_rapidos(client) -> None:

@@ -385,5 +385,8 @@
   "err.snippet_empty": "Der Text darf nicht leer sein.",
   "err.snippet_too_long": "Der Text darf höchstens {max} Zeichen haben.",
   "err.snippet_not_found": "Dieser Schnelltext existiert nicht mehr.",
-  "settings.lang_hint": "Die Sprache der Oberfläche"
+  "settings.lang_hint": "Die Sprache der Oberfläche",
+  "snippets.submit": "Nach dem Tippen senden (Enter)",
+  "snippets.submit_hint": "Ohne Haken bleibt der Text im Prompt, um weiterzuschreiben.",
+  "snippets.submit_badge": "sendet"
 }

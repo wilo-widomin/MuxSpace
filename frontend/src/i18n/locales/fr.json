@@ -385,5 +385,8 @@
   "err.snippet_empty": "Le texte ne peut pas être vide.",
   "err.snippet_too_long": "Le texte ne peut pas dépasser {max} caractères.",
   "err.snippet_not_found": "Ce texte rapide n'existe plus.",
-  "settings.lang_hint": "La langue de l'interface"
+  "settings.lang_hint": "La langue de l'interface",
+  "snippets.submit": "Envoyer après la saisie (Entrée)",
+  "snippets.submit_hint": "Sans cocher, le texte reste dans l'invite pour continuer à écrire.",
+  "snippets.submit_badge": "envoie"
 }

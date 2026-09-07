@@ -385,5 +385,8 @@
   "err.snippet_empty": "O texto não pode estar vazio.",
   "err.snippet_too_long": "O texto não pode passar de {max} caracteres.",
   "err.snippet_not_found": "Esse texto rápido já não existe.",
-  "settings.lang_hint": "O idioma da interface"
+  "settings.lang_hint": "O idioma da interface",
+  "snippets.submit": "Enviar ao escrevê-lo (Enter)",
+  "snippets.submit_hint": "Sem marcar, o texto fica no prompt para continuares a escrever.",
+  "snippets.submit_badge": "envia"
 }

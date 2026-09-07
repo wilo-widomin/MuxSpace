@@ -16,13 +16,17 @@ import TerminalTile from './TerminalTile.jsx'
 // pegar, así que el doble lo saca al DOM.
 vi.mock('./XtermTerminal.jsx', () => ({
   default: ({ pasteRequest }) => (
-    <div data-testid="terminal" data-pegado={pasteRequest?.text || ''} />
+    <div
+      data-testid="terminal"
+      data-pegado={pasteRequest?.text || ''}
+      data-envia={String(Boolean(pasteRequest?.submit))}
+    />
   ),
 }))
 
 const TEXTOS = [
   { id: 's1', label: 'Revisar', text: '/code-review high' },
-  { id: 's2', label: 'Desplegar', text: '/desplegar' },
+  { id: 's2', label: 'Desplegar', text: '/desplegar', submit: true },
 ]
 
 function renderTile(props = {}) {
@@ -65,6 +69,28 @@ describe('Textos rápidos en la terminal', () => {
     expect(enviar).not.toHaveBeenCalled()
   })
 
+  it('un texto marcado como "envía" se pide con esa orden, y los demás no', () => {
+    renderTile()
+
+    fireEvent.click(screen.getByLabelText(en['tile.type_snippet']))
+    fireEvent.click(screen.getByText('Desplegar'))
+
+    const term = screen.getByTestId('terminal')
+    expect(term).toHaveAttribute('data-pegado', '/desplegar')
+    // El Enter lo manda la terminal por la vía de una tecla; aquí se
+    // comprueba que se le pide, que es lo que decide el texto guardado.
+    expect(term).toHaveAttribute('data-envia', 'true')
+  })
+
+  it('el que no envía se queda en el prompt', () => {
+    renderTile()
+
+    fireEvent.click(screen.getByLabelText(en['tile.type_snippet']))
+    fireEvent.click(screen.getByText('Revisar'))
+
+    expect(screen.getByTestId('terminal')).toHaveAttribute('data-envia', 'false')
+  })
+
   it('sin textos guardados lo dice, en vez de un desplegable vacío', () => {
     renderTile({ snippets: [] })
 
@@ -96,9 +122,28 @@ describe('Ajustes de los textos rápidos', () => {
     fireEvent.click(screen.getByRole('button', { name: en['snippets.add'] }))
 
     await waitFor(() =>
-      expect(crear).toHaveBeenCalledWith('Revisar', '/code-review high'),
+      expect(crear).toHaveBeenCalledWith('Revisar', '/code-review high', false),
     )
     expect(await screen.findByText('Revisar')).toBeInTheDocument()
+  })
+
+  it('la casilla marcada guarda el texto como "envía"', async () => {
+    vi.spyOn(api, 'listSnippets').mockResolvedValue([])
+    const crear = vi.spyOn(api, 'createSnippet').mockResolvedValue(TEXTOS[1])
+    render(
+      <LangProvider>
+        <SnippetSettings onClose={() => {}} />
+      </LangProvider>,
+    )
+    await screen.findByText(en['snippets.empty'])
+
+    fireEvent.change(screen.getByPlaceholderText(en['snippets.text_placeholder']), {
+      target: { value: '/desplegar' },
+    })
+    fireEvent.click(screen.getByLabelText(en['snippets.submit']))
+    fireEvent.click(screen.getByRole('button', { name: en['snippets.add'] }))
+
+    await waitFor(() => expect(crear).toHaveBeenCalledWith('', '/desplegar', true))
   })
 
   it('un texto vacío no se intenta guardar', async () => {

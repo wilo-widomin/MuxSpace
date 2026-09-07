@@ -277,17 +277,17 @@ export const api = {
   // ---- Biblioteca: textos rápidos (se escriben, no se ejecutan) ----
   // No hay `send`: el texto lo escribe el navegador en la terminal con foco.
   listSnippets: () => request('/api/snippets'),
-  createSnippet: (label, text) =>
+  createSnippet: (label, text, submit = false) =>
     request('/api/snippets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: label || '', text }),
+      body: JSON.stringify({ label: label || '', text, submit }),
     }),
-  updateSnippet: (id, label, text) =>
+  updateSnippet: (id, label, text, submit = false) =>
     request(`/api/snippets/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label, text }),
+      body: JSON.stringify({ label, text, submit }),
     }),
   deleteSnippet: (id) =>
     request(`/api/snippets/${encodeURIComponent(id)}`, {

@@ -461,12 +461,19 @@ export default function XtermTerminal({
   const pasteToken = pasteRequest?.token || 0
   const pasteTextoRef = useRef('')
   pasteTextoRef.current = pasteRequest?.text || ''
+  // ¿Se envía después de escribirlo? El Enter va por `input`, o sea por el
+  // mismo camino que una tecla, y NO dentro del `paste`: metido en el texto
+  // se quedaría dentro del pegado con corchetes y la TUI lo leería como un
+  // salto de línea más, que es justo lo contrario de enviar.
+  const pasteSubmitRef = useRef(false)
+  pasteSubmitRef.current = Boolean(pasteRequest?.submit)
   useEffect(() => {
     if (!pasteToken) return
     const term = termRef.current
     if (!term || !pasteTextoRef.current) return
     term.focus()
     term.paste(pasteTextoRef.current)
+    if (pasteSubmitRef.current) term.input('\r')
   }, [pasteToken])
 
   // La lupa del tile: mismo criterio que Ctrl+F (en pantalla alternativa no

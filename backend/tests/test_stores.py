@@ -792,7 +792,16 @@ def test_biblioteca_el_formato_en_disco_es_el_declarado(data_dir: Path) -> None:
         "commands": [{"id": comando.id, "label": "Estado", "command": "git status"}],
         # Se escriben en la terminal, no se ejecutan: por eso `text` y no
         # `command`, aunque el contenido acabe pareciéndose.
-        "snippets": [{"id": texto.id, "label": "Revisar", "text": "/code-review"}],
+        "snippets": [
+            {
+                "id": texto.id,
+                "label": "Revisar",
+                "text": "/code-review",
+                # ¿Se manda Enter tras escribirlo? Los textos viejos del disco
+                # no traen la clave y se leen como `false`.
+                "submit": False,
+            }
+        ],
         "projects": [
             {
                 "id": proyecto.id,

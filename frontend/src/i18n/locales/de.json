@@ -388,5 +388,20 @@
   "settings.lang_hint": "Die Sprache der Oberfläche",
   "snippets.submit": "Nach dem Tippen senden (Enter)",
   "snippets.submit_hint": "Ohne Haken bleibt der Text im Prompt, um weiterzuschreiben.",
-  "snippets.submit_badge": "sendet"
+  "snippets.submit_badge": "sendet",
+  "tile.links": "Links",
+  "tile.no_links": "Keine Links gespeichert.",
+  "settings.links_hint": "Links des Panels, im Menü jedes Terminals",
+  "links.title": "Links",
+  "links.help": "Sie öffnen sich in einem neuen Tab und erscheinen in allen Terminals. Die Links eines Projekts werden im Projekt bearbeitet.",
+  "links.empty": "Noch keine.",
+  "links.title_placeholder": "Titel (optional: sonst die Domain)",
+  "links.url_placeholder": "https://…",
+  "links.add": "Hinzufügen",
+  "links.save": "Speichern",
+  "links.cancel": "Abbrechen",
+  "links.edit": "Link bearbeiten",
+  "links.delete": "Link löschen",
+  "err.link_url_required": "Eine Adresse ist nötig.",
+  "err.link_not_found": "Dieser Link existiert nicht mehr."
 }

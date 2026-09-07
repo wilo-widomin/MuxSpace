@@ -1,7 +1,7 @@
 import { useT } from '../i18n/index.jsx'
 import { LanguagePicker } from './LanguagePicker.jsx'
 import { Modal } from './sidebar/Modal.jsx'
-import { BellIcon, BoltIcon } from './sidebar/icons.jsx'
+import { BellIcon, BoltIcon, LinkIcon } from './sidebar/icons.jsx'
 
 /**
  * Menú de ajustes del panel: la puerta única a las preferencias que no son
@@ -18,7 +18,7 @@ import { BellIcon, BoltIcon } from './sidebar/icons.jsx'
  * seis opciones y abrirle una ventana propia sería un clic de más para algo
  * que se resuelve ahí mismo.
  */
-export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets }) {
+export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets, onOpenLinks }) {
   const { t } = useT()
   const opciones = [
     {
@@ -34,6 +34,13 @@ export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets }) {
       label: t('snippets.title'),
       hint: t('settings.snippets_hint'),
       onClick: onOpenSnippets,
+    },
+    {
+      key: 'links',
+      icon: <LinkIcon />,
+      label: t('links.title'),
+      hint: t('settings.links_hint'),
+      onClick: onOpenLinks,
     },
   ]
   return (

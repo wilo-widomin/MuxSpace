@@ -76,6 +76,7 @@ export default function SessionGrid({
   onReorder,
   commands,
   snippets,
+  webLinks,
   projects = [],
   layout,
   focusedName,
@@ -339,6 +340,7 @@ export default function SessionGrid({
                 onRename={onRename}
                 commands={commands}
                 snippets={snippets}
+                webLinks={webLinks}
                 links={linksByProject.get(session.project) || []}
                 dragging={dragName !== null}
                 isDragSource={dragName === session.name}

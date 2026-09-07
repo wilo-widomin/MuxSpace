@@ -258,3 +258,25 @@ export function BoltIcon() {
     </svg>
   )
 }
+
+// Eslabón de cadena: los enlaces generales del panel. Es de trazo, como la
+// lupa, y no macizo como el rayo: abre algo fuera del panel, no actúa sobre
+// la terminal.
+export function LinkIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+      <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+    </svg>
+  )
+}

@@ -293,6 +293,22 @@ export const api = {
     request(`/api/snippets/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }),
+  // ---- Enlaces generales del panel (no son de ningún proyecto) ----
+  listLinks: () => request('/api/links'),
+  createLink: (title, url) =>
+    request('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: title || '', url }),
+    }),
+  updateLink: (id, title, url) =>
+    request(`/api/links/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, url }),
+    }),
+  deleteLink: (id) =>
+    request(`/api/links/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   // ---- Biblioteca: proyectos (dir + secuencia de comandos) ----
   listProjects: () => request('/api/projects'),
   // `space` null al crear => el backend crea un espacio con el título del

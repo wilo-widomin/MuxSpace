@@ -67,6 +67,7 @@ export default function App() {
   const [sessions, setSessions] = useState([])
   const [commands, setCommands] = useState([])
   const [snippets, setSnippets] = useState([])
+  const [webLinks, setWebLinks] = useState([])
   const [projects, setProjects] = useState([])
   const [spaces, setSpaces] = useState([])
   const [loading, setLoading] = useState(false)
@@ -256,6 +257,7 @@ export default function App() {
     const tasks = [
       { key: 'commands', fn: () => api.listCommands(), set: setCommands },
       { key: 'snippets', fn: () => api.listSnippets(), set: setSnippets },
+      { key: 'links', fn: () => api.listLinks(), set: setWebLinks },
       { key: 'projects', fn: () => api.listProjects(), set: setProjects },
     ]
     await Promise.all(
@@ -874,6 +876,7 @@ export default function App() {
           onReorder={handleReorder}
           commands={commandsOrdenados}
           snippets={snippetsOrdenados}
+          webLinks={webLinks}
           projects={projects}
           layout={layout}
           focusedName={focusedName}

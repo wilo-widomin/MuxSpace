@@ -19,6 +19,7 @@ function abrir(props = {}) {
         onClose={() => {}}
         onOpenChime={() => {}}
         onOpenSnippets={() => {}}
+        onOpenLinks={() => {}}
         {...props}
       />
     </LangProvider>,
@@ -26,11 +27,12 @@ function abrir(props = {}) {
 }
 
 describe('Menú de ajustes', () => {
-  it('ofrece campanilla, textos rápidos e idioma', () => {
+  it('ofrece campanilla, textos rápidos, enlaces e idioma', () => {
     abrir()
 
     expect(screen.getByText(en['chime.title'])).toBeInTheDocument()
     expect(screen.getByText(en['snippets.title'])).toBeInTheDocument()
+    expect(screen.getByText(en['links.title'])).toBeInTheDocument()
     expect(screen.getByLabelText(en['lang.label'])).toBeInTheDocument()
   })
 

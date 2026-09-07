@@ -388,5 +388,20 @@
   "settings.lang_hint": "The interface language",
   "snippets.submit": "Send it once typed (Enter)",
   "snippets.submit_hint": "Unchecked, the text stays at the prompt so you can keep typing.",
-  "snippets.submit_badge": "sends"
+  "snippets.submit_badge": "sends",
+  "tile.links": "Links",
+  "tile.no_links": "No links saved.",
+  "settings.links_hint": "Panel links, in every terminal's menu",
+  "links.title": "Links",
+  "links.help": "They open in a new tab and show up in every terminal. A project's own links are edited in the project.",
+  "links.empty": "None yet.",
+  "links.title_placeholder": "Title (optional: the domain otherwise)",
+  "links.url_placeholder": "https://…",
+  "links.add": "Add",
+  "links.save": "Save",
+  "links.cancel": "Cancel",
+  "links.edit": "Edit link",
+  "links.delete": "Delete link",
+  "err.link_url_required": "An address is required.",
+  "err.link_not_found": "That link no longer exists."
 }

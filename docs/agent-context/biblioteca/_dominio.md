@@ -21,7 +21,7 @@ pintar los enlaces del proyecto en la cabecera de su ventana.
 ## Entidades
 
 Todo vive en un único JSON, `backend/data/library.json`, con la forma
-`{commands, snippets, projects, session_projects}`. (`backend/data/commands.json` es
+`{commands, snippets, links, projects, session_projects}`. (`backend/data/commands.json` es
 residuo: no lo lee nadie.)
 
 - `Command` — `id`, `label`, `command`. Sin `label` se usa el propio comando
@@ -32,6 +32,12 @@ residuo: no lo lee nadie.)
   uno; los vacíos se descartan), `links` (máx. 12), `space` (id de espacio, que
   **el store no valida**).
 - `Link` — `url` obligatoria; sin `title` se usa el `netloc`, truncado a 40.
+  Es la forma de los enlaces DE UN PROYECTO, que se guardan y se reemplazan
+  en bloque con él.
+- `WebLink` — `id`, `title`, `url`: un enlace **general** del panel, que no es
+  de ningún proyecto. Sale en el menú del eslabón de cualquier terminal y se
+  da de alta en Ajustes → Enlaces. Valida igual que `Link` (`_normalize_link`)
+  y tiene id porque se edita y se borra de uno en uno.
 - Los ids son `secrets.token_hex(4)`. No hay unicidad de título ni de etiqueta.
 - Sin caché: cada operación relee y reescribe el archivo entero bajo un lock de
   proceso. De ahí el requisito de un solo worker.
@@ -58,6 +64,9 @@ residuo: no lo lee nadie.)
 - Borrar un proyecto purga sus entradas de `session_projects` (las terminales
   vivas pierden las badges) pero **no** mata sesiones ni borra el espacio que
   se creó con él, que queda huérfano.
+- Los enlaces generales y los del proyecto comparten archivo, validación y
+  cabecera, pero son listas distintas: dar de alta uno general no lo convierte
+  en badge de ningún proyecto.
 - Los enlaces no se copian a la sesión: el frontend resuelve
   `session.project -> projects[].links` en cada render, así que editarlos se
   refleja al instante en las ventanas abiertas.

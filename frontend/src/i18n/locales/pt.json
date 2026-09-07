@@ -208,6 +208,7 @@
   "err.dir_not_found": "Pasta não encontrada ou fora da área permitida.",
   "err.dir_name_invalid": "Nome de pasta inválido.",
   "err.dir_create_failed": "Não foi possível criar a pasta.",
+  "err.attention_name_invalid": "Nome de sessão inválido para uma marca de atenção: no máximo 128 caracteres e sem caracteres de controlo.",
   "err.session_name_invalid": "Nome inválido. Usa só letras, números, hífen (-) e traço inferior (_), no máximo 64 caracteres.",
   "err.session_exists": "Já existe uma sessão com o nome «{name}».",
   "err.session_missing": "A sessão de tmux «{name}» não existe.",

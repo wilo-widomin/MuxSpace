@@ -208,6 +208,7 @@
   "err.dir_not_found": "Dossier introuvable ou hors de la zone autorisée.",
   "err.dir_name_invalid": "Nom de dossier invalide.",
   "err.dir_create_failed": "Impossible de créer le dossier.",
+  "err.attention_name_invalid": "Nom de session invalide pour un signalement : 128 caractères maximum et sans caractères de contrôle.",
   "err.session_name_invalid": "Nom invalide. Utilise uniquement lettres, chiffres, tiret (-) et tiret bas (_), 64 caractères maximum.",
   "err.session_exists": "Une session nommée « {name} » existe déjà.",
   "err.session_missing": "La session tmux « {name} » n’existe pas.",

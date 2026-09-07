@@ -107,6 +107,15 @@ from tmux_service import (
 # sea seguro y predecible.
 _SESSION_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
+# Tope del nombre en `/api/attention/{name}`, que acepta nombres que
+# `_SESSION_NAME_RE` rechaza (ver el docstring de `mark_attention`). tmux no
+# fija un máximo, pero un nombre real no pasa de un puñado de caracteres:
+# 128 deja sitio de sobra y convierte en constante la memoria que esa ruta
+# puede consumir. Los caracteres de control se rechazan aparte — ninguna
+# sesión legítima los lleva y ensucian el log y la interfaz.
+_MAX_ATTENTION_NAME = 128
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
+
 _log = logs.obtener(__name__)
 
 
@@ -1737,7 +1746,18 @@ async def mark_attention(
     que corre DENTRO de ella, así que existe por construcción, y un `tmux
     list-sessions` de más en el camino solo añadiría una forma de que el
     aviso se pierda.
+
+    Lo que sí se comprueba es que el nombre pueda ser el de una sesión. NO se
+    usa `_SESSION_NAME_RE` —el filtro estricto de `/api/create-session`—
+    porque aquí llegan nombres que ese filtro rechaza y son legítimos: los que
+    genera el propio panel al desduplicar (`Terminal (2)`, con espacio y
+    paréntesis, ver `_next_label_name`) y los de las sesiones creadas a mano
+    en tmux. Aplicarlo dejaría sin aviso justo a esas. Lo que se acota es lo
+    que puede crecer sin límite: el largo del nombre, porque cada marca lo
+    guarda en un mapa en memoria.
     """
+    if not name or len(name) > _MAX_ATTENTION_NAME or _CONTROL_RE.search(name):
+        raise http_error(400, "err.attention_name_invalid", {"name": name[:80]})
     pendiente = attention_store.mark(name, body.label if body else None)
     _publicar_atencion(name, pendiente)
     return _aviso(pendiente)

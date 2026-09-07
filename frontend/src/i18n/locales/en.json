@@ -208,6 +208,7 @@
   "err.dir_not_found": "Folder not found or outside the allowed area.",
   "err.dir_name_invalid": "Invalid folder name.",
   "err.dir_create_failed": "Couldn't create the folder.",
+  "err.attention_name_invalid": "Invalid session name for an attention mark: 128 characters max and no control characters.",
   "err.session_name_invalid": "Invalid name. Use only letters, numbers, hyphen (-) and underscore (_), 64 characters max.",
   "err.session_exists": "A session named \"{name}\" already exists.",
   "err.session_missing": "The tmux session \"{name}\" doesn't exist.",

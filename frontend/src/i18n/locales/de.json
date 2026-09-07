@@ -208,6 +208,7 @@
   "err.dir_not_found": "Ordner nicht gefunden oder außerhalb des erlaubten Bereichs.",
   "err.dir_name_invalid": "Ungültiger Ordnername.",
   "err.dir_create_failed": "Ordner konnte nicht erstellt werden.",
+  "err.attention_name_invalid": "Ungültiger Sitzungsname für eine Aufmerksamkeitsmarkierung: maximal 128 Zeichen und keine Steuerzeichen.",
   "err.session_name_invalid": "Ungültiger Name. Verwende nur Buchstaben, Ziffern, Bindestrich (-) und Unterstrich (_), maximal 64 Zeichen.",
   "err.session_exists": "Es gibt bereits eine Session namens „{name}“.",
   "err.session_missing": "Die tmux-Session „{name}“ existiert nicht.",

@@ -41,6 +41,14 @@ _TOKEN_PATH = Path(__file__).resolve().parent / "data" / "attention_token"
 # —un hook no debe fallar por pasarse de largo.
 MAX_LABEL = 120
 
+# Tope de sesiones marcadas a la vez. Un panel con más de cien terminales
+# reclamando no es un panel, es un incidente; y sin techo el mapa crece
+# mientras nadie atienda las marcas, que es justo lo que pasa con las de
+# sesiones que no existen: no salen en el listado, así que no hay dónde
+# pulsar para apagarlas. Al llegar al tope se descarta la MÁS ANTIGUA, que es
+# la que el usuario ya no va a atender.
+MAX_PENDIENTES = 100
+
 _lock = Lock()
 _pending: dict[str, "Attention"] = {}
 _token: str | None = None
@@ -61,11 +69,19 @@ def mark(name: str, label: str | None = None) -> Attention:
     etiqueta en vez de acumularse: la marca es un estado (esta sesión te
     espera), no una cola de mensajes. Así diez avisos seguidos siguen siendo
     una sola señal que se apaga con un solo gesto.
+
+    Pasado `MAX_PENDIENTES` se desaloja la marca más antigua. Quien marca
+    puede ser el hook del host con el token de `data/attention_token`, que
+    está pensado como el permiso mínimo —"solo puede marcar"—; sin este techo,
+    ese permiso mínimo bastaría para llenar la memoria del proceso.
     """
     limpio = (label or "").strip()[:MAX_LABEL] or None
     aviso = Attention(at=time.time(), label=limpio)
     with _lock:
         _pending[name] = aviso
+        while len(_pending) > MAX_PENDIENTES:
+            mas_antigua = min(_pending, key=lambda n: _pending[n].at)
+            del _pending[mas_antigua]
     return aviso
 
 

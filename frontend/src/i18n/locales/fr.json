@@ -367,7 +367,7 @@
   "err.chime_audio_format": "Ce format audio n'est pas accepté.",
   "err.chime_audio_missing": "Le fichier son est vide.",
   "err.chime_audio_too_large": "Le fichier son dépasse {mb} Mo.",
-  "tile.type_snippet": "Saisir un texte rapide (sans l'exécuter)",
+  "tile.type_snippet": "Saisir un texte rapide",
   "tile.no_snippets": "Aucun texte rapide enregistré.",
   "settings.title": "Réglages",
   "settings.chime_hint": "Ce qui sonne quand une session vous réclame",

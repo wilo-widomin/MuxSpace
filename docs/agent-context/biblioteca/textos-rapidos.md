@@ -22,8 +22,8 @@ envía** (`submit`) o se queda en el prompt para seguir escribiendo.
 
 1. Se gestionan en **Ajustes → Textos rápidos** (`SnippetSettings`), CRUD
    contra `/api/snippets`.
-2. En la cabecera de cada terminal, el botón de la **tecla** (`KeycapIcon`,
-   junto al ▶) abre la lista.
+2. En la cabecera de cada terminal, el botón del **teclado** (`KeyboardIcon`,
+   las teclas WASD, junto al ▶) abre la lista.
 3. Elegir uno dispara `setPaste({token, text, submit})` → `XtermTerminal` hace
    `term.paste(texto)` y, si `submit`, un `term.input('\r')` aparte.
 

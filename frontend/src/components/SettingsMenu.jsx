@@ -1,7 +1,7 @@
 import { useT } from '../i18n/index.jsx'
 import { LanguagePicker } from './LanguagePicker.jsx'
 import { Modal } from './sidebar/Modal.jsx'
-import { BellIcon, KeycapIcon } from './sidebar/icons.jsx'
+import { BellIcon, KeyboardIcon } from './sidebar/icons.jsx'
 
 /**
  * Menú de ajustes del panel: la puerta única a las preferencias que no son
@@ -30,7 +30,7 @@ export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets }) {
     },
     {
       key: 'snippets',
-      icon: <KeycapIcon />,
+      icon: <KeyboardIcon />,
       label: t('snippets.title'),
       hint: t('settings.snippets_hint'),
       onClick: onOpenSnippets,

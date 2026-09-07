@@ -833,6 +833,7 @@ export default function App() {
         sessions={sessions}
         commands={commandsOrdenados}
         onSnippetsChanged={loadCommands}
+        webLinks={webLinks}
         projects={projectsOrdenados}
         openNames={openSessions.map((s) => s.name)}
         spaces={spacesOrdenados}
@@ -876,7 +877,6 @@ export default function App() {
           onReorder={handleReorder}
           commands={commandsOrdenados}
           snippets={snippetsOrdenados}
-          webLinks={webLinks}
           projects={projects}
           layout={layout}
           focusedName={focusedName}

@@ -66,6 +66,7 @@ export default function App() {
 
   const [sessions, setSessions] = useState([])
   const [commands, setCommands] = useState([])
+  const [snippets, setSnippets] = useState([])
   const [projects, setProjects] = useState([])
   const [spaces, setSpaces] = useState([])
   const [loading, setLoading] = useState(false)
@@ -254,6 +255,7 @@ export default function App() {
   const loadCommands = useCallback(async () => {
     const tasks = [
       { key: 'commands', fn: () => api.listCommands(), set: setCommands },
+      { key: 'snippets', fn: () => api.listSnippets(), set: setSnippets },
       { key: 'projects', fn: () => api.listProjects(), set: setProjects },
     ]
     await Promise.all(
@@ -413,6 +415,7 @@ export default function App() {
 
   // Todo lo que se lista va ordenado alfabéticamente (ver `porNombre`).
   const commandsOrdenados = useMemo(() => porNombre(commands, 'label'), [commands])
+  const snippetsOrdenados = useMemo(() => porNombre(snippets, 'label'), [snippets])
   const projectsOrdenados = useMemo(() => porNombre(projects, 'title'), [projects])
   const spacesOrdenados = useMemo(() => porNombre(spaces, 'title'), [spaces])
 
@@ -827,6 +830,7 @@ export default function App() {
         width={sidebarWidth}
         sessions={sessions}
         commands={commandsOrdenados}
+        onSnippetsChanged={loadCommands}
         projects={projectsOrdenados}
         openNames={openSessions.map((s) => s.name)}
         spaces={spacesOrdenados}
@@ -869,6 +873,7 @@ export default function App() {
           onRename={handleRenameSession}
           onReorder={handleReorder}
           commands={commandsOrdenados}
+          snippets={snippetsOrdenados}
           projects={projects}
           layout={layout}
           focusedName={focusedName}

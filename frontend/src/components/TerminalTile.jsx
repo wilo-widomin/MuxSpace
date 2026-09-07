@@ -3,6 +3,7 @@ import { api } from '../api.js'
 import XtermTerminal from './XtermTerminal.jsx'
 import TextComposer from './TextComposer.jsx'
 import { useT } from '../i18n/index.jsx'
+import { KeycapIcon } from './sidebar/icons.jsx'
 
 // Contenedor de una sesión en el grid. Incrusta la terminal de ttyd
 // vía <iframe> (sección 5.4 de la especificación) y ofrece un control
@@ -38,6 +39,12 @@ import { useT } from '../i18n/index.jsx'
 //     produce es otra terminal, no un cambio en esta ventana.
 //   - 🔍 abre la búsqueda de la terminal, lo mismo que Ctrl+F. Existe porque
 //     en una tableta no hay Ctrl.
+//   - La tecla abre los TEXTOS RÁPIDOS: los escribe en el prompt y NO los
+//     envía. Va junto al ▶ porque se elige de la misma manera, pero es lo
+//     contrario: aquel ejecuta un comando de shell, este teclea por ti lo
+//     que ibas a teclear —una skill, una orden a un agente— y te deja
+//     revisarlo antes de darle a Enter. En una tableta ese tecleo es el
+//     trabajo caro.
 export default function TerminalTile({
   session,
   isActive,
@@ -52,6 +59,7 @@ export default function TerminalTile({
   onDragEnd,
   onDrop,
   commands = [],
+  snippets = [],
   links = [],
   isFocused,
   onToggleFocus,
@@ -64,6 +72,7 @@ export default function TerminalTile({
   const { t, tError } = useT()
   const [search, setSearch] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
+  const [showSnippets, setShowSnippets] = useState(false)
   const [inputError, setInputError] = useState(null)
   // Cada incremento le pide a la terminal que abra su búsqueda. Es un
   // contador y no un booleano por lo mismo que `focusToken`: el hijo se lo
@@ -116,17 +125,18 @@ export default function TerminalTile({
   // teclas que llegan a la terminal: si el foco está ahí, un listener en
   // burbuja no vería este Escape.
   useEffect(() => {
-    if (!showDropdown) return
+    if (!showDropdown && !showSnippets) return
     const alPulsar = (e) => {
       if (e.key !== 'Escape') return
       e.stopPropagation()
       setShowDropdown(false)
+      setShowSnippets(false)
       setSearch('')
       setInputError(null)
     }
     window.addEventListener('keydown', alPulsar, true)
     return () => window.removeEventListener('keydown', alPulsar, true)
-  }, [showDropdown])
+  }, [showDropdown, showSnippets])
 
   // Al entrar en edición el texto queda seleccionado: lo normal es
   // sustituir el nombre entero, no añadirle algo al final.
@@ -328,6 +338,19 @@ export default function TerminalTile({
           </button>
           <button
             onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => {
+              setShowDropdown(false)
+              setShowSnippets((abierto) => !abierto)
+            }}
+            title={t('tile.type_snippet')}
+            aria-label={t('tile.type_snippet')}
+            aria-expanded={showSnippets}
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+          >
+            <KeycapIcon />
+          </button>
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={() => setSearchToken((n) => n + 1)}
             title={t('tile.search_terminal')}
             aria-label={t('tile.search_terminal')}
@@ -399,6 +422,35 @@ export default function TerminalTile({
             onClose={() => setComposing(false)}
             onPaste={(texto) => setPaste((p) => ({ token: p.token + 1, text: texto }))}
           />
+        )}
+        {/* Textos rápidos. Mismo sitio y mismo aspecto que la lista de
+            comandos, porque el gesto es el mismo; lo que cambia es que aquí
+            no se ejecuta nada: el texto se escribe en el prompt (`paste`) y
+            se queda ahí. Sin filtro: son pocos y se eligen de un vistazo,
+            y en una tableta un filtro significa abrir el teclado. */}
+        {showSnippets && (
+          <div className="absolute top-1 left-2 z-30 max-h-64 w-64 overflow-y-auto rounded border border-panel-border bg-panel-surface shadow-lg">
+            <ul>
+              {snippets.map((s) => (
+                <li
+                  key={s.id}
+                  onClick={() => {
+                    setPaste((p) => ({ token: p.token + 1, text: s.text }))
+                    setShowSnippets(false)
+                  }}
+                  className="cursor-pointer px-2 py-1.5 text-xs text-panel-muted hover:bg-panel-bg hover:text-gray-100"
+                  title={s.text}
+                >
+                  {s.label}
+                </li>
+              ))}
+              {snippets.length === 0 && (
+                <li className="px-2 py-1.5 text-xs text-panel-muted">
+                  {t('tile.no_snippets')}
+                </li>
+              )}
+            </ul>
+          </div>
         )}
         {/* La lista de comandos se pinta AQUÍ, sobre la terminal, y no
             colgando del botón ▶: el tile lleva `overflow-hidden` por las

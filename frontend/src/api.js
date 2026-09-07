@@ -274,6 +274,25 @@ export const api = {
     request(`/api/commands/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }),
+  // ---- Biblioteca: textos rápidos (se escriben, no se ejecutan) ----
+  // No hay `send`: el texto lo escribe el navegador en la terminal con foco.
+  listSnippets: () => request('/api/snippets'),
+  createSnippet: (label, text) =>
+    request('/api/snippets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: label || '', text }),
+    }),
+  updateSnippet: (id, label, text) =>
+    request(`/api/snippets/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label, text }),
+    }),
+  deleteSnippet: (id) =>
+    request(`/api/snippets/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
   // ---- Biblioteca: proyectos (dir + secuencia de comandos) ----
   listProjects: () => request('/api/projects'),
   // `space` null al crear => el backend crea un espacio con el título del

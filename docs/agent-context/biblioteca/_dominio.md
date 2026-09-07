@@ -1,6 +1,6 @@
 ---
 dominio: biblioteca
-actualizado: 2026-09-01
+actualizado: 2026-09-07
 archivos:
   - backend/library_store.py
   - backend/main.py
@@ -12,7 +12,8 @@ depende_de: [sesiones/_dominio, espacios/_dominio]
 
 # Biblioteca
 
-Piezas reutilizables para lanzar terminales: **comandos** de una línea y
+Piezas reutilizables para lanzar terminales: **comandos** de una línea,
+**textos rápidos** (que se escriben en la terminal en vez de ejecutarse) y
 **proyectos** (título + directorio + secuencia de comandos + enlaces +
 espacio). Además guarda el mapa `sesión -> proyecto`, que es lo que permite
 pintar los enlaces del proyecto en la cabecera de su ventana.
@@ -20,11 +21,13 @@ pintar los enlaces del proyecto en la cabecera de su ventana.
 ## Entidades
 
 Todo vive en un único JSON, `backend/data/library.json`, con la forma
-`{commands, projects, session_projects}`. (`backend/data/commands.json` es
+`{commands, snippets, projects, session_projects}`. (`backend/data/commands.json` es
 residuo: no lo lee nadie.)
 
 - `Command` — `id`, `label`, `command`. Sin `label` se usa el propio comando
   truncado a 60 caracteres.
+- `Snippet` — `id`, `label`, `text`. Se escribe en la terminal, no se ejecuta.
+  Ver [Textos rápidos](textos-rapidos.md).
 - `Project` — `title` obligatorio, `cwd` (`None` si vacío), `commands` (al menos
   uno; los vacíos se descartan), `links` (máx. 12), `space` (id de espacio, que
   **el store no valida**).
@@ -46,6 +49,7 @@ residuo: no lo lee nadie.)
 ## Acciones documentadas
 
 - [Ejecutar un proyecto](ejecutar-proyecto.md)
+- [Textos rápidos](textos-rapidos.md)
 
 ## Trampas
 

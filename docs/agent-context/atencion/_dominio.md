@@ -1,6 +1,6 @@
 ---
 dominio: atencion
-actualizado: 2026-09-01
+actualizado: 2026-09-07
 archivos:
   - backend/attention_store.py
   - backend/chime_store.py
@@ -40,8 +40,9 @@ Documentación para humanos: `docs/avisos-de-atencion.md`.
   WebAudio y la reproducción del audio propio.
 - `chime_store.py` — la preferencia (qué suena, volumen, silencio) en
   `data/chime.json`, y el audio subido en `data/chime/`.
-- `ChimeSettings.jsx` — el diálogo del pie del sidebar: elegir sonido,
-  editar notas, subir un archivo.
+- `ChimeSettings.jsx` — el diálogo para elegir sonido, editar notas y subir
+  un archivo. Ya no cuelga del pie del sidebar: se llega por el engranaje de
+  **Ajustes** (`SettingsMenu.jsx`), que también lleva a los textos rápidos.
 - `scripts/muxspace-attention.sh` — lo que llama un hook de Claude Code,
   instalado en `~/.claude/settings.json` (todos los proyectos).
 

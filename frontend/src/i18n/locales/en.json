@@ -367,7 +367,7 @@
   "err.chime_audio_format": "That audio format is not supported.",
   "err.chime_audio_missing": "The sound file is empty.",
   "err.chime_audio_too_large": "The sound file is over {mb} MB.",
-  "tile.type_snippet": "Type a quick text (doesn't run it)",
+  "tile.type_snippet": "Type a quick text",
   "tile.no_snippets": "No quick texts saved.",
   "settings.title": "Settings",
   "settings.chime_hint": "What plays when a session needs you",

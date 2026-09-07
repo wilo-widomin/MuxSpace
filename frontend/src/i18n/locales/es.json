@@ -367,7 +367,7 @@
   "err.chime_audio_format": "Ese formato de audio no se admite.",
   "err.chime_audio_missing": "El archivo de sonido está vacío.",
   "err.chime_audio_too_large": "El archivo de sonido pasa de {mb} MB.",
-  "tile.type_snippet": "Escribir un texto rápido (no lo ejecuta)",
+  "tile.type_snippet": "Escribir un texto rápido",
   "tile.no_snippets": "No hay textos rápidos guardados.",
   "settings.title": "Ajustes",
   "settings.chime_hint": "Qué suena cuando una sesión reclama",

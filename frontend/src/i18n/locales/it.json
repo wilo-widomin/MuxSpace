@@ -367,7 +367,7 @@
   "err.chime_audio_format": "Questo formato audio non è supportato.",
   "err.chime_audio_missing": "Il file audio è vuoto.",
   "err.chime_audio_too_large": "Il file audio supera {mb} MB.",
-  "tile.type_snippet": "Scrivere un testo rapido (non lo esegue)",
+  "tile.type_snippet": "Scrivere un testo rapido",
   "tile.no_snippets": "Nessun testo rapido salvato.",
   "settings.title": "Impostazioni",
   "settings.chime_hint": "Cosa suona quando una sessione ti chiama",

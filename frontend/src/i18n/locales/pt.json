@@ -367,7 +367,7 @@
   "err.chime_audio_format": "Esse formato de áudio não é suportado.",
   "err.chime_audio_missing": "O ficheiro de som está vazio.",
   "err.chime_audio_too_large": "O ficheiro de som passa dos {mb} MB.",
-  "tile.type_snippet": "Escrever um texto rápido (não o executa)",
+  "tile.type_snippet": "Escrever um texto rápido",
   "tile.no_snippets": "Não há textos rápidos guardados.",
   "settings.title": "Definições",
   "settings.chime_hint": "O que toca quando uma sessão te chama",

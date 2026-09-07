@@ -1,7 +1,7 @@
 ---
 dominio: acceso
 accion: login-y-sesion
-actualizado: 2026-08-28
+actualizado: 2026-09-07
 archivos:
   - backend/auth.py
   - backend/main.py
@@ -32,10 +32,19 @@ depende_de: [i18n/_dominio]
 ## Rate-limit y baneos
 
 - 5 fallos por ventana de 60 s y por IP → 429 `err.login_rate_limited`. Aplica
-  también al Basic. No es bloqueo progresivo: la ventana caduca sola.
+  también al Basic.
+- **Recuperar la tanda cuesta cada vez más.** Vencida la ventana, la IP solo
+  recupera sus cinco intentos si además ha cumplido una espera que se dobla
+  con cada fallo seguido a partir del sexto (`2**(n-5)` s, techo 30 min). Los
+  cinco primeros no penalizan. Dentro de la ventana la espera no se aplica: la
+  tanda siempre es de cinco seguidos.
 - Se persiste en `backend/data/login_failures.json` (máx. 1000 IPs, se
-  descartan las más antiguas). Un login correcto pone el contador a cero pero
-  **conserva el histórico**.
+  descartan las más antiguas). Un login correcto pone a cero el contador de la
+  ventana **y la espera acumulada** (`backoff_failures`), pero **conserva el
+  histórico** (`total_failures`, `first_seen`, `last_seen`): lo primero es
+  castigo y lo segundo evidencia. Un registro escrito antes de que existiera
+  `backoff_failures` cae a `total_failures`, así que actualizar no le regala
+  el contador a cero a quien ya venía atacando.
 - Baneos en `backend/data/banned_ips.json`: lista de IPs o CIDR, recargada por
   mtime. **Levantar un baneo = quitar la entrada y guardar.** Un JSON corrupto
   conserva la lista anterior.

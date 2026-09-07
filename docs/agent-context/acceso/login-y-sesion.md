@@ -58,6 +58,15 @@ Acciones: `login`, `login-failed`, `logout-all`, `create-session`,
 `run-project`, `upload`. Nunca contraseñas ni tokens; un fallo al escribir no
 tumba la petición.
 
+Los campos `command` y `text` del `detail` pasan por `audit.redactar()` antes
+de escribirse: tapa el **valor** de lo que parezca credencial —`API_KEY=…`,
+`--password …`, `Authorization: Bearer …`, `https://user:clave@host`— y deja
+el resto intacto, porque saber que se exportó una clave es auditoría legítima
+y saber cuál no. Se redacta en `audit.py` y no en cada `audit.record`, así que
+una llamada nueva nace protegida. Hueco conocido y deliberado: la bandera `-p`
+pegada (`mysql -psecreto`) NO se tapa, porque redactar `-p` destrozaría
+`find -print` y `docker -p 8080:80`.
+
 ## Trampas
 
 - El 401 no lleva `WWW-Authenticate`, a propósito: dispararía el diálogo nativo

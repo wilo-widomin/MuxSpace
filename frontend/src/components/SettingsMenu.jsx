@@ -1,4 +1,5 @@
 import { useT } from '../i18n/index.jsx'
+import { LanguagePicker } from './LanguagePicker.jsx'
 import { Modal } from './sidebar/Modal.jsx'
 import { BellIcon, KeycapIcon } from './sidebar/icons.jsx'
 
@@ -12,6 +13,10 @@ import { BellIcon, KeycapIcon } from './sidebar/icons.jsx'
  *
  * Cada fila es alta a propósito: esto se usa desde una tableta, donde el
  * objetivo de un dedo no puede medir lo mismo que el de un ratón.
+ *
+ * El idioma es la excepción a "una fila, un diálogo": es un desplegable de
+ * seis opciones y abrirle una ventana propia sería un clic de más para algo
+ * que se resuelve ahí mismo.
  */
 export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets }) {
   const { t } = useT()
@@ -52,6 +57,17 @@ export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets }) {
           </li>
         ))}
       </ul>
+      <div className="mt-2 flex items-center justify-between gap-3 rounded border border-panel-border px-3 py-3">
+        <span className="min-w-0">
+          <span className="block text-xs font-medium text-gray-100">
+            {t('lang.label')}
+          </span>
+          <span className="block text-xs text-panel-muted">
+            {t('settings.lang_hint')}
+          </span>
+        </span>
+        <LanguagePicker />
+      </div>
     </Modal>
   )
 }

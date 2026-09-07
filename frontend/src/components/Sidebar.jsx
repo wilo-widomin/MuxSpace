@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react'
 import { ApiError, api } from '../api.js'
-import { LANGUAGES, useT } from '../i18n/index.jsx'
+import { useT } from '../i18n/index.jsx'
 import { CloseIcon, Modal } from './sidebar/Modal.jsx'
 import { CommandSelect } from './sidebar/CommandSelect.jsx'
 import { PasteForClaude } from './sidebar/PasteForClaude.jsx'
@@ -1120,7 +1120,6 @@ export default function Sidebar({
           >
             <GearIcon />
           </button>
-          <LanguagePicker />
         </div>
       </footer>
       {settingsOpen && (
@@ -1725,28 +1724,6 @@ function QuickCommandForm({ onSave, onClose }) {
         </p>
       )}
     </form>
-  )
-}
-
-// Selector de idioma del pie. Los nombres van en su propio idioma a
-// propósito: una lista traducida al idioma ACTUAL no le sirve a quien no
-// entiende el idioma actual y quiere salir de él.
-function LanguagePicker() {
-  const { lang, setLang, t } = useT()
-  return (
-    <select
-      value={lang}
-      onChange={(e) => setLang(e.target.value)}
-      title={t('lang.label')}
-      aria-label={t('lang.label')}
-      className="shrink-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-xs text-panel-muted outline-none transition hover:border-panel-border focus:border-panel-accent"
-    >
-      {LANGUAGES.map((l) => (
-        <option key={l.code} value={l.code}>
-          {l.label}
-        </option>
-      ))}
-    </select>
   )
 }
 

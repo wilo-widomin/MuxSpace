@@ -242,3 +242,22 @@ describe('fila de sesión', () => {
     expect(onAssignSpace).toHaveBeenCalledWith('trabajo', 'esp-1')
   })
 })
+
+describe('Sidebar plegado', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('sigue teniendo los ajustes, y el menú se abre de verdad', () => {
+    // Plegar la barra es ganar sitio para las terminales, no perder el
+    // acceso a las preferencias del panel. El menú vive en la rama del
+    // sidebar abierto, así que sin cuidado el engranaje abría la nada.
+    montar({ collapsed: true })
+
+    fireEvent.click(screen.getByLabelText('Ajustes'))
+
+    expect(screen.getByText('Sonido del aviso')).toBeTruthy()
+    expect(screen.getByText('Textos rápidos')).toBeTruthy()
+    expect(screen.getByText('Enlaces')).toBeTruthy()
+  })
+})

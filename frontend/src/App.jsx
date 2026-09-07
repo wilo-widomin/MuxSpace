@@ -381,7 +381,15 @@ export default function App() {
   // en los tres aparatos). Si la petición falla se queda la de fábrica: un
   // aviso mudo por no haber podido leer una preferencia sería peor que uno
   // que suena distinto de lo elegido.
+  //
+  // Va detrás de `authed` como los demás cargadores. Sin esa guarda se pedía
+  // al montar el panel, o sea también en la pantalla de login: el endpoint
+  // exige sesión, así que el navegador registraba un 401 en la consola cada
+  // vez que alguien abría el panel sin haber entrado. El `.catch` lo hacía
+  // invisible desde JS, pero el error de red queda igual. Y no se perdía nada
+  // esperando: la campanilla solo suena con avisos, que ya exigen sesión.
   useEffect(() => {
+    if (!authed) return
     let vivo = true
     api
       .getChime()
@@ -390,7 +398,7 @@ export default function App() {
     return () => {
       vivo = false
     }
-  }, [])
+  }, [authed])
 
   // Atender una terminal apaga su marca en el SERVIDOR, así que se apaga
   // también en los demás dispositivos: si lo miro en el portátil, la tablet

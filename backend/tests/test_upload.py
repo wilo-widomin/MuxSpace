@@ -230,6 +230,29 @@ class _CuerpoPorTrozos:
         return {"type": "http.request", "body": b"", "more_body": False}
 
 
+class _CuerpoQueMiraElDisco(_CuerpoPorTrozos):
+    """Como `_CuerpoPorTrozos`, pero anota el tamaño del destino en el camino.
+
+    Es lo que hace medible SEC-006 sin mirar la memoria del proceso, que sería
+    un test inestable: si el endpoint vuelca a disco SEGÚN LLEGA, a mitad del
+    envío el fichero ya tiene bytes; si acumula el cuerpo entero antes de
+    escribir, sigue vacío (o sin existir) hasta el último trozo.
+    """
+
+    def __init__(self, trozo: bytes, veces: int, destino: Path) -> None:
+        super().__init__(trozo, veces)
+        self._destino = destino
+        self.tamano_a_mitad: int | None = None
+        self._mitad = veces // 2
+
+    async def __call__(self) -> dict:
+        if self._pendientes == self._mitad and self.tamano_a_mitad is None:
+            self.tamano_a_mitad = (
+                self._destino.stat().st_size if self._destino.exists() else 0
+            )
+        return await super().__call__()
+
+
 def _post_por_asgi(
     ruta: str,
     query: dict[str, str],
@@ -677,6 +700,42 @@ def test_el_cuerpo_deja_de_leerse_en_cuanto_pasa_del_tope(
     assert status == 413
     assert detalle["detail"]["code"] == "err.upload_too_large"
     assert _nombres(escenario.raiz) == []
+
+
+def test_el_cuerpo_se_escribe_segun_llega_y_no_se_acumula_en_memoria(
+    client_auth: TestClient, escenario: Escenario
+) -> None:
+    """SEC-006: la memoria por subida no puede crecer con el archivo.
+
+    `_read_capped` ya impedía que un POST de varios GB tumbara el proceso (eso
+    es S4, arriba), pero lo que cabía por debajo del tope se acumulaba entero
+    en una lista de bytes antes de escribirse: con el tope en 100 MB, diez
+    subidas a la vez eran un gigabyte de residente en el proceso que sirve
+    todas las terminales del usuario.
+
+    Medir el residente del proceso sería un test inestable. Lo que se mide es
+    el síntoma equivalente y determinista: a mitad del envío el fichero
+    destino ya tiene bytes en disco. Con el volcado anterior estaría vacío
+    hasta el último trozo, porque no se abría el fichero hasta tenerlo todo.
+    """
+    destino = escenario.raiz / "streaming-ok.bin"
+    cuerpo = _CuerpoQueMiraElDisco(b"W" * 1024, 40, destino)
+
+    status, _ = _post_por_asgi(
+        "/api/upload",
+        {"dir": str(escenario.raiz), "name": destino.name},
+        _cookie_de(client_auth),
+        cuerpo,
+    )
+
+    assert status == 200
+    assert cuerpo.tamano_a_mitad, (
+        "a mitad del envío no había ni un byte en disco: el cuerpo se está "
+        "acumulando en memoria antes de escribirlo, que es SEC-006"
+    )
+    assert cuerpo.tamano_a_mitad < cuerpo.total, "se escribió todo de una vez"
+    # Y el archivo queda íntegro: escribir a trozos no puede perder ninguno.
+    assert destino.read_bytes() == b"W" * cuerpo.total
 
 
 def test_un_cuerpo_justo_en_el_tope_se_acepta_y_uno_mas_no(

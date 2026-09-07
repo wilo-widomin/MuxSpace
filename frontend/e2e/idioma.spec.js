@@ -38,8 +38,12 @@ test('tras cambiar de idioma, el aviso de sesión caducada sale en el nuevo', as
 }) => {
   await entrar(page, entorno)
 
-  // 1 · Cambiar a inglés. A partir de aquí el panel entero está en inglés.
+  // 1 · Cambiar a inglés desde Ajustes, que es donde vive el selector desde
+  //     que el pie del sidebar se quedó solo con salir y el engranaje.
+  await page.getByRole('button', { name: T['settings.title'] }).click()
   await page.getByLabel(T['lang.label']).selectOption('en')
+  // El menú sigue abierto y tapa el sidebar: cerrarlo es parte del gesto.
+  await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: EN['sidebar.logout'] })).toBeVisible()
 
   // 2 · Caducar la sesión por detrás. Borrar la cookie es lo más parecido a

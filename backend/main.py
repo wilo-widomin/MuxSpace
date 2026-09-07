@@ -70,17 +70,21 @@ from errors import http_error, http_from
 from library_store import (
     LibraryError,
     add_command,
+    add_link,
     add_project,
     add_snippet,
     delete_command,
+    delete_link,
     delete_project,
     delete_snippet,
     get_command,
     get_project,
     list_commands,
+    list_links,
     list_projects,
     list_snippets,
     update_command,
+    update_link,
     update_project,
     update_snippet,
 )
@@ -281,6 +285,18 @@ class SnippetUpdateBody(BaseModel):
     label: str
     text: str
     submit: bool = False
+
+
+class WebLinkInfo(BaseModel):
+    id: str
+    title: str
+    url: str
+
+
+class WebLinkBody(BaseModel):
+    # Sin título, el backend usa el host de la URL (igual que en un proyecto).
+    title: str = ""
+    url: str
 
 
 class ProjectLink(BaseModel):
@@ -1971,6 +1987,49 @@ def delete_snippet_endpoint(snippet_id: str, user: str = _auth) -> MessageRespon
     """Elimina un texto rápido."""
     if not delete_snippet(snippet_id):
         raise http_error(404, "err.snippet_not_found")
+    return MessageResponse(message="ok")
+
+
+# ---------------------------------------------------------------------- #
+# Enlaces generales: los que no son de ningún proyecto                    #
+# ---------------------------------------------------------------------- #
+@app.get("/api/links", response_model=list[WebLinkInfo])
+def get_links(user: str = _auth) -> list[WebLinkInfo]:
+    """Devuelve los enlaces generales del panel."""
+    return [WebLinkInfo(**x.to_dict()) for x in list_links()]
+
+
+@app.post("/api/links", response_model=WebLinkInfo, status_code=201)
+def create_link(body: WebLinkBody, user: str = _auth) -> WebLinkInfo:
+    """Crea un enlace general."""
+    try:
+        created = add_link(body.title, body.url)
+    except LibraryError as exc:
+        raise http_from(400, exc) from exc
+    return WebLinkInfo(**created.to_dict())
+
+
+@app.put("/api/links/{link_id}", response_model=WebLinkInfo)
+def update_link_endpoint(
+    link_id: str,
+    body: WebLinkBody,
+    user: str = _auth,
+) -> WebLinkInfo:
+    """Actualiza un enlace general."""
+    try:
+        updated = update_link(link_id, body.title, body.url)
+    except LibraryError as exc:
+        raise http_from(400, exc) from exc
+    if updated is None:
+        raise http_error(404, "err.link_not_found")
+    return WebLinkInfo(**updated.to_dict())
+
+
+@app.delete("/api/links/{link_id}", response_model=MessageResponse)
+def delete_link_endpoint(link_id: str, user: str = _auth) -> MessageResponse:
+    """Elimina un enlace general."""
+    if not delete_link(link_id):
+        raise http_error(404, "err.link_not_found")
     return MessageResponse(message="ok")
 
 

@@ -7,6 +7,9 @@
   skills, órdenes a un agente— desde una tableta, donde escribir treinta
   caracteres exactos es el trabajo caro. Cada uno decide con `submit` si
   además se envía (Enter) o se queda en el prompt para seguir escribiendo.
+- **Enlace general** (`WebLink`): una URL con su título, que no pertenece a
+  ningún proyecto. Sale en el menú del icono de enlace de cualquier terminal
+  y se abre en una pestaña nueva.
 - **Proyecto**: un título, un directorio (cwd) y una lista de comandos que
   se ejecutan secuencialmente en una sesión nueva. Puede llevar además una
   lista de **enlaces** (URL + título) que el panel pinta como badges en la
@@ -111,6 +114,21 @@ class Link:
 
 
 @dataclass
+class WebLink:
+    """Un enlace general del panel: como el del proyecto, pero con id.
+
+    El id existe porque estos se editan y se borran de uno en uno desde
+    Ajustes; los del proyecto se guardan y se reemplazan en bloque con él.
+    """
+    id: str
+    title: str
+    url: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
 class Project:
     """Un proyecto: directorio + secuencia de comandos + enlaces."""
     id: str
@@ -136,6 +154,7 @@ class _Library:
     def __init__(self) -> None:
         self.commands: list[Command] = []
         self.snippets: list[Snippet] = []
+        self.links: list[WebLink] = []
         self.projects: list[Project] = []
         # `nombre de sesión -> id de proyecto`. Vive aquí y no en el nombre
         # de la sesión porque el nombre se puede cambiar (`rename-session`)
@@ -193,6 +212,21 @@ def _load_raw() -> _Library:
             )
         )
 
+    raw_links_globales = data.get("links")
+    for item in raw_links_globales if isinstance(raw_links_globales, list) else []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            enlace = _normalize_link(item)
+        # Leer nunca lanza: un enlace inválido en disco se descarta.
+        except LibraryError:
+            continue
+        if enlace is None:
+            continue
+        lib.links.append(
+            WebLink(id=str(item.get("id", "")), title=enlace.title, url=enlace.url)
+        )
+
     for item in data.get("projects") if isinstance(data.get("projects"), list) else []:
         if not isinstance(item, dict):
             continue
@@ -228,6 +262,7 @@ def _persist(lib: _Library) -> None:
     payload = {
         "commands": [c.to_dict() for c in lib.commands],
         "snippets": [s.to_dict() for s in lib.snippets],
+        "links": [x.to_dict() for x in lib.links],
         "projects": [p.to_dict() for p in lib.projects],
         "session_projects": lib.session_projects,
     }
@@ -459,6 +494,70 @@ def delete_snippet(snippet_id: str) -> bool:
         if len(remaining) == len(lib.snippets):
             return False
         lib.snippets = remaining
+        _persist(lib)
+        return True
+
+
+# ---------------------------------------------------------------------- #
+# Enlaces generales                                                       #
+# ---------------------------------------------------------------------- #
+# Validan igual que los del proyecto (`_normalize_link`): solo http/https,
+# y un `esquema:` desconocido se rechaza en vez de prefijarse. Estos acaban
+# en un `<a href>` del panel exactamente igual.
+def list_links() -> list[WebLink]:
+    """Devuelve todos los enlaces generales, en orden de inserción."""
+    with _lock:
+        return _load_raw().links
+
+
+def get_link(link_id: str) -> Optional[WebLink]:
+    """Devuelve un enlace general por id, o None si no existe."""
+    with _lock:
+        for x in _load_raw().links:
+            if x.id == link_id:
+                return x
+    return None
+
+
+def add_link(title: str, url: str) -> WebLink:
+    """Crea y persiste un enlace general nuevo."""
+    enlace = _normalize_link({"url": url, "title": title})
+    if enlace is None:
+        raise LibraryError("err.link_url_required")
+    with _lock:
+        lib = _load_raw()
+        created = WebLink(
+            id=secrets.token_hex(4), title=enlace.title, url=enlace.url
+        )
+        lib.links.append(created)
+        _persist(lib)
+        return created
+
+
+def update_link(link_id: str, title: str, url: str) -> Optional[WebLink]:
+    """Actualiza un enlace general. Devuelve None si no existe."""
+    enlace = _normalize_link({"url": url, "title": title})
+    if enlace is None:
+        raise LibraryError("err.link_url_required")
+    with _lock:
+        lib = _load_raw()
+        for x in lib.links:
+            if x.id == link_id:
+                x.title = enlace.title
+                x.url = enlace.url
+                _persist(lib)
+                return x
+        return None
+
+
+def delete_link(link_id: str) -> bool:
+    """Elimina un enlace general por id. Devuelve True si se borró."""
+    with _lock:
+        lib = _load_raw()
+        remaining = [x for x in lib.links if x.id != link_id]
+        if len(remaining) == len(lib.links):
+            return False
+        lib.links = remaining
         _persist(lib)
         return True
 

@@ -388,5 +388,20 @@
   "settings.lang_hint": "O idioma da interface",
   "snippets.submit": "Enviar ao escrevê-lo (Enter)",
   "snippets.submit_hint": "Sem marcar, o texto fica no prompt para continuares a escrever.",
-  "snippets.submit_badge": "envia"
+  "snippets.submit_badge": "envia",
+  "tile.links": "Ligações",
+  "tile.no_links": "Não há ligações guardadas.",
+  "settings.links_hint": "Ligações do painel, no menu de qualquer terminal",
+  "links.title": "Ligações",
+  "links.help": "Abrem num separador novo e aparecem em todos os terminais. As de um projeto editam-se no projeto.",
+  "links.empty": "Ainda não há nenhuma.",
+  "links.title_placeholder": "Título (opcional: senão, o domínio)",
+  "links.url_placeholder": "https://…",
+  "links.add": "Adicionar",
+  "links.save": "Guardar",
+  "links.cancel": "Cancelar",
+  "links.edit": "Editar a ligação",
+  "links.delete": "Eliminar a ligação",
+  "err.link_url_required": "É necessário um endereço.",
+  "err.link_not_found": "Essa ligação já não existe."
 }

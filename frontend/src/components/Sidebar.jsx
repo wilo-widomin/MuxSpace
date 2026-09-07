@@ -11,6 +11,7 @@ import logo from '../assets/logo.png'
 import { ChimeSettings } from './ChimeSettings.jsx'
 import { SettingsMenu } from './SettingsMenu.jsx'
 import { SnippetSettings } from './SnippetSettings.jsx'
+import { LinkSettings } from './LinkSettings.jsx'
 import {
   ChartIcon,
   CheckIcon,
@@ -64,8 +65,9 @@ export default function Sidebar({
   sessions,
   commands,
   projects,
-  // Aviso de que la lista de textos rápidos cambió: App la recarga para que
-  // el desplegable de las terminales abiertas la vea sin recargar la página.
+  // Aviso de que la biblioteca cambió desde Ajustes (textos rápidos o
+  // enlaces): App la recarga para que los desplegables de las terminales
+  // abiertas lo vean sin recargar la página.
   onSnippetsChanged,
   openNames,
   spaces,
@@ -110,6 +112,7 @@ export default function Sidebar({
   const [chimeOpen, setChimeOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [snippetsOpen, setSnippetsOpen] = useState(false)
+  const [linksOpen, setLinksOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [createError, setCreateError] = useState(null)
@@ -1133,12 +1136,22 @@ export default function Sidebar({
             setSettingsOpen(false)
             setSnippetsOpen(true)
           }}
+          onOpenLinks={() => {
+            setSettingsOpen(false)
+            setLinksOpen(true)
+          }}
         />
       )}
       {chimeOpen && <ChimeSettings onClose={() => setChimeOpen(false)} />}
       {snippetsOpen && (
         <SnippetSettings
           onClose={() => setSnippetsOpen(false)}
+          onChanged={onSnippetsChanged}
+        />
+      )}
+      {linksOpen && (
+        <LinkSettings
+          onClose={() => setLinksOpen(false)}
           onChanged={onSnippetsChanged}
         />
       )}

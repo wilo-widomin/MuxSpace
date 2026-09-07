@@ -3,7 +3,7 @@ import { api } from '../api.js'
 import XtermTerminal from './XtermTerminal.jsx'
 import TextComposer from './TextComposer.jsx'
 import { useT } from '../i18n/index.jsx'
-import { BoltIcon } from './sidebar/icons.jsx'
+import { BoltIcon, LinkIcon } from './sidebar/icons.jsx'
 
 // Contenedor de una sesión en el grid. Incrusta la terminal de ttyd
 // vía <iframe> (sección 5.4 de la especificación) y ofrece un control
@@ -61,6 +61,9 @@ export default function TerminalTile({
   commands = [],
   snippets = [],
   links = [],
+  // Enlaces del PANEL, los mismos en toda terminal. No confundir con `links`,
+  // que son las badges del proyecto del que salió esta sesión.
+  webLinks = [],
   isFocused,
   onToggleFocus,
   onMinimize,
@@ -73,6 +76,7 @@ export default function TerminalTile({
   const [search, setSearch] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [showSnippets, setShowSnippets] = useState(false)
+  const [showLinks, setShowLinks] = useState(false)
   const [inputError, setInputError] = useState(null)
   // Cada incremento le pide a la terminal que abra su búsqueda. Es un
   // contador y no un booleano por lo mismo que `focusToken`: el hijo se lo
@@ -125,18 +129,19 @@ export default function TerminalTile({
   // teclas que llegan a la terminal: si el foco está ahí, un listener en
   // burbuja no vería este Escape.
   useEffect(() => {
-    if (!showDropdown && !showSnippets) return
+    if (!showDropdown && !showSnippets && !showLinks) return
     const alPulsar = (e) => {
       if (e.key !== 'Escape') return
       e.stopPropagation()
       setShowDropdown(false)
       setShowSnippets(false)
+      setShowLinks(false)
       setSearch('')
       setInputError(null)
     }
     window.addEventListener('keydown', alPulsar, true)
     return () => window.removeEventListener('keydown', alPulsar, true)
-  }, [showDropdown, showSnippets])
+  }, [showDropdown, showSnippets, showLinks])
 
   // Al entrar en edición el texto queda seleccionado: lo normal es
   // sustituir el nombre entero, no añadirle algo al final.
@@ -328,7 +333,11 @@ export default function TerminalTile({
           </button>
           <button
             onMouseDown={(e) => e.stopPropagation()}
-            onClick={() => setShowDropdown((abierto) => !abierto)}
+            onClick={() => {
+              setShowSnippets(false)
+              setShowLinks(false)
+              setShowDropdown((abierto) => !abierto)
+            }}
             title={t('tile.run_command')}
             aria-label={t('tile.run_command')}
             aria-expanded={showDropdown}
@@ -340,6 +349,7 @@ export default function TerminalTile({
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => {
               setShowDropdown(false)
+              setShowLinks(false)
               setShowSnippets((abierto) => !abierto)
             }}
             title={t('tile.type_snippet')}
@@ -348,6 +358,20 @@ export default function TerminalTile({
             className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
           >
             <BoltIcon />
+          </button>
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => {
+              setShowDropdown(false)
+              setShowSnippets(false)
+              setShowLinks((abierto) => !abierto)
+            }}
+            title={t('tile.links')}
+            aria-label={t('tile.links')}
+            aria-expanded={showLinks}
+            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+          >
+            <LinkIcon />
           </button>
           <button
             onMouseDown={(e) => e.stopPropagation()}
@@ -424,6 +448,34 @@ export default function TerminalTile({
               setPaste((p) => ({ token: p.token + 1, text: texto, submit: false }))
             }
           />
+        )}
+        {/* Enlaces generales del panel. Cada uno abre una pestaña nueva y
+            sin darle control sobre esta (`noopener`), igual que las badges
+            del proyecto de la cabecera. */}
+        {showLinks && (
+          <div className="absolute top-1 right-2 z-30 max-h-64 w-64 max-w-[calc(100%-1rem)] overflow-y-auto rounded border border-panel-border bg-panel-surface shadow-lg">
+            <ul>
+              {webLinks.map((x) => (
+                <li key={x.id}>
+                  <a
+                    href={x.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowLinks(false)}
+                    className="block truncate px-2 py-1.5 text-xs text-panel-muted hover:bg-panel-bg hover:text-gray-100"
+                    title={x.url}
+                  >
+                    {x.title}
+                  </a>
+                </li>
+              ))}
+              {webLinks.length === 0 && (
+                <li className="px-2 py-1.5 text-xs text-panel-muted">
+                  {t('tile.no_links')}
+                </li>
+              )}
+            </ul>
+          </div>
         )}
         {/* Textos rápidos. Mismo sitio y mismo aspecto que la lista de
             comandos, porque el gesto es el mismo; lo que cambia es que aquí

@@ -388,5 +388,20 @@
   "settings.lang_hint": "La lingua dell'interfaccia",
   "snippets.submit": "Inviare dopo averlo scritto (Invio)",
   "snippets.submit_hint": "Senza spunta, il testo resta nel prompt per continuare a scrivere.",
-  "snippets.submit_badge": "invia"
+  "snippets.submit_badge": "invia",
+  "tile.links": "Collegamenti",
+  "tile.no_links": "Nessun collegamento salvato.",
+  "settings.links_hint": "Collegamenti del pannello, nel menu di ogni terminale",
+  "links.title": "Collegamenti",
+  "links.help": "Si aprono in una nuova scheda e compaiono in tutti i terminali. Quelli di un progetto si modificano nel progetto.",
+  "links.empty": "Ancora nessuno.",
+  "links.title_placeholder": "Titolo (facoltativo: altrimenti il dominio)",
+  "links.url_placeholder": "https://…",
+  "links.add": "Aggiungi",
+  "links.save": "Salva",
+  "links.cancel": "Annulla",
+  "links.edit": "Modifica il collegamento",
+  "links.delete": "Elimina il collegamento",
+  "err.link_url_required": "Serve un indirizzo.",
+  "err.link_not_found": "Quel collegamento non esiste più."
 }

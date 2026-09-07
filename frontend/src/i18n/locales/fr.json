@@ -388,5 +388,20 @@
   "settings.lang_hint": "La langue de l'interface",
   "snippets.submit": "Envoyer après la saisie (Entrée)",
   "snippets.submit_hint": "Sans cocher, le texte reste dans l'invite pour continuer à écrire.",
-  "snippets.submit_badge": "envoie"
+  "snippets.submit_badge": "envoie",
+  "tile.links": "Liens",
+  "tile.no_links": "Aucun lien enregistré.",
+  "settings.links_hint": "Liens du panneau, dans le menu de chaque terminal",
+  "links.title": "Liens",
+  "links.help": "Ils s'ouvrent dans un nouvel onglet et apparaissent dans tous les terminaux. Les liens d'un projet se modifient dans le projet.",
+  "links.empty": "Aucun pour l'instant.",
+  "links.title_placeholder": "Titre (facultatif : sinon le domaine)",
+  "links.url_placeholder": "https://…",
+  "links.add": "Ajouter",
+  "links.save": "Enregistrer",
+  "links.cancel": "Annuler",
+  "links.edit": "Modifier le lien",
+  "links.delete": "Supprimer le lien",
+  "err.link_url_required": "Une adresse est requise.",
+  "err.link_not_found": "Ce lien n'existe plus."
 }

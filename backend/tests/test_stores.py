@@ -434,6 +434,7 @@ def test_biblioteca_el_ciclo_completo_de_un_comando(data_dir: Path) -> None:
     assert json.loads(library_store._STORE_PATH.read_text(encoding="utf-8")) == {
         "commands": [],
         "snippets": [],
+        "links": [],
         "projects": [],
         "session_projects": {},
     }
@@ -802,6 +803,8 @@ def test_biblioteca_el_formato_en_disco_es_el_declarado(data_dir: Path) -> None:
                 "submit": False,
             }
         ],
+        # Enlaces generales del panel, los que no son de ningún proyecto.
+        "links": [],
         "projects": [
             {
                 "id": proyecto.id,
@@ -1119,6 +1122,7 @@ def test_biblioteca_escribir_sobre_un_json_roto_lo_deja_consistente(
     assert json.loads(library_store._STORE_PATH.read_text(encoding="utf-8")) == {
         "commands": [creado.to_dict()],
         "snippets": [],
+        "links": [],
         "projects": [],
         "session_projects": {},
     }

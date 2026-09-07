@@ -19,13 +19,18 @@ import { useEffect, useRef } from 'react'
 // suspensión y quiere su conexión de vuelta ya.
 const RECONNECT_MS = [500, 1000, 2000, 5000, 10000]
 
-export function useAttentionEvents(onEvent) {
+// `enabled` existe porque el backend rechaza el handshake sin cookie con un
+// 403, y eso el navegador lo escribe en la consola: conectarse desde la
+// pantalla de login ensucia la consola y reintenta cada medio segundo contra
+// una puerta que sabemos cerrada.
+export function useAttentionEvents(onEvent, enabled = true) {
   // Ref espejo: el callback cambia en cada render de App y el efecto no debe
   // reabrir el WebSocket por eso.
   const onEventRef = useRef(onEvent)
   onEventRef.current = onEvent
 
   useEffect(() => {
+    if (!enabled) return undefined
     let ws = null
     let reintento = null
     let intentos = 0
@@ -97,5 +102,5 @@ export function useAttentionEvents(onEvent) {
         ws.close()
       }
     }
-  }, [])
+  }, [enabled])
 }

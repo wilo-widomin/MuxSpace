@@ -27,7 +27,18 @@ En orden de declaración (el último declarado envuelve por fuera):
 
 `default-src 'self'; frame-ancestors 'none'; img-src 'self' data:; style-src
 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'`, más
-`X-Frame-Options: DENY`, `nosniff` y `Referrer-Policy: no-referrer`.
+`X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`,
+`Permissions-Policy: camera=(), microphone=(), geolocation=()` y
+`Strict-Transport-Security: max-age=31536000`.
+
+**HSTS solo sale por https**, y la condición no es cosmética: emitida en
+`http://localhost:8000` dejaría el localhost del usuario exigiendo TLS durante
+un año a todos sus proyectos, y eso no se arregla borrando la línea que la
+puso. El esquema sale de `X-Forwarded-Proto`, que uvicorn honra porque
+`start.sh` arranca con `--proxy-headers`: si el proxy dejara de enviarlo, la
+cabecera no saldría nunca. Va sin `includeSubDomains` ni `preload` a
+propósito — el panel vive en un dominio y ninguna de las dos se deshace rápido.
+Lo cubre `backend/tests/test_cabeceras.py`, con el caso negativo incluido.
 
 - Quitar `style-src 'unsafe-inline'` **rompe xterm.js**, que inyecta estilos.
 - `default-src 'self'` es lo que autoriza el `ws://` del mismo origen:

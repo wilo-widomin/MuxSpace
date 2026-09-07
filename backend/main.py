@@ -675,7 +675,27 @@ _SECURITY_HEADERS = {
     ),
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
+    # Un año, sin `includeSubDomains`: el panel vive en UN dominio y obligar a
+    # HTTPS a todo lo que cuelgue de él no es asunto de este proceso. Sin
+    # `preload` por lo mismo — entrar en la lista que llevan los navegadores
+    # es una decisión que no se deshace en meses.
+    #
+    # Lo que añade sobre la cookie `Secure`, que ya impide que la sesión viaje
+    # en claro: que el navegador no llegue a EMITIR la primera petición
+    # insegura de cada visita, la que sale al teclear el dominio a pelo. Y no
+    # depende de que el proxy la ponga, que es el punto: el día que el panel
+    # se sirva sin Caddy delante, o con otro proxy, esto sigue aquí.
+    "Strict-Transport-Security": "max-age=31536000",
+    # El panel no pide cámara, micrófono ni ubicación. Decirlo cierra la
+    # puerta a que un script incluido por error pueda pedirlas.
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
 }
+
+# Cabeceras que solo tienen sentido sobre TLS. `Strict-Transport-Security` por
+# http dejaría el `localhost` de desarrollo exigiendo TLS durante un año a
+# TODOS los proyectos del usuario que usen ese mismo host — un navegador que
+# la recordara ahí no se arregla borrando esta línea.
+_SOLO_HTTPS = {"Strict-Transport-Security"}
 
 
 # Se declara el ÚLTIMO a propósito: en Starlette el middleware añadido más
@@ -684,7 +704,14 @@ _SECURITY_HEADERS = {
 @app.middleware("http")
 async def _security_headers(request: Request, call_next):
     resp = await call_next(request)
+    # El esquema sale de `X-Forwarded-Proto` cuando hay proxy delante, porque
+    # `start.sh` arranca uvicorn con `--proxy-headers` y `--forwarded-allow-ips`.
+    # Sin eso, detrás de un proxy toda petición parecería http y la cabecera no
+    # saldría nunca.
+    seguro = request.url.scheme == "https"
     for k, v in _SECURITY_HEADERS.items():
+        if k in _SOLO_HTTPS and not seguro:
+            continue
         resp.headers.setdefault(k, v)
     return resp
 

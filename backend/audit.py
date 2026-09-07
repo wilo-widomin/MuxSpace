@@ -20,12 +20,16 @@ Dos reglas que no se negocian:
    de funcionar porque no puede escribir su propio log de auditoría es peor
    que un panel sin log.
 2. **Nunca se registran credenciales.** Ni contraseñas ni tokens de sesión;
-   del login solo interesa si hubo éxito y desde dónde.
+   del login solo interesa si hubo éxito y desde dónde. Lo que se teclea en
+   una terminal pasa antes por `redactar()`, porque ahí dentro viajan claves
+   de API y contraseñas de bases de datos que el usuario no está pensando que
+   quedan escritas.
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,6 +64,89 @@ def _client_ip(request) -> str:
         return request.client.host if request and request.client else "?"
     except Exception:
         return "?"
+
+
+# ----------------------------------------------------------------------
+# Redacción de credenciales
+# ----------------------------------------------------------------------
+# Lo que se teclea en una terminal incluye contraseñas y tokens, y este
+# fichero está pensado para SALIR de la máquina: se rota, se lee con `jq` y se
+# copia a un informe o a una copia de seguridad, donde ya no tiene el 0600 que
+# lo protegía. La regla 2 del docstring —nunca se registran credenciales— se
+# cumplía para el login y no para los comandos; esto la extiende a todo.
+#
+# Se sustituye el VALOR, nunca la línea entera: saber que se exportó una clave
+# es información de auditoría legítima; saber cuál es, no.
+# El valor a tapar: entrecomillado entero si lo está, y si no, hasta el primer
+# espacio. Sin la primera alternativa, `PASSWORD="dos palabras"` dejaba escrita
+# la segunda mitad del secreto en el log — el patrón cortaba en el espacio.
+_VALOR = r"""("[^"]*"|'[^']*'|\S+)"""
+
+_SECRETOS = [
+    # FOO_TOKEN=valor, api_key='valor', PASSWORD="valor"
+    re.compile(
+        r"((?:[A-Za-z_][A-Za-z0-9_]*)?"
+        r"(?:secret|token|password|passwd|api[_-]?key|credential)"
+        r"[A-Za-z0-9_]*\s*=\s*)" + _VALOR,
+        re.IGNORECASE,
+    ),
+    # --password valor, --token=valor, -pass valor
+    #
+    # La bandera `-p` a secas se queda FUERA, aunque el hallazgo la proponía, y
+    # con ella el `mysql -psecreto` pegado que sería el único caso que taparía.
+    # El motivo: `-p` casi nunca es una contraseña y sí es un puerto (`docker
+    # -p 8080:80`, `ssh -p 2222`) o el principio de `-print`, `-perm` y `-path`
+    # de `find`. Redactarla deja el log lleno de tramos ilegibles, y un log de
+    # auditoría ilegible no protege nada: solo deja de servir para lo que
+    # existe. El hueco queda anotado en SEC-004.
+    re.compile(
+        r"(--?(?:pass|passwd|password|token|api-?key|secret)[= ])" + _VALOR,
+        re.IGNORECASE,
+    ),
+    # https://usuario:clave@host — la credencial dentro de la URL, que es como
+    # viaja en un `git clone` o un `curl` a un repositorio privado. El `@` se
+    # mira con lookahead para no tener que reconstruirlo en la sustitución.
+    re.compile(r"(://[^:/@\s]+:)([^@\s]+)(?=@)"),
+    # Authorization: Bearer valor · Basic dGVzdA==
+    #
+    # El `Bearer` va DENTRO del grupo que se conserva y no se toma como el
+    # valor: si no, se redactaría la palabra y el token quedaría en claro.
+    re.compile(
+        r"((?:authorization\s*:\s*)?(?:bearer|basic)\s+)" + _VALOR,
+        re.IGNORECASE,
+    ),
+]
+
+_REDACTADO = "[redactado]"
+
+# Campos de `detail` que llevan texto tecleado en una terminal. El resto
+# —rutas, tamaños, nombres de sesión— no se toca: redactar una ruta rompería
+# la traza sin proteger nada.
+_CAMPOS_CON_TEXTO = ("command", "text")
+
+
+def redactar(texto: str) -> str:
+    """Sustituye por `[redactado]` lo que parezca una credencial.
+
+    Se prefiere pasarse de celoso: un comando con una palabra que casa por
+    error queda con un tramo ilegible, y eso es reparable mirando la terminal.
+    Una clave escrita en claro en un fichero que se rota y se copia, no.
+    """
+    for patron in _SECRETOS:
+        texto = patron.sub(lambda m: m.group(1) + _REDACTADO, texto)
+    return texto
+
+
+def _limpiar(detail: dict | None) -> dict:
+    """Pasa por `redactar` los campos del detalle que son texto de terminal."""
+    if not detail:
+        return {}
+    limpio = dict(detail)
+    for clave in _CAMPOS_CON_TEXTO:
+        valor = limpio.get(clave)
+        if isinstance(valor, str):
+            limpio[clave] = redactar(valor)
+    return limpio
 
 
 def _rotate_locked() -> None:
@@ -99,7 +186,10 @@ def record(
             "user": user,
             "action": action,
             "target": target,
-            "detail": detail or {},
+            # Redactado aquí y no en cada `audit.record` de main.py: este es
+            # el único punto por el que pasan todas las anotaciones, así que
+            # una llamada nueva nace protegida sin que nadie se acuerde.
+            "detail": _limpiar(detail),
         }
         linea = json.dumps(entrada, ensure_ascii=False) + "\n"
         with _lock:

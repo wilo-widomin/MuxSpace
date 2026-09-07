@@ -321,6 +321,134 @@ def test_el_comando_enviado_queda_registrado(
     assert envios[0]["target"] == "sesion-x"
 
 
+# ----------------------------------------------------------------------
+# Redacción de credenciales (SEC-004)
+#
+# La regla 2 del módulo —nunca se registran credenciales— se cumplía para el
+# login y no para lo que se teclea en la terminal, que es donde viven las
+# claves de API de verdad. Este fichero se rota, se lee con `jq` y se copia
+# fuera de la máquina, y ahí ya no tiene el 0600 que lo protegía.
+# ----------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("comando", "secreto", "sobrevive"),
+    [
+        (
+            "export ANTHROPIC_API_KEY=sk-ant-abc123",
+            "sk-ant-abc123",
+            "ANTHROPIC_API_KEY",
+        ),
+        ("FOO_TOKEN=t0k3n ./run.sh", "t0k3n", "./run.sh"),
+        ('PASSWORD="dos palabras" ./run.sh', "dos palabras", "./run.sh"),
+        ("psql --password=miclave", "miclave", "psql --password"),
+        ("mysqldump --password otraclave db", "otraclave", "mysqldump"),
+        (
+            'curl -H "Authorization: Bearer tok_secreto" https://x',
+            "tok_secreto",
+            "Authorization: Bearer",
+        ),
+        ("git clone https://usuario:clave@host/r.git", "clave", "@host/r.git"),
+    ],
+)
+def test_el_valor_de_una_credencial_no_llega_al_log(
+    data_dir: Path, comando: str, secreto: str, sobrevive: str
+) -> None:
+    """Lo que se tapa es el VALOR, no la línea.
+
+    Los dos lados importan y por eso cada caso trae también qué tiene que
+    SEGUIR estando: un log que redacta la línea entera cumple la mitad de
+    arriba y deja de servir para lo que existe. Saber que se exportó una clave
+    es información de auditoría legítima; saber cuál, no.
+    """
+    audit.record("send-command", target="s1", detail={"command": comando})
+
+    (entrada,) = lineas(data_dir)
+    escrito = entrada["detail"]["command"]
+    assert secreto not in escrito, f"el secreto sobrevivió en {escrito!r}"
+    assert "[redactado]" in escrito
+    assert sobrevive in escrito, f"la traza dejó de ser legible: {escrito!r}"
+
+
+def test_el_secreto_tampoco_esta_en_el_fichero_crudo(data_dir: Path) -> None:
+    """Se mira el TEXTO del fichero, no el JSON ya parseado.
+
+    Sin esto, una redacción que dejara el original en otro campo del `detail`
+    —o el JSON de un `repr` a medias— pasaría el test de arriba mientras el
+    secreto sigue en disco, que es exactamente lo que este hallazgo quiere
+    impedir. Lo que se audita es el fichero.
+    """
+    audit.record(
+        "send-command", detail={"command": "export API_KEY=sk-no-debe-aparecer"}
+    )
+
+    crudo = audit._LOG_PATH.read_text(encoding="utf-8")
+    assert "sk-no-debe-aparecer" not in crudo
+    assert "API_KEY=[redactado]" in crudo
+
+
+@pytest.mark.parametrize(
+    "comando",
+    [
+        "ls -la",
+        "find . -print",
+        "docker run -p 8080:80 nginx",
+        "ssh -p 2222 host",
+        "git commit -m 'arreglado el login'",
+    ],
+)
+def test_un_comando_sin_credenciales_se_guarda_intacto(
+    data_dir: Path, comando: str
+) -> None:
+    """El otro lado del contrato, y el que se rompe solo.
+
+    Un patrón demasiado goloso deja el log lleno de tramos ilegibles y acaba
+    desactivado. Los casos con `-p` están aquí a propósito: es una bandera de
+    puerto mucho más veces que de contraseña, y por eso NO se redacta —a costa
+    de no tapar el `mysql -psecreto` pegado, que es el hueco conocido.
+    """
+    audit.record("send-command", detail={"command": comando})
+
+    (entrada,) = lineas(data_dir)
+    assert entrada["detail"]["command"] == comando
+
+
+def test_la_redaccion_no_toca_las_rutas_ni_los_numeros(data_dir: Path) -> None:
+    """Solo pasan por el filtro los campos que llevan texto de terminal.
+
+    Redactar una ruta o un tamaño rompería la traza sin proteger nada, y hay
+    campos —`cwd`, `bytes`— que se parecen lo justo como para que un filtro
+    aplicado a todo el `detail` los estropeara.
+    """
+    audit.record(
+        "upload",
+        target="/home/willy/secrets/notas.txt",
+        detail={"bytes": 4, "cwd": "/home/willy/api_key=demo"},
+    )
+
+    (entrada,) = lineas(data_dir)
+    assert entrada["target"] == "/home/willy/secrets/notas.txt"
+    assert entrada["detail"] == {"bytes": 4, "cwd": "/home/willy/api_key=demo"}
+
+
+def test_el_comando_redactado_llega_por_el_endpoint_y_no_solo_por_record(
+    client_no_auth, data_dir: Path, tmux_falso
+) -> None:
+    """El camino real, no la función suelta.
+
+    `redactar()` perfecta a la que `record` no llamara no protegería nada, y
+    ese es justo el modo de fallo que este archivo persigue en todo lo demás.
+    """
+    client_no_auth.post("/api/create-session/sesion-y")
+    client_no_auth.post(
+        "/api/send-command/sesion-y",
+        json={"command": "export OPENAI_API_KEY=sk-vivo-1234"},
+    )
+
+    envios = [e for e in lineas(data_dir) if e["action"] == "send-command"]
+    assert len(envios) == 1
+    assert envios[0]["detail"]["command"] == "export OPENAI_API_KEY=[redactado]"
+    assert "sk-vivo-1234" not in audit._LOG_PATH.read_text(encoding="utf-8")
+
+
 def test_la_subida_registra_la_ruta(
     client_no_auth, data_dir: Path, allowed_root: Path
 ) -> None:

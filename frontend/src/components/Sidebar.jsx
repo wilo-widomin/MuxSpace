@@ -9,12 +9,14 @@ import { SectionCaret } from './sidebar/SectionCaret.jsx'
 import { UNASSIGNED, spaceKeyOf } from '../spaces.js'
 import logo from '../assets/logo.png'
 import { ChimeSettings } from './ChimeSettings.jsx'
+import { SettingsMenu } from './SettingsMenu.jsx'
+import { SnippetSettings } from './SnippetSettings.jsx'
 import {
-  BellIcon,
   ChartIcon,
   CheckIcon,
   ClockIcon,
   PauseIcon,
+  GearIcon,
   PencilIcon,
   PlusIcon,
   SpaceIcon,
@@ -62,6 +64,9 @@ export default function Sidebar({
   sessions,
   commands,
   projects,
+  // Aviso de que la lista de textos rápidos cambió: App la recarga para que
+  // el desplegable de las terminales abiertas la vea sin recargar la página.
+  onSnippetsChanged,
   openNames,
   spaces,
   activeSpace,
@@ -103,6 +108,8 @@ export default function Sidebar({
   const spaceSessions = sessions.filter((s) => spaceKeyOf(s) === activeSpace)
 
   const [chimeOpen, setChimeOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [snippetsOpen, setSnippetsOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [createError, setCreateError] = useState(null)
@@ -1101,21 +1108,41 @@ export default function Sidebar({
           {t('sidebar.logout')}
         </button>
         <div className="flex items-center gap-2">
-          {/* El ajuste de la campanilla vive junto al idioma y no en el
-              menú de cada terminal: es una preferencia del panel entero,
-              no algo de una sesión concreta. */}
+          {/* Los ajustes del panel entero (campanilla, textos rápidos) viven
+              aquí y no en el menú de cada terminal: no son de una sesión
+              concreta. Antes esto era la campanilla suelta; con dos ajustes
+              deja de caber una fila de iconos y pasa a ser un menú. */}
           <button
-            onClick={() => setChimeOpen(true)}
-            title={t('chime.title')}
-            aria-label={t('chime.title')}
+            onClick={() => setSettingsOpen(true)}
+            title={t('settings.title')}
+            aria-label={t('settings.title')}
             className="rounded p-1 text-panel-muted transition hover:bg-panel-surface hover:text-gray-100"
           >
-            <BellIcon />
+            <GearIcon />
           </button>
           <LanguagePicker />
         </div>
       </footer>
+      {settingsOpen && (
+        <SettingsMenu
+          onClose={() => setSettingsOpen(false)}
+          onOpenChime={() => {
+            setSettingsOpen(false)
+            setChimeOpen(true)
+          }}
+          onOpenSnippets={() => {
+            setSettingsOpen(false)
+            setSnippetsOpen(true)
+          }}
+        />
+      )}
       {chimeOpen && <ChimeSettings onClose={() => setChimeOpen(false)} />}
+      {snippetsOpen && (
+        <SnippetSettings
+          onClose={() => setSnippetsOpen(false)}
+          onChanged={onSnippetsChanged}
+        />
+      )}
 
       {/* ---------------- Modales (formularios) ---------------- */}
       {creating && (

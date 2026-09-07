@@ -71,14 +71,18 @@ from library_store import (
     LibraryError,
     add_command,
     add_project,
+    add_snippet,
     delete_command,
     delete_project,
+    delete_snippet,
     get_command,
     get_project,
     list_commands,
     list_projects,
+    list_snippets,
     update_command,
     update_project,
+    update_snippet,
 )
 from pty_bridge import _prepare_session, bridge
 from space_store import SpaceError
@@ -256,6 +260,22 @@ class CommandCreateBody(BaseModel):
 class CommandUpdateBody(BaseModel):
     label: str
     command: str
+
+
+class SnippetInfo(BaseModel):
+    id: str
+    label: str
+    text: str
+
+
+class SnippetCreateBody(BaseModel):
+    label: str = ""
+    text: str
+
+
+class SnippetUpdateBody(BaseModel):
+    label: str
+    text: str
 
 
 class ProjectLink(BaseModel):
@@ -1899,6 +1919,53 @@ def delete_command_endpoint(
     """Elimina un comando de la biblioteca."""
     if not delete_command(cmd_id):
         raise http_error(404, "err.command_not_found")
+    return MessageResponse(message="ok")
+
+
+# ---------------------------------------------------------------------- #
+# Textos rápidos: se escriben en la terminal, no se ejecutan              #
+# ---------------------------------------------------------------------- #
+# No hay endpoint de "enviar": el texto lo escribe el navegador en la
+# terminal con foco (`term.paste`), igual que el redactor. Mandarlo por el
+# backend con `send-keys` obligaría a decidir aquí si lleva Enter, y el
+# sentido de esto es justamente que no lo lleve.
+@app.get("/api/snippets", response_model=list[SnippetInfo])
+def get_snippets(user: str = _auth) -> list[SnippetInfo]:
+    """Devuelve todos los textos rápidos guardados."""
+    return [SnippetInfo(**s.to_dict()) for s in list_snippets()]
+
+
+@app.post("/api/snippets", response_model=SnippetInfo, status_code=201)
+def create_snippet(body: SnippetCreateBody, user: str = _auth) -> SnippetInfo:
+    """Crea un texto rápido nuevo."""
+    try:
+        created = add_snippet(body.label, body.text)
+    except LibraryError as exc:
+        raise http_from(400, exc) from exc
+    return SnippetInfo(**created.to_dict())
+
+
+@app.put("/api/snippets/{snippet_id}", response_model=SnippetInfo)
+def update_snippet_endpoint(
+    snippet_id: str,
+    body: SnippetUpdateBody,
+    user: str = _auth,
+) -> SnippetInfo:
+    """Actualiza un texto rápido existente."""
+    try:
+        updated = update_snippet(snippet_id, body.label, body.text)
+    except LibraryError as exc:
+        raise http_from(400, exc) from exc
+    if updated is None:
+        raise http_error(404, "err.snippet_not_found")
+    return SnippetInfo(**updated.to_dict())
+
+
+@app.delete("/api/snippets/{snippet_id}", response_model=MessageResponse)
+def delete_snippet_endpoint(snippet_id: str, user: str = _auth) -> MessageResponse:
+    """Elimina un texto rápido."""
+    if not delete_snippet(snippet_id):
+        raise http_error(404, "err.snippet_not_found")
     return MessageResponse(message="ok")
 
 

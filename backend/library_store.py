@@ -1,7 +1,11 @@
-"""Biblioteca reutilizable: Comandos y Proyectos.
+"""Biblioteca reutilizable: Comandos, Textos rápidos y Proyectos.
 
 - **Comando**: una sola línea de shell (sin directorio). Se envía a la
   terminal con foco, o se lanza en una sesión nueva si no hay foco.
+- **Texto rápido** (`Snippet`): texto que se ESCRIBE en la terminal y no se
+  ejecuta. Existe para lo que se teclea a menudo y no es un comando de
+  shell —nombres de skills, órdenes a un agente— desde una tableta, donde
+  escribir treinta caracteres exactos es el trabajo caro.
 - **Proyecto**: un título, un directorio (cwd) y una lista de comandos que
   se ejecutan secuencialmente en una sesión nueva. Puede llevar además una
   lista de **enlaces** (URL + título) que el panel pinta como badges en la
@@ -49,6 +53,10 @@ _lock = Lock()
 _MAX_LINKS = 12
 _MAX_LINK_TITLE = 40
 
+# Un texto rápido es un atajo de teclado, no un documento: para pegar algo
+# largo está el redactor de la terminal, que además guarda borrador.
+_MAX_SNIPPET_TEXT = 2000
+
 # Únicos esquemas admitidos. El enlace acaba en un `<a href>` del panel, así
 # que `javascript:` y `data:` son ejecución de código en la página: no basta
 # con que el navegador los ignore, no deben poder guardarse.
@@ -68,6 +76,17 @@ class Command:
     id: str
     label: str
     command: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class Snippet:
+    """Un texto rápido: lo que se escribe en la terminal sin ejecutarlo."""
+    id: str
+    label: str
+    text: str
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -108,6 +127,7 @@ class _Library:
 
     def __init__(self) -> None:
         self.commands: list[Command] = []
+        self.snippets: list[Snippet] = []
         self.projects: list[Project] = []
         # `nombre de sesión -> id de proyecto`. Vive aquí y no en el nombre
         # de la sesión porque el nombre se puede cambiar (`rename-session`)
@@ -147,6 +167,21 @@ def _load_raw() -> _Library:
             )
         )
 
+    raw_snippets = data.get("snippets")
+    for item in raw_snippets if isinstance(raw_snippets, list) else []:
+        if not isinstance(item, dict):
+            continue
+        text = str(item.get("text", "")).strip()
+        if not text:
+            continue
+        lib.snippets.append(
+            Snippet(
+                id=str(item.get("id", "")),
+                label=str(item.get("label", "")).strip() or _default_label(text),
+                text=text[:_MAX_SNIPPET_TEXT],
+            )
+        )
+
     for item in data.get("projects") if isinstance(data.get("projects"), list) else []:
         if not isinstance(item, dict):
             continue
@@ -181,6 +216,7 @@ def _load_raw() -> _Library:
 def _persist(lib: _Library) -> None:
     payload = {
         "commands": [c.to_dict() for c in lib.commands],
+        "snippets": [s.to_dict() for s in lib.snippets],
         "projects": [p.to_dict() for p in lib.projects],
         "session_projects": lib.session_projects,
     }
@@ -191,7 +227,10 @@ def _persist(lib: _Library) -> None:
 
 
 def _default_label(command: str) -> str:
-    return command if len(command) <= 60 else command[:57] + "…"
+    # Solo la primera línea: un texto rápido de varias líneas tiene que caber
+    # en una fila de la lista, y lo que lo identifica es cómo empieza.
+    primera = command.splitlines()[0] if command else ""
+    return primera if len(primera) <= 60 else primera[:57] + "…"
 
 
 def _normalize_commands(raw) -> list[str]:
@@ -268,6 +307,18 @@ def _validate_command(label: str, command: str) -> tuple[str, str]:
     return label, command
 
 
+def _validate_snippet(label: str, text: str) -> tuple[str, str]:
+    label = (label or "").strip()
+    text = (text or "").strip()
+    if not text:
+        raise LibraryError("err.snippet_empty")
+    if len(text) > _MAX_SNIPPET_TEXT:
+        raise LibraryError("err.snippet_too_long", {"max": _MAX_SNIPPET_TEXT})
+    if not label:
+        label = _default_label(text)
+    return label, text
+
+
 def _validate_project(
     title: str, cwd: Optional[str], commands: list[str], links=None, space=None
 ) -> tuple[str, Optional[str], list[str], list[Link], Optional[str]]:
@@ -337,6 +388,61 @@ def delete_command(cmd_id: str) -> bool:
         if len(remaining) == len(lib.commands):
             return False
         lib.commands = remaining
+        _persist(lib)
+        return True
+
+
+# ---------------------------------------------------------------------- #
+# Textos rápidos                                                          #
+# ---------------------------------------------------------------------- #
+def list_snippets() -> list[Snippet]:
+    """Devuelve todos los textos rápidos, en orden de inserción."""
+    with _lock:
+        return _load_raw().snippets
+
+
+def get_snippet(snippet_id: str) -> Optional[Snippet]:
+    """Devuelve un texto rápido por id, o None si no existe."""
+    with _lock:
+        for s in _load_raw().snippets:
+            if s.id == snippet_id:
+                return s
+    return None
+
+
+def add_snippet(label: str, text: str) -> Snippet:
+    """Crea y persiste un texto rápido nuevo."""
+    label, text = _validate_snippet(label, text)
+    with _lock:
+        lib = _load_raw()
+        created = Snippet(id=secrets.token_hex(4), label=label, text=text)
+        lib.snippets.append(created)
+        _persist(lib)
+        return created
+
+
+def update_snippet(snippet_id: str, label: str, text: str) -> Optional[Snippet]:
+    """Actualiza un texto rápido. Devuelve None si no existe."""
+    label, text = _validate_snippet(label, text)
+    with _lock:
+        lib = _load_raw()
+        for s in lib.snippets:
+            if s.id == snippet_id:
+                s.label = label
+                s.text = text
+                _persist(lib)
+                return s
+        return None
+
+
+def delete_snippet(snippet_id: str) -> bool:
+    """Elimina un texto rápido por id. Devuelve True si se borró."""
+    with _lock:
+        lib = _load_raw()
+        remaining = [s for s in lib.snippets if s.id != snippet_id]
+        if len(remaining) == len(lib.snippets):
+            return False
+        lib.snippets = remaining
         _persist(lib)
         return True
 

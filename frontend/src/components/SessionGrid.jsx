@@ -75,6 +75,7 @@ export default function SessionGrid({
   onRename = async () => {},
   onReorder,
   commands,
+  snippets,
   projects = [],
   layout,
   focusedName,
@@ -337,6 +338,7 @@ export default function SessionGrid({
                 onSpawn={onSpawn}
                 onRename={onRename}
                 commands={commands}
+                snippets={snippets}
                 links={linksByProject.get(session.project) || []}
                 dragging={dragName !== null}
                 isDragSource={dragName === session.name}

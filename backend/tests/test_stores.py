@@ -433,9 +433,61 @@ def test_biblioteca_el_ciclo_completo_de_un_comando(data_dir: Path) -> None:
     # archivo", es dejarlo consistente.
     assert json.loads(library_store._STORE_PATH.read_text(encoding="utf-8")) == {
         "commands": [],
+        "snippets": [],
         "projects": [],
         "session_projects": {},
     }
+
+
+def test_biblioteca_el_ciclo_completo_de_un_texto_rapido(data_dir: Path) -> None:
+    """Crear, listar, actualizar y borrar un texto rápido, contra el disco."""
+    creado = library_store.add_snippet("Revisar", "/code-review high")
+
+    assert (creado.label, creado.text) == ("Revisar", "/code-review high")
+    assert library_store.list_snippets() == [creado]
+    assert library_store.get_snippet(creado.id) == creado
+
+    actualizado = library_store.update_snippet(
+        creado.id, "Revisar a fondo", "/code-review max"
+    )
+
+    assert actualizado is not None
+    assert actualizado.id == creado.id, "actualizar no cambia el id"
+    assert library_store.get_snippet(creado.id) == actualizado
+
+    assert library_store.delete_snippet(creado.id) is True
+    assert library_store.list_snippets() == []
+    assert library_store.get_snippet(creado.id) is None
+
+
+def test_texto_rapido_sin_etiqueta_se_nombra_con_su_primera_linea(
+    data_dir: Path,
+) -> None:
+    """La lista del panel es de una línea por fila: la etiqueta no puede
+    traerse el texto entero de un snippet de varios párrafos."""
+    creado = library_store.add_snippet("", "primera línea\nsegunda línea")
+
+    assert creado.label == "primera línea"
+    assert creado.text == "primera línea\nsegunda línea", "el texto se guarda entero"
+
+
+def test_texto_rapido_vacio_o_demasiado_largo_se_rechaza(data_dir: Path) -> None:
+    with pytest.raises(library_store.LibraryError):
+        library_store.add_snippet("Vacío", "   ")
+    with pytest.raises(library_store.LibraryError):
+        library_store.add_snippet("Largo", "x" * (library_store._MAX_SNIPPET_TEXT + 1))
+    assert library_store.list_snippets() == []
+
+
+def test_los_textos_rapidos_conviven_con_los_comandos_en_el_mismo_archivo(
+    data_dir: Path,
+) -> None:
+    """Comparten `library.json`: guardar uno no puede borrar al otro."""
+    cmd = library_store.add_command("Desplegar", "make deploy")
+    snip = library_store.add_snippet("Revisar", "/code-review")
+
+    assert library_store.list_commands() == [cmd]
+    assert library_store.list_snippets() == [snip]
 
 
 def test_biblioteca_los_comandos_conservan_el_orden_de_insercion_y_no_repiten_id(
@@ -733,10 +785,14 @@ def test_biblioteca_el_formato_en_disco_es_el_declarado(data_dir: Path) -> None:
     aparezca en el diff.
     """
     comando = library_store.add_command("Estado", "git status")
+    texto = library_store.add_snippet("Revisar", "/code-review")
     proyecto = library_store.add_project("Panel", "/srv", ["bun dev"])
 
     assert json.loads(library_store._STORE_PATH.read_text(encoding="utf-8")) == {
         "commands": [{"id": comando.id, "label": "Estado", "command": "git status"}],
+        # Se escriben en la terminal, no se ejecutan: por eso `text` y no
+        # `command`, aunque el contenido acabe pareciéndose.
+        "snippets": [{"id": texto.id, "label": "Revisar", "text": "/code-review"}],
         "projects": [
             {
                 "id": proyecto.id,
@@ -1053,6 +1109,7 @@ def test_biblioteca_escribir_sobre_un_json_roto_lo_deja_consistente(
     assert library_store.list_commands() == [creado]
     assert json.loads(library_store._STORE_PATH.read_text(encoding="utf-8")) == {
         "commands": [creado.to_dict()],
+        "snippets": [],
         "projects": [],
         "session_projects": {},
     }

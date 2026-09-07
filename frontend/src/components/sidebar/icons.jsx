@@ -219,3 +219,61 @@ export function BellIcon() {
     </svg>
   )
 }
+
+export function GearIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  )
+}
+
+// Tecla de teclado en relieve: el cuerpo, la cara superior clara y el canto
+// curvo de debajo. Ese canto es lo único que la separa de un cuadrado dentro
+// de otro a 15 píxeles, que fue el primer intento. Nombra los textos rápidos
+// porque lo que hacen es teclear por ti.
+export function KeycapIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    >
+      <path
+        d="M3 7.5a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v6.5a3.5 3.5 0 0 1-3.5 3.5h-11A3.5 3.5 0 0 1 3 14z"
+        fill="currentColor"
+        fillOpacity="0.18"
+      />
+      <rect
+        x="6"
+        y="7.2"
+        width="12"
+        height="6.6"
+        rx="1.6"
+        fill="currentColor"
+        fillOpacity="0.85"
+        stroke="none"
+      />
+      <path
+        d="M4.2 17.6c1.2 1.6 2.6 2.2 4.3 2.2h7c1.7 0 3.1-.6 4.3-2.2"
+        opacity="0.55"
+      />
+    </svg>
+  )
+}

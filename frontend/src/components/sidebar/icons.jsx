@@ -239,41 +239,54 @@ export function GearIcon() {
   )
 }
 
-// Tecla de teclado en relieve: el cuerpo, la cara superior clara y el canto
-// curvo de debajo. Ese canto es lo único que la separa de un cuadrado dentro
-// de otro a 15 píxeles, que fue el primer intento. Nombra los textos rápidos
-// porque lo que hacen es teclear por ti.
-export function KeycapIcon() {
+// Las cuatro teclas WASD, con el canto sombreado que las levanta del plano.
+// Nombra los textos rápidos porque lo que hacen es teclear por ti, y un
+// grupo de teclas se reconoce como "teclado" a un tamaño al que una sola
+// tecla solo se lee como un cuadrado.
+//
+// Dibujado como SVG y con `currentColor` a propósito, no como imagen: así
+// hereda el color del botón y se aclara con el hover, que una PNG negra
+// sobre fondo oscuro no haría.
+export function KeyboardIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="15"
-      height="15"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.7"
+      strokeWidth="1.6"
       strokeLinejoin="round"
     >
       <path
-        d="M3 7.5a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v6.5a3.5 3.5 0 0 1-3.5 3.5h-11A3.5 3.5 0 0 1 3 14z"
+        d="M8.4 7.7v.6a2 2 0 0 0 2 2h3.2a2 2 0 0 0 2-2v-.6z"
         fill="currentColor"
-        fillOpacity="0.18"
-      />
-      <rect
-        x="6"
-        y="7.2"
-        width="12"
-        height="6.6"
-        rx="1.6"
-        fill="currentColor"
-        fillOpacity="0.85"
+        fillOpacity="0.35"
         stroke="none"
       />
+      <rect x="8.4" y="1.3" width="7.2" height="9.0" rx="2" />
       <path
-        d="M4.2 17.6c1.2 1.6 2.6 2.2 4.3 2.2h7c1.7 0 3.1-.6 4.3-2.2"
-        opacity="0.55"
+        d="M0.8 20.1v.6a2 2 0 0 0 2 2h3.2a2 2 0 0 0 2-2v-.6z"
+        fill="currentColor"
+        fillOpacity="0.35"
+        stroke="none"
       />
+      <rect x="0.8" y="13.7" width="7.2" height="9.0" rx="2" />
+      <path
+        d="M8.4 20.1v.6a2 2 0 0 0 2 2h3.2a2 2 0 0 0 2-2v-.6z"
+        fill="currentColor"
+        fillOpacity="0.35"
+        stroke="none"
+      />
+      <rect x="8.4" y="13.7" width="7.2" height="9.0" rx="2" />
+      <path
+        d="M16 20.1v.6a2 2 0 0 0 2 2h3.2a2 2 0 0 0 2-2v-.6z"
+        fill="currentColor"
+        fillOpacity="0.35"
+        stroke="none"
+      />
+      <rect x="16" y="13.7" width="7.2" height="9.0" rx="2" />
     </svg>
   )
 }

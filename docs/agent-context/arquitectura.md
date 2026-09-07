@@ -59,13 +59,23 @@ Origin, baneo de IP, cabeceras) → endpoint → módulo de dominio (`tmux_servi
 cd frontend && bun run build          # obligatorio tras tocar el frontend
 backend/venv/bin/python -m pytest -q
 backend/venv/bin/python -m ruff check backend/
+backend/venv/bin/python -m pip_audit -r backend/requirements.txt
 cd frontend && bun run lint && bun run format:check && bun run test
+cd frontend && bun audit
 cd frontend && bun run check-i18n && bun run test:e2e
 ```
 
 El gate de CI (`.github/workflows/ci.yml`) corre eso mismo en cuatro jobs
 —backend, frontend, extension, e2e— con `--cov-fail-under=80` y tmux real: lo
 que no se pueda reproducir en local no entra en el gate.
+
+Los dos pasos de auditoría (`pip-audit`, `bun audit`) son los únicos del gate
+que pueden ponerse en rojo **sin que nadie haya tocado el código**: consultan
+la base de avisos en cada ejecución. Es deliberado y no se debe relajar a
+aviso — el backend estuvo veintiún meses con un DoS pre-autenticación en
+Starlette sin que nada lo dijera. Los scripts del venv tienen el shebang de la
+ruta anterior al renombrado del proyecto, de ahí el `python -m` en vez de
+llamar al ejecutable.
 
 ## Trampas
 

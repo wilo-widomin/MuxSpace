@@ -48,6 +48,18 @@ jobs:
       - name: ruff
         run: ruff check backend/
 
+      # Vulnerabilidades conocidas de lo que declara requirements.txt, no del
+      # entorno entero: en el runner ese entorno trae también el `pip` y el
+      # `setuptools` del propio GitHub, cuyos avisos no son de este proyecto y
+      # dejarían el paso en un rojo que nadie puede arreglar aquí.
+      #
+      # Es un paso que puede caer sin que nadie haya tocado el código, porque
+      # la base de avisos se consulta en cada ejecución. Es deliberado: el
+      # backend estuvo veintiún meses en una Starlette con un DoS
+      # pre-autenticación y no había nada que lo dijera (SEC-003).
+      - name: pip-audit
+        run: pip-audit -r backend/requirements.txt
+
       # `--cov-fail-under=80` con la cobertura real en el **84,7%** de las
       # sentencias de código fuente (los tests se excluyen en la config de
       # coverage: medir la cobertura de los tests infla el número sin decir
@@ -90,6 +102,13 @@ jobs:
         # `--frozen-lockfile`: si alguien tocó package.json sin actualizar el
         # lockfile, el CI lo dice aquí en vez de instalar otra cosa.
         run: bun install --frozen-lockfile
+
+      # La pareja de `pip-audit` para el otro lado. Estas dependencias no se
+      # ejecutan en el navegador —viven en el build y en el linter—, así que
+      # lo que vigila es la cadena de construcción (SEC-002).
+      - name: bun audit
+        working-directory: frontend
+        run: bun audit
 
       - name: eslint
         working-directory: frontend

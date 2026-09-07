@@ -95,7 +95,9 @@ describe('Ajustes de los textos rápidos', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: en['snippets.add'] }))
 
-    await waitFor(() => expect(crear).toHaveBeenCalledWith('Revisar', '/code-review high'))
+    await waitFor(() =>
+      expect(crear).toHaveBeenCalledWith('Revisar', '/code-review high'),
+    )
     expect(await screen.findByText('Revisar')).toBeInTheDocument()
   })
 

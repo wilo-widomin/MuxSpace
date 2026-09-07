@@ -447,7 +447,9 @@ def test_biblioteca_el_ciclo_completo_de_un_texto_rapido(data_dir: Path) -> None
     assert library_store.list_snippets() == [creado]
     assert library_store.get_snippet(creado.id) == creado
 
-    actualizado = library_store.update_snippet(creado.id, "Revisar a fondo", "/code-review max")
+    actualizado = library_store.update_snippet(
+        creado.id, "Revisar a fondo", "/code-review max"
+    )
 
     assert actualizado is not None
     assert actualizado.id == creado.id, "actualizar no cambia el id"

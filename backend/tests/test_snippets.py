@@ -20,7 +20,8 @@ def test_el_ciclo_completo_por_la_api(client_auth) -> None:
     ]
 
     actualizado = client_auth.put(
-        f"/api/snippets/{sid}", json={"label": "Revisar a fondo", "text": "/code-review max"}
+        f"/api/snippets/{sid}",
+        json={"label": "Revisar a fondo", "text": "/code-review max"},
     )
     assert actualizado.status_code == 200
     assert actualizado.json()["label"] == "Revisar a fondo"

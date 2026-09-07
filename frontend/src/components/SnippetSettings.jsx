@@ -79,7 +79,10 @@ export function SnippetSettings({ onClose, onChanged }) {
       <ul className="mb-4 divide-y divide-panel-border rounded border border-panel-border">
         {snippets.map((s) => (
           <li key={s.id} className="flex items-center gap-2 px-2 py-1.5">
-            <span className="min-w-0 flex-1 truncate text-xs text-gray-100" title={s.text}>
+            <span
+              className="min-w-0 flex-1 truncate text-xs text-gray-100"
+              title={s.text}
+            >
               {s.label}
             </span>
             <button

@@ -43,7 +43,9 @@ export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets }) {
             >
               <span className="shrink-0 text-panel-muted">{o.icon}</span>
               <span className="min-w-0">
-                <span className="block text-xs font-medium text-gray-100">{o.label}</span>
+                <span className="block text-xs font-medium text-gray-100">
+                  {o.label}
+                </span>
                 <span className="block text-xs text-panel-muted">{o.hint}</span>
               </span>
             </button>

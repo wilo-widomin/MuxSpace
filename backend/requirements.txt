@@ -1,6 +1,11 @@
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-pydantic==2.10.4
-python-dotenv==1.0.1
+fastapi==0.141.1
+# Pin explícito y no solo el que arrastre fastapi (que declara `starlette>=0.46.0`
+# sin tope): la serie 0.4x arrastra un parseo de `Range` con coste cuadrático
+# (PYSEC-2026-1942) alcanzable SIN autenticar, porque `StaticFiles` y `/dashboard`
+# se sirven abiertos. Con un solo worker, eso bloquea todas las terminales a la vez.
+starlette==1.6.0
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
+python-dotenv==1.2.3
 python-pam==2.0.2
 six==1.17.0  # requerido por python-pam (no lo declara como dependencia)

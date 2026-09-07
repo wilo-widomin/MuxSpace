@@ -16,3 +16,14 @@ httpx==0.28.1
 # Se fija la versión porque una versión nueva puede traer reglas nuevas y
 # poner el CI en rojo sin que nadie haya tocado el código.
 ruff==0.16.0
+
+# Auditoría de vulnerabilidades conocidas de las dependencias del panel.
+# Aquí y no en requirements.txt: la máquina que sirve el panel no tiene por
+# qué llevar la herramienta que lo audita.
+#
+# Esta versión SÍ se puede quedar corta sola, y a propósito: la base de datos
+# de avisos se consulta en cada ejecución, así que el CI puede ponerse en rojo
+# sin que nadie haya tocado el código. Eso es lo que se busca — es la única
+# forma de enterarse de un aviso nuevo el día que sale y no veintiún meses
+# después, que es lo que pasó con Starlette (SEC-003).
+pip-audit==2.10.1

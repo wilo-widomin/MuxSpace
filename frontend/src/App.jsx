@@ -652,10 +652,22 @@ export default function App() {
   }
 
   // ---- Ejecutar un Proyecto: sesión nueva + cd + secuencia ----
+  // Estando en un espacio, la sesión se asigna a ese espacio y aquí no
+  // cambia nada. Estando en "Sin asignar" el backend la mete en el espacio
+  // del proyecto, así que la terminal nacería fuera de lo que miramos:
+  // saltamos a ese espacio para que el play no parezca no hacer nada.
   const handleRunProject = async (id) => {
     const res = await api.runProject(id)
     await assignToActiveSpace(res.name)
     await loadSessions(true)
+    if (activeSpace === UNASSIGNED) {
+      const proj = projects.find((p) => p.id === id)
+      // El espacio del proyecto puede estar borrado: saltar a un id
+      // fantasma dejaría el grid vacío, que es peor que quedarse.
+      if (proj?.space && spaces.some((s) => s.id === proj.space)) {
+        setActiveSpace(proj.space)
+      }
+    }
     await handleSelect(res.name)
     focusTerminal(res.name)
   }

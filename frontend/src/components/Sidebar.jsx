@@ -693,6 +693,16 @@ export default function Sidebar({
             />
           </h1>
           <div className="flex shrink-0 items-center gap-0.5">
+            {/* Refrescar vive con la disposición y el plegado —lo que se
+                hace CON la vista— y no abajo con "nueva sesión", que es lo
+                que se hace con las sesiones. */}
+            <button
+              onClick={onRefresh}
+              title={t('sidebar.refresh')}
+              className="shrink-0 rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+            >
+              <RefreshIcon />
+            </button>
             {LAYOUTS.map((mode) => (
               <button
                 key={mode}
@@ -788,13 +798,6 @@ export default function Sidebar({
             className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
           >
             <PlusIcon />
-          </button>
-          <button
-            onClick={onRefresh}
-            title={t('sidebar.refresh')}
-            className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
-          >
-            <RefreshIcon />
           </button>
         </div>
       </header>

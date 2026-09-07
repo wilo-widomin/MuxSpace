@@ -1,7 +1,7 @@
 ---
 dominio: biblioteca
 accion: ejecutar-proyecto
-actualizado: 2026-08-28
+actualizado: 2026-09-07
 archivos:
   - backend/main.py
   - backend/tmux_service.py
@@ -30,6 +30,10 @@ y la vincula a él para que la cabecera muestre sus enlaces.
 
 - El nombre es el título saneado; si ya hay sesiones con ese nombre, se numera
   `título (2)`, `(3)`… Hay un reintento ante carrera y luego 409.
+- El play (`handleRunProject`) asigna la sesión al espacio activo; si la
+  pestaña mira «Sin asignar» no asigna nada y **salta al espacio del
+  proyecto**, donde el backend acaba de meter la sesión. Si ese espacio ya no
+  existe, se queda donde está.
 - «Abrir en pestaña nueva» (`handleRunProjectInNewTab`) busca el espacio **por
   título** (trim, sin distinguir mayúsculas), lo crea si falta y solo lanza
   sesión si el espacio está vacío; luego abre `?space=<id>`. Por eso pulsar dos

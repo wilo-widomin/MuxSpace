@@ -12,6 +12,7 @@ import { ChimeSettings } from './ChimeSettings.jsx'
 import { SettingsMenu } from './SettingsMenu.jsx'
 import { SnippetSettings } from './SnippetSettings.jsx'
 import { LinkSettings } from './LinkSettings.jsx'
+import { WebLinksMenu } from './WebLinksMenu.jsx'
 import {
   ChartIcon,
   CheckIcon,
@@ -69,6 +70,8 @@ export default function Sidebar({
   // enlaces): App la recarga para que los desplegables de las terminales
   // abiertas lo vean sin recargar la página.
   onSnippetsChanged,
+  // Enlaces del panel entero (Ajustes → Enlaces), no los de un proyecto.
+  webLinks,
   openNames,
   spaces,
   activeSpace,
@@ -605,6 +608,7 @@ export default function Sidebar({
         >
           <ChartIcon />
         </a>
+        <WebLinksMenu links={webLinks} compacto />
       </aside>
     )
   }
@@ -723,6 +727,10 @@ export default function Sidebar({
           >
             <ChartIcon />
           </a>
+          {/* Junto al dashboard porque hacen lo mismo: abrir algo fuera del
+              panel en otra pestaña. Antes del separador, que es el que
+              divide "mirar cosas" de "tocar las sesiones". */}
+          <WebLinksMenu links={webLinks} />
           <span className="mx-0.5 h-4 w-px bg-panel-border" />
           <button
             onClick={openForm}

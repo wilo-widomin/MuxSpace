@@ -1,8 +1,8 @@
 // Enlaces generales del panel: los que no son de ningún proyecto.
 //
-// Lo que hay que demostrar es que abren fuera del panel sin darle control a
-// la pestaña destino, y que no se mezclan con las badges del proyecto, que
-// viven en la misma cabecera y se parecen mucho.
+// Viven en la cabecera del SIDEBAR, no en la de cada terminal: son del panel
+// entero. Lo que hay que demostrar es que abren fuera sin darle control a la
+// pestaña destino, y que el alta guarda lo que se escribe.
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,31 +10,20 @@ import { api } from '../api.js'
 import { LangProvider } from '../i18n/index.jsx'
 import en from '../i18n/locales/en.json'
 import { LinkSettings } from './LinkSettings.jsx'
-import TerminalTile from './TerminalTile.jsx'
-
-vi.mock('./XtermTerminal.jsx', () => ({ default: () => <div /> }))
+import { WebLinksMenu } from './WebLinksMenu.jsx'
 
 const ENLACES = [
   { id: 'l1', title: 'Forgejo', url: 'https://git.example/muxspace' },
   { id: 'l2', title: 'Panel', url: 'https://panel.example' },
 ]
 
-function renderTile(props = {}) {
-  return render(
+function abrirMenu(props = {}) {
+  render(
     <LangProvider>
-      <TerminalTile
-        session={{ name: 'panel' }}
-        isActive={false}
-        onFocus={() => {}}
-        onClose={() => {}}
-        onKill={() => {}}
-        onMinimize={() => {}}
-        onToggleFocus={() => {}}
-        webLinks={ENLACES}
-        {...props}
-      />
+      <WebLinksMenu links={ENLACES} {...props} />
     </LangProvider>,
   )
+  fireEvent.click(screen.getByLabelText(en['links.title']))
 }
 
 beforeEach(() => {
@@ -42,11 +31,10 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-describe('Enlaces generales en la terminal', () => {
+describe('Menú de enlaces del panel', () => {
   it('cada uno abre su URL fuera del panel y sin control sobre esta pestaña', () => {
-    renderTile()
+    abrirMenu()
 
-    fireEvent.click(screen.getByLabelText(en['tile.links']))
     const forgejo = screen.getByRole('link', { name: 'Forgejo' })
 
     expect(forgejo).toHaveAttribute('href', 'https://git.example/muxspace')
@@ -54,20 +42,20 @@ describe('Enlaces generales en la terminal', () => {
     expect(forgejo.getAttribute('rel')).toContain('noopener')
   })
 
-  it('no se mezclan con las badges del proyecto', () => {
-    renderTile({ links: [{ url: 'https://repo.example', title: 'Del proyecto' }] })
+  it('el menú nace cerrado: el botón no llena la cabecera de enlaces', () => {
+    render(
+      <LangProvider>
+        <WebLinksMenu links={ENLACES} />
+      </LangProvider>,
+    )
 
-    // Cerrado el menú, en la cabecera solo está la badge del proyecto.
-    expect(screen.getByRole('link', { name: 'Del proyecto' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Forgejo' })).toBeNull()
   })
 
   it('sin enlaces guardados lo dice', () => {
-    renderTile({ webLinks: [] })
+    abrirMenu({ links: [] })
 
-    fireEvent.click(screen.getByLabelText(en['tile.links']))
-
-    expect(screen.getByText(en['tile.no_links'])).toBeInTheDocument()
+    expect(screen.getByText(en['links.empty'])).toBeInTheDocument()
   })
 })
 

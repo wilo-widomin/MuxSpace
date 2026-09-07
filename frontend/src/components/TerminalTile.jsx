@@ -3,7 +3,7 @@ import { api } from '../api.js'
 import XtermTerminal from './XtermTerminal.jsx'
 import TextComposer from './TextComposer.jsx'
 import { useT } from '../i18n/index.jsx'
-import { KeyboardIcon } from './sidebar/icons.jsx'
+import { BoltIcon } from './sidebar/icons.jsx'
 
 // Contenedor de una sesión en el grid. Incrusta la terminal de ttyd
 // vía <iframe> (sección 5.4 de la especificación) y ofrece un control
@@ -347,7 +347,7 @@ export default function TerminalTile({
             aria-expanded={showSnippets}
             className="rounded p-1 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
           >
-            <KeyboardIcon />
+            <BoltIcon />
           </button>
           <button
             onMouseDown={(e) => e.stopPropagation()}

@@ -239,54 +239,22 @@ export function GearIcon() {
   )
 }
 
-// Las cuatro teclas WASD, con el canto sombreado que las levanta del plano.
-// Nombra los textos rápidos porque lo que hacen es teclear por ti, y un
-// grupo de teclas se reconoce como "teclado" a un tamaño al que una sola
-// tecla solo se lee como un cuadrado.
+// Rayo: el icono de los textos rápidos.
 //
-// Dibujado como SVG y con `currentColor` a propósito, no como imagen: así
-// hereda el color del botón y se aclara con el hover, que una PNG negra
-// sobre fondo oscuro no haría.
-export function KeyboardIcon() {
+// Antes fueron unas teclas WASD, y el problema era el tamaño: a 16 píxeles
+// cuatro teclas son cuatro cuadraditos que hay que mirar dos veces. El rayo
+// es una silueta maciza que se reconoce de un golpe, que es lo que se pide
+// de un icono en una fila de seis.
+export function BoltIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="16"
       height="16"
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinejoin="round"
+      fill="currentColor"
     >
-      <path
-        d="M8.4 7.7v.6a2 2 0 0 0 2 2h3.2a2 2 0 0 0 2-2v-.6z"
-        fill="currentColor"
-        fillOpacity="0.35"
-        stroke="none"
-      />
-      <rect x="8.4" y="1.3" width="7.2" height="9.0" rx="2" />
-      <path
-        d="M0.8 20.1v.6a2 2 0 0 0 2 2h3.2a2 2 0 0 0 2-2v-.6z"
-        fill="currentColor"
-        fillOpacity="0.35"
-        stroke="none"
-      />
-      <rect x="0.8" y="13.7" width="7.2" height="9.0" rx="2" />
-      <path
-        d="M8.4 20.1v.6a2 2 0 0 0 2 2h3.2a2 2 0 0 0 2-2v-.6z"
-        fill="currentColor"
-        fillOpacity="0.35"
-        stroke="none"
-      />
-      <rect x="8.4" y="13.7" width="7.2" height="9.0" rx="2" />
-      <path
-        d="M16 20.1v.6a2 2 0 0 0 2 2h3.2a2 2 0 0 0 2-2v-.6z"
-        fill="currentColor"
-        fillOpacity="0.35"
-        stroke="none"
-      />
-      <rect x="16" y="13.7" width="7.2" height="9.0" rx="2" />
+      <path d="M13.6 2 5 13.4h5.3L9.4 22 19 10.2h-5.6z" />
     </svg>
   )
 }

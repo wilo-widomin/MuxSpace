@@ -431,7 +431,7 @@ export default function TerminalTile({
             se queda ahí. Sin filtro: son pocos y se eligen de un vistazo,
             y en una tableta un filtro significa abrir el teclado. */}
         {showSnippets && (
-          <div className="absolute top-1 left-2 z-30 max-h-64 w-64 overflow-y-auto rounded border border-panel-border bg-panel-surface shadow-lg">
+          <div className="absolute top-1 right-2 z-30 max-h-64 w-64 max-w-[calc(100%-1rem)] overflow-y-auto rounded border border-panel-border bg-panel-surface shadow-lg">
             <ul>
               {snippets.map((s) => (
                 <li
@@ -465,12 +465,14 @@ export default function TerminalTile({
             </ul>
           </div>
         )}
-        {/* La lista de comandos se pinta AQUÍ, sobre la terminal, y no
-            colgando del botón ▶: el tile lleva `overflow-hidden` por las
-            esquinas redondeadas, así que ahí arriba quedaba recortada y solo
-            se veía el filtro. */}
+        {/* Las dos listas se pintan AQUÍ, sobre la terminal, y no colgando
+            de su botón: el tile lleva `overflow-hidden` por las esquinas
+            redondeadas, así que ahí arriba quedaban recortadas y solo se veía
+            el filtro. Van pegadas a la DERECHA porque es donde están los
+            botones que las abren; ancladas a la izquierda salían en la otra
+            punta de la ventana, lejos del dedo que acaba de pulsar. */}
         {showDropdown && (
-          <div className="absolute top-1 left-2 z-30 w-64 rounded border border-panel-border bg-panel-surface shadow-lg">
+          <div className="absolute top-1 right-2 z-30 w-64 max-w-[calc(100%-1rem)] rounded border border-panel-border bg-panel-surface shadow-lg">
             <input
               ref={inputRef}
               type="text"

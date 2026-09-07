@@ -208,6 +208,7 @@
   "err.dir_not_found": "Cartella non trovata o fuori dall'area consentita.",
   "err.dir_name_invalid": "Nome cartella non valido.",
   "err.dir_create_failed": "Impossibile creare la cartella.",
+  "err.attention_name_invalid": "Nome di sessione non valido per una segnalazione: massimo 128 caratteri e senza caratteri di controllo.",
   "err.session_name_invalid": "Nome non valido. Usa solo lettere, numeri, trattino (-) e trattino basso (_), massimo 64 caratteri.",
   "err.session_exists": "Esiste già una sessione di nome «{name}».",
   "err.session_missing": "La sessione tmux «{name}» non esiste.",

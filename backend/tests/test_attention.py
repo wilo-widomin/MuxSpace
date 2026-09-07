@@ -168,6 +168,95 @@ def test_un_nombre_con_espacios_y_acentos_llega_entero(client, tmux_falso):
     assert attention_store.get(nombre) is not None
 
 
+# ----------------------------------------------------------------------
+# Lo que la ruta puede consumir (SEC-005)
+#
+# Quien marca puede ser el hook con el secreto de `data/attention_token`, un
+# permiso pensado como el mínimo posible: "solo puede marcar". Ese mínimo deja
+# de serlo si con él se llena la memoria del proceso.
+# ----------------------------------------------------------------------
+def test_un_nombre_desmesurado_se_rechaza(client, tmux_falso):
+    """Cada marca guarda el nombre en un mapa en memoria: hay que acotarlo."""
+    largo = "s" * (main._MAX_ATTENTION_NAME + 1)
+
+    resp = client.post(f"/api/attention/{quote(largo)}", headers=_cabecera_hook())
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["code"] == "err.attention_name_invalid"
+    assert attention_store.pending() == {}
+
+
+def test_un_nombre_en_el_limite_se_acepta(client, tmux_falso):
+    """El borde por el lado bueno.
+
+    Sin este caso, un `>=` en vez de un `>` dejaría el test de arriba en verde
+    mientras se rechaza un nombre que sí vale.
+    """
+    justo = "s" * main._MAX_ATTENTION_NAME
+
+    resp = client.post(f"/api/attention/{quote(justo)}", headers=_cabecera_hook())
+
+    assert resp.status_code == 200, resp.text
+    assert attention_store.get(justo) is not None
+
+
+def test_un_nombre_con_caracteres_de_control_se_rechaza(client, tmux_falso):
+    """Ninguna sesión legítima los lleva, y ensucian el log y la interfaz."""
+    con_control = "sesion\x07mala"
+    resp = client.post(
+        f"/api/attention/{quote(con_control)}", headers=_cabecera_hook()
+    )
+
+    assert resp.status_code == 400
+    assert attention_store.pending() == {}
+
+
+def test_el_nombre_generado_por_el_panel_sigue_valiendo(client, tmux_falso):
+    """El filtro NO puede ser `_SESSION_NAME_RE`, y esto lo fija.
+
+    `Terminal (2)` lo genera el propio panel al desduplicar
+    (`_next_label_name`), y la regla estricta de `/api/create-session` lo
+    rechazaría: aplicarla aquí dejaría sin aviso justo a las sesiones lanzadas
+    desde la biblioteca y a las creadas a mano en tmux. Es el mismo contrato
+    que fija `test_un_nombre_con_espacios_y_acentos_llega_entero`, mirado
+    ahora desde el lado de la validación.
+    """
+    assert not main._SESSION_NAME_RE.match("Terminal (2)"), (
+        "la regla estricta ya no rechaza este nombre: este test dejó de medir "
+        "lo que dice"
+    )
+
+    resp = client.post(
+        f"/api/attention/{quote('Terminal (2)')}", headers=_cabecera_hook()
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert attention_store.get("Terminal (2)") is not None
+
+
+def test_al_pasar_del_tope_se_descarta_la_marca_mas_antigua(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El mapa no crece sin techo, y lo que se tira es lo más viejo.
+
+    El tope se baja con monkeypatch: lo que se prueba es el MECANISMO —¿hay
+    desalojo?, ¿a quién?—, no el número. Se marca directamente en el store
+    porque lo que se mide es su invariante, no el camino HTTP.
+
+    Se desaloja la más antigua y no la más nueva a propósito: una marca vieja
+    de una sesión que ya nadie mira es la que sobra; la recién llegada es la
+    que el usuario todavía puede atender.
+    """
+    monkeypatch.setattr(attention_store, "MAX_PENDIENTES", 3)
+
+    for numero in range(5):
+        attention_store.mark(f"sesion-{numero}")
+
+    pendientes = attention_store.pending()
+    assert len(pendientes) == 3
+    assert set(pendientes) == {"sesion-2", "sesion-3", "sesion-4"}
+
+
 def test_el_secreto_se_guarda_a_0600(client, data_dir):
     """Lo lee el hook, que corre como el usuario; nadie más en la máquina."""
     attention_store.hook_token()

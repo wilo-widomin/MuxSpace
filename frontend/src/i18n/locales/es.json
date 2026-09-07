@@ -208,6 +208,7 @@
   "err.dir_not_found": "Carpeta no encontrada o fuera del área permitida.",
   "err.dir_name_invalid": "Nombre de carpeta inválido.",
   "err.dir_create_failed": "No se pudo crear la carpeta.",
+  "err.attention_name_invalid": "Nombre de sesión no válido para una marca de atención: máximo 128 caracteres y sin caracteres de control.",
   "err.session_name_invalid": "Nombre inválido. Usa solo letras, números, guion (-) y guion bajo (_), máximo 64 caracteres.",
   "err.session_exists": "Ya existe una sesión llamada «{name}».",
   "err.session_missing": "La sesión de tmux «{name}» no existe.",

@@ -59,7 +59,9 @@ def test_el_ajuste_sobrevive_al_reinicio(client_auth, data_dir):
 
 
 def test_lo_que_se_guarda_es_lo_que_se_lee(client_auth):
-    client_auth.put("/api/chime", json=_preset(mode="custom", notes=[_nota(freq=440.0)]))
+    client_auth.put(
+        "/api/chime", json=_preset(mode="custom", notes=[_nota(freq=440.0)])
+    )
     cfg = client_auth.get("/api/chime").json()
     assert cfg["mode"] == "custom"
     assert cfg["notes"] == [{"freq": 440.0, "delay": 0.0, "duration": 0.4}]

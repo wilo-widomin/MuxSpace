@@ -160,7 +160,9 @@ def _clean_notes(raw) -> list[dict]:
             raise ChimeError(400, "err.chime_bad_notes")
         notes.append(
             {
-                "freq": _num(item.get("freq"), MIN_FREQ, MAX_FREQ, "err.chime_bad_freq"),
+                "freq": _num(
+                    item.get("freq"), MIN_FREQ, MAX_FREQ, "err.chime_bad_freq"
+                ),
                 "delay": _num(item.get("delay"), 0.0, MAX_DELAY, "err.chime_bad_delay"),
                 "duration": _num(
                     item.get("duration"),

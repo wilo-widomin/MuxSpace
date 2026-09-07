@@ -38,8 +38,8 @@ import attention_store
 import audit
 import chime_store
 import claude_transcript
-import events
 import config
+import events
 import library_store
 import logs
 import space_store
@@ -58,6 +58,7 @@ from auth import (
     verify_credentials,
     ws_user,
 )
+from chime_store import ChimeError
 from datafiles import ensure_dir as ensure_data_dir, harden_tree, write_private
 from dir_suggestions import (
     browse as browse_dir,
@@ -80,7 +81,6 @@ from library_store import (
     update_project,
 )
 from pty_bridge import _prepare_session, bridge
-from chime_store import ChimeError
 from space_store import SpaceError
 from tmux_service import (
     TmuxError,
@@ -1638,7 +1638,7 @@ def rename_session_endpoint(
 # ---------------------------------------------------------------------- #
 # Cabecera con el secreto del host. La marca la pide un hook que corre en la
 # máquina, sin navegador ni cookie; ver `attention_store.hook_token`.
-_HOOK_TOKEN_HEADER = "X-Muxspace-Token"
+_HOOK_TOKEN_HEADER = "X-Muxspace-Token"  # noqa: S105 — es el nombre de una cabecera, no un secreto.
 
 # Segundos de silencio antes de mandar un latido por el bus de eventos.
 _EVENTS_PING = 30.0
@@ -1680,11 +1680,15 @@ def _attention_auth(request: Request) -> str:
     return require_auth(request)
 
 
+_attention_auth_dep = Depends(_attention_auth)
+_attention_body = Body(default=None)
+
+
 @app.post("/api/attention/{name}", response_model=AttentionInfo)
 async def mark_attention(
     name: str,
-    body: AttentionBody | None = Body(default=None),
-    user: str = Depends(_attention_auth),
+    body: AttentionBody | None = _attention_body,
+    user: str = _attention_auth_dep,
 ) -> AttentionInfo:
     """Marca que la sesión `name` reclama la atención del usuario.
 
@@ -1750,7 +1754,7 @@ async def events_ws(websocket: WebSocket) -> None:
                     # que está desconectado justo cuando llega un aviso.
                     evento = {"type": "ping"}
                 await websocket.send_json(evento)
-        except Exception:
+        except Exception:  # noqa: S110 — ver el comentario de abajo.
             # Cliente que se va (pestaña cerrada, red que cae): no es un
             # error del servidor y no merece ruido en el registro.
             pass

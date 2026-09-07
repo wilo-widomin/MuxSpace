@@ -366,6 +366,7 @@ export default function App() {
       },
       [applyAttention],
     ),
+    authed,
   )
 
   // El audio del navegador nace bloqueado y solo lo desbloquea un gesto del

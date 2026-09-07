@@ -13,15 +13,17 @@ import { PencilIcon, TrashIcon } from './sidebar/icons.jsx'
  * de shell —es texto para el programa que ya corre dentro—. Un Comando de la
  * biblioteca no sirve: ese abre una terminal y ejecuta.
  *
- * El texto se guarda con saltos de línea incluidos, y quien lo inserta es el
- * navegador (`term.paste`), así que llega tal cual y NO se envía: queda en
- * el prompt para revisarlo y pulsar Enter a mano.
+ * El texto se guarda con saltos de línea incluidos y quien lo inserta es el
+ * navegador (`term.paste`), así que llega tal cual. Cada texto decide con
+ * `submit` qué pasa después: enviarlo (Enter) cuando es la orden entera, o
+ * dejarlo en el prompt cuando es un prefijo al que le falta el argumento.
  */
 export function SnippetSettings({ onClose, onChanged }) {
   const { t, tError } = useT()
   const [snippets, setSnippets] = useState([])
   const [label, setLabel] = useState('')
   const [text, setText] = useState('')
+  const [submit, setSubmit] = useState(false)
   // Id del texto que se está editando; null = el formulario crea uno nuevo.
   const [editing, setEditing] = useState(null)
   const [error, setError] = useState(null)
@@ -44,14 +46,15 @@ export function SnippetSettings({ onClose, onChanged }) {
     setEditing(null)
     setLabel('')
     setText('')
+    setSubmit(false)
   }
 
   const guardar = async (e) => {
     e.preventDefault()
     if (!text.trim()) return
     try {
-      if (editing) await api.updateSnippet(editing, label, text)
-      else await api.createSnippet(label, text)
+      if (editing) await api.updateSnippet(editing, label, text, submit)
+      else await api.createSnippet(label, text, submit)
       setError(null)
       limpiar()
       await recargar()
@@ -85,12 +88,21 @@ export function SnippetSettings({ onClose, onChanged }) {
             >
               {s.label}
             </span>
+            {s.submit && (
+              <span
+                title={t('snippets.submit')}
+                className="shrink-0 rounded bg-panel-bg px-1.5 py-0.5 text-[10px] text-panel-muted"
+              >
+                {t('snippets.submit_badge')}
+              </span>
+            )}
             <button
               type="button"
               onClick={() => {
                 setEditing(s.id)
                 setLabel(s.label)
                 setText(s.text)
+                setSubmit(Boolean(s.submit))
               }}
               title={t('snippets.edit')}
               aria-label={t('snippets.edit')}
@@ -128,6 +140,21 @@ export function SnippetSettings({ onClose, onChanged }) {
           rows={3}
           className="w-full rounded border border-panel-border bg-panel-bg px-2 py-1.5 font-mono text-xs text-gray-100 outline-none focus:border-panel-accent"
         />
+        <label className="flex items-start gap-2 text-xs text-panel-muted">
+          <input
+            type="checkbox"
+            // La etiqueta envuelve dos líneas (título y explicación), así que
+            // su texto accesible sería las dos juntas: el nombre va aparte.
+            aria-label={t('snippets.submit')}
+            checked={submit}
+            onChange={(e) => setSubmit(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-panel-accent"
+          />
+          <span>
+            <span className="block text-gray-100">{t('snippets.submit')}</span>
+            <span className="block">{t('snippets.submit_hint')}</span>
+          </span>
+        </label>
         {error && <p className="text-xs text-red-400">{error}</p>}
         <div className="flex justify-end gap-2">
           {editing && (

@@ -385,5 +385,8 @@
   "err.snippet_empty": "Il testo non può essere vuoto.",
   "err.snippet_too_long": "Il testo non può superare {max} caratteri.",
   "err.snippet_not_found": "Quel testo rapido non esiste più.",
-  "settings.lang_hint": "La lingua dell'interfaccia"
+  "settings.lang_hint": "La lingua dell'interfaccia",
+  "snippets.submit": "Inviare dopo averlo scritto (Invio)",
+  "snippets.submit_hint": "Senza spunta, il testo resta nel prompt per continuare a scrivere.",
+  "snippets.submit_badge": "invia"
 }

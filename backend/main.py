@@ -266,16 +266,21 @@ class SnippetInfo(BaseModel):
     id: str
     label: str
     text: str
+    # ¿Se manda Enter después de escribirlo? Por defecto no: el texto se queda
+    # en el prompt y el usuario decide.
+    submit: bool = False
 
 
 class SnippetCreateBody(BaseModel):
     label: str = ""
     text: str
+    submit: bool = False
 
 
 class SnippetUpdateBody(BaseModel):
     label: str
     text: str
+    submit: bool = False
 
 
 class ProjectLink(BaseModel):
@@ -1939,7 +1944,7 @@ def get_snippets(user: str = _auth) -> list[SnippetInfo]:
 def create_snippet(body: SnippetCreateBody, user: str = _auth) -> SnippetInfo:
     """Crea un texto rápido nuevo."""
     try:
-        created = add_snippet(body.label, body.text)
+        created = add_snippet(body.label, body.text, body.submit)
     except LibraryError as exc:
         raise http_from(400, exc) from exc
     return SnippetInfo(**created.to_dict())
@@ -1953,7 +1958,7 @@ def update_snippet_endpoint(
 ) -> SnippetInfo:
     """Actualiza un texto rápido existente."""
     try:
-        updated = update_snippet(snippet_id, body.label, body.text)
+        updated = update_snippet(snippet_id, body.label, body.text, body.submit)
     except LibraryError as exc:
         raise http_from(400, exc) from exc
     if updated is None:

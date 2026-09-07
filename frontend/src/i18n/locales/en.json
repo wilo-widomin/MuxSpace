@@ -385,5 +385,8 @@
   "err.snippet_empty": "The text cannot be empty.",
   "err.snippet_too_long": "The text cannot exceed {max} characters.",
   "err.snippet_not_found": "That quick text no longer exists.",
-  "settings.lang_hint": "The interface language"
+  "settings.lang_hint": "The interface language",
+  "snippets.submit": "Send it once typed (Enter)",
+  "snippets.submit_hint": "Unchecked, the text stays at the prompt so you can keep typing.",
+  "snippets.submit_badge": "sends"
 }

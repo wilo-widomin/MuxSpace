@@ -83,7 +83,7 @@ export default function TerminalTile({
   // Igual que `searchToken`: el contador es lo que dispara el pegado en la
   // terminal, y el texto viaja al lado. Con un booleano habría que apagarlo
   // después para poder volver a pegar lo mismo.
-  const [paste, setPaste] = useState({ token: 0, text: '' })
+  const [paste, setPaste] = useState({ token: 0, text: '', submit: false })
   // Renombrar la sesión desde la propia cabecera. El nombre que trae una
   // sesión abierta desde un proyecto es el del proyecto con un número
   // detrás, y con tres ventanas de lo mismo en pantalla ese número no
@@ -420,7 +420,9 @@ export default function TerminalTile({
           <TextComposer
             name={session.name}
             onClose={() => setComposing(false)}
-            onPaste={(texto) => setPaste((p) => ({ token: p.token + 1, text: texto }))}
+            onPaste={(texto) =>
+              setPaste((p) => ({ token: p.token + 1, text: texto, submit: false }))
+            }
           />
         )}
         {/* Textos rápidos. Mismo sitio y mismo aspecto que la lista de
@@ -435,13 +437,24 @@ export default function TerminalTile({
                 <li
                   key={s.id}
                   onClick={() => {
-                    setPaste((p) => ({ token: p.token + 1, text: s.text }))
+                    setPaste((p) => ({
+                      token: p.token + 1,
+                      text: s.text,
+                      submit: s.submit,
+                    }))
                     setShowSnippets(false)
                   }}
-                  className="cursor-pointer px-2 py-1.5 text-xs text-panel-muted hover:bg-panel-bg hover:text-gray-100"
+                  className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-xs text-panel-muted hover:bg-panel-bg hover:text-gray-100"
                   title={s.text}
                 >
-                  {s.label}
+                  <span className="min-w-0 flex-1 truncate">{s.label}</span>
+                  {/* Los que se envían solos se ven ANTES de tocarlos: es la
+                      diferencia entre dejar algo escrito y lanzarlo. */}
+                  {s.submit && (
+                    <span className="shrink-0 text-[10px]" title={t('snippets.submit')}>
+                      ⏎
+                    </span>
+                  )}
                 </li>
               ))}
               {snippets.length === 0 && (

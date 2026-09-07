@@ -2,10 +2,11 @@
 
 - **Comando**: una sola línea de shell (sin directorio). Se envía a la
   terminal con foco, o se lanza en una sesión nueva si no hay foco.
-- **Texto rápido** (`Snippet`): texto que se ESCRIBE en la terminal y no se
-  ejecuta. Existe para lo que se teclea a menudo y no es un comando de
-  shell —nombres de skills, órdenes a un agente— desde una tableta, donde
-  escribir treinta caracteres exactos es el trabajo caro.
+- **Texto rápido** (`Snippet`): texto que se ESCRIBE en la terminal. Existe
+  para lo que se teclea a menudo y no es un comando de shell —nombres de
+  skills, órdenes a un agente— desde una tableta, donde escribir treinta
+  caracteres exactos es el trabajo caro. Cada uno decide con `submit` si
+  además se envía (Enter) o se queda en el prompt para seguir escribiendo.
 - **Proyecto**: un título, un directorio (cwd) y una lista de comandos que
   se ejecutan secuencialmente en una sesión nueva. Puede llevar además una
   lista de **enlaces** (URL + título) que el panel pinta como badges en la
@@ -83,10 +84,17 @@ class Command:
 
 @dataclass
 class Snippet:
-    """Un texto rápido: lo que se escribe en la terminal sin ejecutarlo."""
+    """Un texto rápido: lo que se escribe en la terminal.
+
+    `submit` decide qué pasa después de escribirlo: `True` manda Enter —el
+    texto es la orden entera y no hay nada que añadir—, `False` lo deja en el
+    prompt para seguir escribiendo, que es el caso de un prefijo como
+    `/code-review ` al que le falta el argumento.
+    """
     id: str
     label: str
     text: str
+    submit: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -179,6 +187,9 @@ def _load_raw() -> _Library:
                 id=str(item.get("id", "")),
                 label=str(item.get("label", "")).strip() or _default_label(text),
                 text=text[:_MAX_SNIPPET_TEXT],
+                # Los textos guardados antes de que esto existiera no llevan
+                # la clave: no enviar es lo que hacían, y lo que se espera.
+                submit=bool(item.get("submit", False)),
             )
         )
 
@@ -410,18 +421,22 @@ def get_snippet(snippet_id: str) -> Optional[Snippet]:
     return None
 
 
-def add_snippet(label: str, text: str) -> Snippet:
+def add_snippet(label: str, text: str, submit: bool = False) -> Snippet:
     """Crea y persiste un texto rápido nuevo."""
     label, text = _validate_snippet(label, text)
     with _lock:
         lib = _load_raw()
-        created = Snippet(id=secrets.token_hex(4), label=label, text=text)
+        created = Snippet(
+            id=secrets.token_hex(4), label=label, text=text, submit=bool(submit)
+        )
         lib.snippets.append(created)
         _persist(lib)
         return created
 
 
-def update_snippet(snippet_id: str, label: str, text: str) -> Optional[Snippet]:
+def update_snippet(
+    snippet_id: str, label: str, text: str, submit: bool = False
+) -> Optional[Snippet]:
     """Actualiza un texto rápido. Devuelve None si no existe."""
     label, text = _validate_snippet(label, text)
     with _lock:
@@ -430,6 +445,7 @@ def update_snippet(snippet_id: str, label: str, text: str) -> Optional[Snippet]:
             if s.id == snippet_id:
                 s.label = label
                 s.text = text
+                s.submit = bool(submit)
                 _persist(lib)
                 return s
         return None

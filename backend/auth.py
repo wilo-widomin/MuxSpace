@@ -86,6 +86,16 @@ _sessions_lock = threading.Lock()
 # (total_failures/first_seen/last_seen), persistido en disco.
 _LOGIN_WINDOW_SECONDS = 60
 _LOGIN_MAX_FAILURES = 5
+# Espera creciente por encima de la ventana. Sin ella el límite es solo un
+# ritmo: agotados los cinco intentos basta con esperar 60 s para recuperar
+# otros cinco, indefinidamente y sin que nada se endurezca (7.200 al día).
+# A partir de este número de fallos SEGUIDOS —los cinco primeros no penalizan,
+# quien se equivoca de teclado no es un atacante— cada tanda nueva exige
+# esperar, y la espera se dobla con cada fallo.
+_LOGIN_BACKOFF_AFTER = 5
+# Techo de la espera: media hora deja el ritmo sostenido en 240 intentos al
+# día, que es la diferencia entre "esto se prueba" y "esto no se prueba".
+_LOGIN_BACKOFF_MAX_SECONDS = 1800
 # Tope de IPs registradas: al superarlo se descartan las de actividad más
 # antigua, para que una botnet no infle el archivo sin límite.
 _MAX_TRACKED_IPS = 1000
@@ -258,15 +268,42 @@ def _purge_expired_locked() -> None:
 # ----------------------------------------------------------------------
 # Límite de intentos de login por IP
 # ----------------------------------------------------------------------
+def _backoff_wait(rec: dict) -> float:
+    """Segundos que la IP debe esperar desde su último fallo para otra tanda.
+
+    Se dobla con cada fallo seguido por encima del umbral, con techo. El dato
+    que la alimenta es `backoff_failures`, no `total_failures`: el histórico
+    es evidencia y no se borra nunca, pero la penalización sí se levanta
+    cuando alguien acierta la contraseña desde esa IP (ver
+    `clear_login_failures`), o el dueño arrastraría el castigo de un atacante
+    que compartiera su IP saliente.
+
+    Un registro escrito antes de que existiera este campo cae a
+    `total_failures`, que hasta entonces era su equivalente: así los archivos
+    ya en disco no le regalan la penalización a quien ya venía atacando.
+    """
+    consecutivos = rec.get("backoff_failures", rec.get("total_failures", 0))
+    if consecutivos <= _LOGIN_BACKOFF_AFTER:
+        return 0.0
+    return float(
+        min(2 ** (consecutivos - _LOGIN_BACKOFF_AFTER), _LOGIN_BACKOFF_MAX_SECONDS)
+    )
+
+
 def check_login_allowed(ip: str) -> bool:
-    """False si la IP agotó los intentos de la ventana actual."""
+    """False si la IP agotó la ventana actual o aún está en espera.
+
+    Dentro de la ventana manda el contador de siempre (cinco intentos). Lo que
+    cambia es el momento de RECUPERARLOS: vencida la ventana, la IP recupera
+    sus intentos solo si además ha cumplido la espera acumulada.
+    """
     now = time.time()
     with _login_lock:
         rec = _login_failures.get(ip)
         if rec is None:
             return True
         if now - rec.get("window_start", 0.0) > _LOGIN_WINDOW_SECONDS:
-            return True
+            return now - rec.get("last_seen", 0.0) >= _backoff_wait(rec)
         return rec.get("count", 0) < _LOGIN_MAX_FAILURES
 
 
@@ -275,28 +312,44 @@ def register_login_failure(ip: str) -> None:
     with _login_lock:
         rec = _login_failures.setdefault(
             ip,
-            {"count": 0, "window_start": now, "total_failures": 0, "first_seen": now},
+            {
+                "count": 0,
+                "window_start": now,
+                "total_failures": 0,
+                "backoff_failures": 0,
+                "first_seen": now,
+            },
         )
         if now - rec.get("window_start", 0.0) > _LOGIN_WINDOW_SECONDS:
             rec["count"] = 0
             rec["window_start"] = now
         rec["count"] = rec.get("count", 0) + 1
         rec["total_failures"] = rec.get("total_failures", 0) + 1
+        rec["backoff_failures"] = (
+            rec.get("backoff_failures", rec.get("total_failures", 1) - 1) + 1
+        )
         rec["last_seen"] = now
         _persist_login_failures_locked()
 
 
 def clear_login_failures(ip: str) -> None:
-    """Resetea la ventana de la IP tras un login correcto.
+    """Resetea la ventana y la espera de la IP tras un login correcto.
 
     Se conserva el histórico (total_failures/first_seen/last_seen): que el
-    dueño acierte la contraseña no borra el rastro de intentos previos.
+    dueño acierte la contraseña no borra el rastro de intentos previos. Lo que
+    sí se levanta es la penalización de `_backoff_wait`, porque acertar la
+    contraseña es la prueba de que desde esta IP entra alguien legítimo: si no
+    se levantara, un atacante que comparta la IP saliente del dueño acabaría
+    dejándolo a él fuera con media hora de espera.
     """
     with _login_lock:
         rec = _login_failures.get(ip)
-        if rec is None or rec.get("count", 0) == 0:
+        if rec is None or (
+            rec.get("count", 0) == 0 and rec.get("backoff_failures", 0) == 0
+        ):
             return
         rec["count"] = 0
+        rec["backoff_failures"] = 0
         _persist_login_failures_locked()
 
 

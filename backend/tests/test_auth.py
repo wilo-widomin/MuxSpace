@@ -104,6 +104,8 @@ import main
 # ----------------------------------------------------------------------
 MAX_FALLOS = 5
 VENTANA_SEGUNDOS = 60
+BACKOFF_DESDE = 5
+BACKOFF_MAX_SEGUNDOS = 1800
 TOPE_IPS = 1000
 COOKIE = "muxspace_session"
 
@@ -613,6 +615,8 @@ def test_los_parametros_del_limite_son_los_declarados() -> None:
     """
     assert auth._LOGIN_MAX_FAILURES == MAX_FALLOS
     assert auth._LOGIN_WINDOW_SECONDS == VENTANA_SEGUNDOS
+    assert auth._LOGIN_BACKOFF_AFTER == BACKOFF_DESDE
+    assert auth._LOGIN_BACKOFF_MAX_SECONDS == BACKOFF_MAX_SEGUNDOS
     assert auth._MAX_TRACKED_IPS == TOPE_IPS
     assert auth.SESSION_COOKIE == COOKIE
     assert auth.SESSION_TTL_HOURS == TTL_HORAS
@@ -722,6 +726,7 @@ def test_un_login_correcto_resetea_el_contador_pero_conserva_el_historico(
         "count": 4,
         "window_start": t0,
         "total_failures": 4,
+        "backoff_failures": 4,
         "first_seen": t0,
         "last_seen": t0 + 5,
     }
@@ -732,6 +737,10 @@ def test_un_login_correcto_resetea_el_contador_pero_conserva_el_historico(
         "count": 0,  # la ventana se limpia...
         "window_start": t0,
         "total_failures": 4,  # ...y el histórico se queda
+        # ...pero la espera creciente sí se levanta: es penalización, no
+        # evidencia, y quien acierta la contraseña ha demostrado no ser el
+        # atacante. Ver `test_un_login_correcto_levanta_la_espera_acumulada`.
+        "backoff_failures": 0,
         "first_seen": t0,
         "last_seen": t0 + 5,
     }
@@ -1032,6 +1041,170 @@ def test_limpiar_una_ip_desconocida_no_crea_ni_escribe_nada() -> None:
     auth.clear_login_failures(IP_ATACANTE)
     assert auth._login_failures == {}
     assert not auth._FAILURES_PATH.exists()
+
+
+# ----------------------------------------------------------------------
+# Espera creciente (SEC-001)
+#
+# La ventana sola no es un límite, es un ritmo: 5 fallos por minuto para
+# siempre son 7.200 intentos al día contra la contraseña de Linux del
+# usuario. Lo que fijan estos casos es que RECUPERAR los intentos cuesta
+# cada vez más, y que ese coste se levanta en cuanto alguien acierta.
+# ----------------------------------------------------------------------
+def _fallos(cantidad: int, ip: str = IP_ATACANTE) -> None:
+    """`cantidad` fallos seguidos, saltándose el rate limit.
+
+    Va directo a `register_login_failure` a propósito: por HTTP no se pueden
+    encadenar más de cinco sin que el 429 corte antes, que es justo lo que
+    se quiere provocar aquí sin tener que ir avanzando el reloj entre medias.
+    """
+    for _ in range(cantidad):
+        auth.register_login_failure(ip)
+
+
+def test_la_espera_crece_con_los_fallos_acumulados(reloj: _Reloj) -> None:
+    """La espera se dobla por cada fallo por encima del umbral, con techo.
+
+    Se mira la función directamente porque es la única forma de ver la CURVA
+    entera: por HTTP cada punto costaría minutos de reloj falso. Los casos de
+    abajo comprueban que esta curva es la que de verdad cierra la puerta.
+    """
+    assert auth._backoff_wait({"backoff_failures": 0}) == 0.0
+    # Los cinco primeros no penalizan: el dueño que se equivoca de teclado no
+    # puede acabar esperando.
+    assert auth._backoff_wait({"backoff_failures": BACKOFF_DESDE}) == 0.0
+
+    assert auth._backoff_wait({"backoff_failures": BACKOFF_DESDE + 1}) == 2
+    assert auth._backoff_wait({"backoff_failures": BACKOFF_DESDE + 2}) == 4
+    assert auth._backoff_wait({"backoff_failures": BACKOFF_DESDE + 10}) == 1024
+
+    # Y a partir de ahí, el techo: sin él, veinte fallos serían doce días de
+    # espera y el dueño perdería su propio panel por un ataque ajeno.
+    assert auth._backoff_wait({"backoff_failures": BACKOFF_DESDE + 11}) == (
+        BACKOFF_MAX_SEGUNDOS
+    )
+    assert auth._backoff_wait({"backoff_failures": 500}) == BACKOFF_MAX_SEGUNDOS
+
+
+def test_un_registro_viejo_sin_el_campo_nuevo_penaliza_igual(reloj: _Reloj) -> None:
+    """Compatibilidad con `login_failures.json` ya en disco.
+
+    El archivo que hay hoy en la máquina del usuario no tiene
+    `backoff_failures`. Si el campo ausente se leyera como 0, desplegar esto
+    le REGALARÍA el contador a cero a quien ya llevara mil intentos. Se cae a
+    `total_failures`, que hasta ahora era su equivalente exacto.
+    """
+    assert auth._backoff_wait({"total_failures": BACKOFF_DESDE + 3}) == 8
+
+    # Y el primer fallo posterior sigue la cuenta del histórico, no la
+    # empieza de nuevo.
+    auth._login_failures[IP_ATACANTE] = {
+        "count": 0,
+        "window_start": reloj.time() - VENTANA_SEGUNDOS - 1,
+        "total_failures": 9,
+        "first_seen": reloj.time(),
+    }
+    auth.register_login_failure(IP_ATACANTE)
+    assert _registro(IP_ATACANTE)["backoff_failures"] == 10
+
+
+def test_vencida_la_ventana_la_ip_sigue_bloqueada_hasta_cumplir_la_espera(
+    reloj: _Reloj,
+) -> None:
+    """El corazón del hallazgo: la ventana ya no basta para recuperar intentos.
+
+    Doce fallos dejan la espera en 2**7 = 128 s. Antes de esto, pasados 60 s
+    la puerta se abría entera otra vez; ahora los 60 s solo son el primero de
+    los dos relojes que hay que cumplir.
+    """
+    _fallos(12)
+    espera = auth._backoff_wait(_registro(IP_ATACANTE))
+    assert espera == 128, "cambió la curva: este caso ya no mide lo que dice"
+
+    assert auth.check_login_allowed(IP_ATACANTE) is False
+
+    # La ventana de 60 s vence... y no sirve de nada: la espera es mayor.
+    reloj.avanzar(VENTANA_SEGUNDOS + 1)
+    assert auth.check_login_allowed(IP_ATACANTE) is False
+
+    # Un segundo antes de cumplirla, sigue cerrada.
+    reloj.avanzar(espera - VENTANA_SEGUNDOS - 2)
+    assert auth.check_login_allowed(IP_ATACANTE) is False
+
+    # Cumplida, la IP recupera su tanda de cinco intentos. No queda baneada:
+    # esto es un freno, no una lista negra (para eso está banned_ips.json).
+    reloj.avanzar(2)
+    assert auth.check_login_allowed(IP_ATACANTE) is True
+
+
+def test_dentro_de_la_ventana_la_espera_no_recorta_los_cinco_intentos(
+    reloj: _Reloj,
+) -> None:
+    """La tanda sigue siendo de cinco, por muchos fallos que se arrastren.
+
+    Es el reverso del caso anterior y lo que separa "espera para volver a
+    intentar" de "un intento cada media hora": si la espera se aplicara
+    también DENTRO de la ventana, el dueño con el teclado desconfigurado
+    tendría que esperar entre tecla y tecla. Sin este caso, esa regresión
+    pasaría desapercibida.
+    """
+    _fallos(20)
+    reloj.avanzar(BACKOFF_MAX_SEGUNDOS + 1)
+    assert auth.check_login_allowed(IP_ATACANTE) is True
+
+    # Cuatro fallos más, uno detrás de otro y sin esperar nada entre ellos.
+    for numero in range(1, MAX_FALLOS):
+        auth.register_login_failure(IP_ATACANTE)
+        assert auth.check_login_allowed(IP_ATACANTE) is True, (
+            f"el fallo {numero} de la tanda cerró la puerta antes de los cinco"
+        )
+
+    auth.register_login_failure(IP_ATACANTE)
+    assert auth.check_login_allowed(IP_ATACANTE) is False
+
+
+def test_un_login_correcto_levanta_la_espera_acumulada(client, reloj: _Reloj) -> None:
+    """Acertar la contraseña libera a la IP, aunque arrastre mil fallos.
+
+    El caso que esto protege es el del dueño detrás de la misma IP saliente
+    que un atacante (un NAT, una VPN): sin esta liberación, el ataque de otro
+    lo deja a él esperando media hora en cada login. El histórico —la
+    evidencia— no se toca; lo que se borra es el castigo.
+    """
+    _fallos(30, ip=IP_TESTCLIENT)
+    assert auth._backoff_wait(_registro()) == BACKOFF_MAX_SEGUNDOS
+    assert auth.check_login_allowed(IP_TESTCLIENT) is False
+
+    # Se cumple la espera una vez y se acierta.
+    reloj.avanzar(BACKOFF_MAX_SEGUNDOS + 1)
+    assert _login(client).status_code == 200
+
+    assert _registro()["backoff_failures"] == 0
+    assert _registro()["total_failures"] == 30, "se borró la evidencia"
+    assert auth._backoff_wait(_registro()) == 0.0
+
+    # Y el efecto que importa: el siguiente fallo no vuelve a media hora de
+    # espera, sino a una tanda limpia.
+    assert _login(client, PASSWORD_MALA).status_code == 401
+    assert auth.check_login_allowed(IP_TESTCLIENT) is True
+
+
+def test_la_espera_sobrevive_a_un_reinicio_del_backend(reloj: _Reloj) -> None:
+    """El acumulado se persiste, como el contador de la ventana.
+
+    Si `backoff_failures` viviera solo en memoria, reiniciar el backend
+    —o esperar a que lo reinicie un despliegue— devolvería al atacante el
+    ritmo de 7.200 intentos al día, que es exactamente el agujero que esto
+    viene a tapar.
+    """
+    _fallos(12)
+    assert _registro_en_disco(IP_ATACANTE)["backoff_failures"] == 12
+
+    auth._login_failures.clear()
+    auth._login_failures.update(auth._load_login_failures())
+
+    reloj.avanzar(VENTANA_SEGUNDOS + 1)
+    assert auth.check_login_allowed(IP_ATACANTE) is False
 
 
 # ======================================================================

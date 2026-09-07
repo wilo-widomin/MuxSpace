@@ -384,5 +384,6 @@
   "snippets.delete": "Supprimer le texte rapide",
   "err.snippet_empty": "Le texte ne peut pas être vide.",
   "err.snippet_too_long": "Le texte ne peut pas dépasser {max} caractères.",
-  "err.snippet_not_found": "Ce texte rapide n'existe plus."
+  "err.snippet_not_found": "Ce texte rapide n'existe plus.",
+  "settings.lang_hint": "La langue de l'interface"
 }

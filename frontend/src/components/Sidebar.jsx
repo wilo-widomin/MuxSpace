@@ -525,6 +525,44 @@ export default function Sidebar({
 
   // Estado colapsado: rail estrecho con un único botón para expandir, de
   // modo que el grid de terminales ocupa casi toda la pantalla.
+  // Los diálogos de Ajustes se pintan en las DOS formas del sidebar: el
+  // plegado retorna antes que el normal, y dejándolos solo abajo el
+  // engranaje del sidebar plegado abría un menú que no llegaba a existir.
+  const dialogosDeAjustes = (
+    <>
+      {settingsOpen && (
+        <SettingsMenu
+          onClose={() => setSettingsOpen(false)}
+          onOpenChime={() => {
+            setSettingsOpen(false)
+            setChimeOpen(true)
+          }}
+          onOpenSnippets={() => {
+            setSettingsOpen(false)
+            setSnippetsOpen(true)
+          }}
+          onOpenLinks={() => {
+            setSettingsOpen(false)
+            setLinksOpen(true)
+          }}
+        />
+      )}
+      {chimeOpen && <ChimeSettings onClose={() => setChimeOpen(false)} />}
+      {snippetsOpen && (
+        <SnippetSettings
+          onClose={() => setSnippetsOpen(false)}
+          onChanged={onSnippetsChanged}
+        />
+      )}
+      {linksOpen && (
+        <LinkSettings
+          onClose={() => setLinksOpen(false)}
+          onChanged={onSnippetsChanged}
+        />
+      )}
+    </>
+  )
+
   if (collapsed) {
     return (
       <aside className="flex h-full w-12 shrink-0 flex-col items-center border-r border-panel-border bg-panel-surface py-3 text-gray-100">
@@ -609,6 +647,18 @@ export default function Sidebar({
           <ChartIcon />
         </a>
         <WebLinksMenu links={webLinks} compacto />
+        {/* Abajo del todo, como en el pie del sidebar abierto: plegar la
+            barra no puede esconder los ajustes del panel. `mt-auto` lo
+            empuja al fondo sin depender de cuántos iconos haya arriba. */}
+        <button
+          onClick={() => setSettingsOpen(true)}
+          title={t('settings.title')}
+          aria-label={t('settings.title')}
+          className="mt-auto rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+        >
+          <GearIcon />
+        </button>
+        {dialogosDeAjustes}
       </aside>
     )
   }
@@ -1133,36 +1183,7 @@ export default function Sidebar({
           </button>
         </div>
       </footer>
-      {settingsOpen && (
-        <SettingsMenu
-          onClose={() => setSettingsOpen(false)}
-          onOpenChime={() => {
-            setSettingsOpen(false)
-            setChimeOpen(true)
-          }}
-          onOpenSnippets={() => {
-            setSettingsOpen(false)
-            setSnippetsOpen(true)
-          }}
-          onOpenLinks={() => {
-            setSettingsOpen(false)
-            setLinksOpen(true)
-          }}
-        />
-      )}
-      {chimeOpen && <ChimeSettings onClose={() => setChimeOpen(false)} />}
-      {snippetsOpen && (
-        <SnippetSettings
-          onClose={() => setSnippetsOpen(false)}
-          onChanged={onSnippetsChanged}
-        />
-      )}
-      {linksOpen && (
-        <LinkSettings
-          onClose={() => setLinksOpen(false)}
-          onChanged={onSnippetsChanged}
-        />
-      )}
+      {dialogosDeAjustes}
 
       {/* ---------------- Modales (formularios) ---------------- */}
       {creating && (

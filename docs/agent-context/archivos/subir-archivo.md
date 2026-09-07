@@ -20,10 +20,13 @@ absoluta para pegarla en una terminal.
 ## Flujo
 
 1. `UploadFiles.jsx` (input o arrastrar y soltar, un archivo) → `api.uploadFile`.
-2. `_read_capped` corta por `Content-Length` y luego mientras se lee el cuerpo.
-   `await request.body()` no vale: bufferiza entero antes de poder mirarlo.
-3. `resolve_within_roots(dir)` → `_unique_target(name)` → `os.open` con
-   `O_EXCL | O_NOFOLLOW` y modo 0600.
+2. `resolve_within_roots(dir)` → `_unique_target(name)` → `os.open` con
+   `O_EXCL | O_NOFOLLOW` y modo 0600. **El destino se abre ANTES de leer el
+   cuerpo**, así que un 409 por nombre ocupado llega sin haber subido nada.
+3. `_stream_to_fd` vuelca el cuerpo al descriptor **según llega**, cortando por
+   `Content-Length` y luego por lo leído. `await request.body()` no vale:
+   bufferiza entero antes de poder mirarlo. Cualquier fallo en el camino borra
+   el fichero a medias, que con el nombre bueno sería peor que nada.
 4. `upload_store.add()` (historial de 5) y `audit.record("upload", ...)`.
 5. El frontend copia `quotePath(path)` al portapapeles.
 
@@ -37,7 +40,9 @@ absoluta para pegarla en una terminal.
 
 ## Trampas
 
-- El cuerpo entero se acumula **en memoria** (hasta 100 MB por subida).
+- La subida **no** retiene el cuerpo en memoria (SEC-006), pero
+  `paste-image` (25 MB) y la campanilla (2 MB) siguen con `_read_capped`, que
+  sí lo acumula entero: sus consumidores reciben los bytes en la mano.
 - En el historial, `dir` es el string tal cual lo mandó el frontend (abreviado
   con `~`) mientras que `path` es absoluto y resuelto: no coinciden en forma.
 - Una carpeta válida pero donde el proceso no puede escribir da un 500 con

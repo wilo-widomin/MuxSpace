@@ -45,7 +45,9 @@ para pegar en un shell**.
   sigue enlaces y ve un **symlink colgante como hueco libre** — escribiría
   fuera de las raíces.
 - Topes: 25 MB una imagen pegada, 100 MB una subida, cortando primero por
-  `Content-Length` y luego mientras se lee el cuerpo. Solo el pegado valida el
+  `Content-Length` y luego mientras se lee el cuerpo. La subida se escribe a
+  disco según llega (`_stream_to_fd`), así que su memoria no crece con el
+  archivo; el pegado y la campanilla sí lo acumulan entero (`_read_capped`). Solo el pegado valida el
   tipo (lista blanca); la subida acepta cualquiera.
 - Los listados filtran hijo a hijo, porque un symlink dentro de la raíz puede
   apuntar fuera.

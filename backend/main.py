@@ -815,6 +815,34 @@ async def _read_capped(request: Request, max_bytes: int, code: str) -> bytes:
     return b"".join(chunks)
 
 
+async def _stream_to_fd(request: Request, fd: int, max_bytes: int, code: str) -> int:
+    """Vuelca el cuerpo de la petición al descriptor, cortando en el tope.
+
+    A diferencia de `_read_capped`, no retiene el cuerpo: escribe cada trozo
+    según llega. `_read_capped` ya impedía que un POST de varios GB tumbara el
+    proceso, pero lo que cabía por debajo del tope se acumulaba entero en
+    memoria —y el pico era del doble en el `b"".join`, con la lista de trozos
+    y la copia unida coexistiendo—. Con el tope en 100 MB, diez subidas a la
+    vez eran un gigabyte de residente en el proceso que sirve TODAS las
+    terminales del usuario.
+
+    Devuelve los bytes escritos. Si el cuerpo se pasa del tope lanza 413 y deja
+    un fichero a medias: borrarlo es cosa del llamante, que es quien sabe qué
+    ruta abrió.
+    """
+    mb = max_bytes // (1024 * 1024)
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > max_bytes:
+        raise http_error(413, code, mb=mb)
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > max_bytes:
+            raise http_error(413, code, mb=mb)
+        os.write(fd, chunk)
+    return total
+
+
 # Directorio donde se depositan las imágenes que el usuario pega desde el
 # panel (apaño para poder compartir capturas con Claude, que lee el fichero
 # resultante). Cae bajo backend/data/, que está fuera del control de versiones.
@@ -1071,10 +1099,11 @@ async def upload_file(
     if not filename or not _UPLOAD_NAME_RE.match(filename) or filename in (".", ".."):
         raise http_error(400, "err.upload_name_invalid")
 
-    data = await _read_capped(request, _UPLOAD_MAX_BYTES, "err.upload_too_large")
-    if not data:
-        raise http_error(400, "err.upload_missing")
-
+    # El destino se abre ANTES de leer el cuerpo: así el volcado va a disco
+    # según llega y el proceso no crece con el tamaño del archivo. El precio es
+    # que los errores de destino (nombre ocupado, symlink) se detectan antes de
+    # tocar el cuerpo — el cliente recibe el 409 sin haber terminado de subir,
+    # que además es lo que uno querría.
     target = _unique_target(directory, filename)
     try:
         # O_NOFOLLOW: si `target` es un symlink, falla en vez de escribir en
@@ -1096,14 +1125,25 @@ async def upload_file(
         raise http_error(500, "err.upload_failed") from exc
     try:
         with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
+            escritos = await _stream_to_fd(
+                request, fh.fileno(), _UPLOAD_MAX_BYTES, "err.upload_too_large"
+            )
+        if not escritos:
+            raise http_error(400, "err.upload_missing")
     except OSError as exc:
+        target.unlink(missing_ok=True)
         raise http_error(500, "err.upload_failed") from exc
+    except BaseException:
+        # Cuerpo que se pasa del tope, cuerpo vacío o conexión cortada a
+        # medias: lo que queda en disco es un fichero truncado CON EL NOMBRE
+        # BUENO, que es peor que no tener nada porque el usuario se lo cree.
+        target.unlink(missing_ok=True)
+        raise
 
     upload_store.add(target.name, str(target), dir)
     audit.record(
         "upload", request=request, user=user, target=str(target),
-        detail={"name": target.name, "dir": dir, "bytes": len(data)},
+        detail={"name": target.name, "dir": dir, "bytes": escritos},
     )
     return UploadResponse(name=target.name, path=str(target), dir=dir)
 

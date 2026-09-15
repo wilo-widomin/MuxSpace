@@ -1,12 +1,13 @@
 ---
 dominio: terminal
 accion: scroll-y-busqueda
-actualizado: 2026-09-06
+actualizado: 2026-09-15
 archivos:
   - backend/pty_bridge.py
   - backend/tmux_service.py
   - frontend/src/components/XtermTerminal.jsx
   - frontend/src/components/TranscriptSearch.jsx
+  - backend/main.py
 depende_de: [sesiones/_dominio]
 ---
 
@@ -64,5 +65,14 @@ se traducen a copy-mode de tmux por mensajes de control.
   salto.
 - La lupa del tile es un **interruptor**, no un disparo: en una tableta no hay
   Escape. Al cerrar manda `scroll-exit` y devuelve el foco.
+- `/api/terminal/{name}/transcript` filtra el nombre con
+  `_nombre_de_sesion_valido`, **no** con `_SESSION_NAME_RE`. El estricto solo
+  admite letras, números, `-` y `_`, y las terminales que nacen de un tile se
+  llaman `Terminal (2)`: con él la lupa devolvía «Nombre inválido» en casi
+  todas. Lo mismo vale para `/api/attention/{name}`. El filtro estricto es
+  solo para los nombres que teclea el usuario (crear y renombrar).
+- El nombre se pasa a `http_error` como **parámetro con nombre**
+  (`name=name[:80]`), nunca como tercer argumento posicional: ese hueco es
+  `technical`, y un dict ahí sale en la interfaz como `([object Object])`.
 - En el transcript, las coincidencias se numeran **después** de filtrar; si no,
   «3 de 17» llevaría a bloques ocultos.

@@ -107,14 +107,32 @@ from tmux_service import (
 # sea seguro y predecible.
 _SESSION_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
-# Tope del nombre en `/api/attention/{name}`, que acepta nombres que
-# `_SESSION_NAME_RE` rechaza (ver el docstring de `mark_attention`). tmux no
-# fija un máximo, pero un nombre real no pasa de un puñado de caracteres:
-# 128 deja sitio de sobra y convierte en constante la memoria que esa ruta
-# puede consumir. Los caracteres de control se rechazan aparte — ninguna
-# sesión legítima los lleva y ensucian el log y la interfaz.
+# Tope del nombre en las rutas que apuntan a una sesión YA EXISTENTE
+# (`/api/attention/{name}`, `/api/terminal/{name}/transcript`), que aceptan
+# nombres que `_SESSION_NAME_RE` rechaza (ver `_nombre_de_sesion_valido`).
+# tmux no fija un máximo, pero un nombre real no pasa de un puñado de
+# caracteres: 128 deja sitio de sobra y convierte en constante la memoria que
+# esas rutas pueden consumir. Los caracteres de control se rechazan aparte —
+# ninguna sesión legítima los lleva y ensucian el log y la interfaz.
 _MAX_ATTENTION_NAME = 128
 _CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _nombre_de_sesion_valido(name: str) -> bool:
+    """¿Puede `name` ser el nombre de una sesión que ya existe en tmux?
+
+    Es el filtro de las rutas que solo APUNTAN a una sesión existente, y es a
+    propósito más ancho que `_SESSION_NAME_RE`: por ahí llegan nombres que el
+    filtro estricto rechaza y son legítimos, los que genera el propio panel al
+    desduplicar (`Terminal (2)`, con espacio y paréntesis, ver
+    `_next_label_name`) y los de las sesiones creadas a mano en tmux. Aplicar
+    el estricto dejaría fuera justo a esas. Lo que sí se acota es lo que puede
+    crecer sin límite —el largo— y los caracteres de control.
+    """
+    if not name or len(name) > _MAX_ATTENTION_NAME:
+        return False
+    return not _CONTROL_RE.search(name)
+
 
 _log = logs.obtener(__name__)
 
@@ -1457,10 +1475,13 @@ def get_transcript(name: str, user: str = _auth) -> dict:
     sesión, y esto lo sirve para que el panel lo enseñe y se pueda buscar.
 
     No recibe ninguna ruta del cliente: el directorio sale del panel de tmux,
-    y de él el proyecto. Lo único que viaja es el nombre de la sesión.
+    y de él el proyecto. Lo único que viaja es el nombre de la sesión, que se
+    filtra con `_nombre_de_sesion_valido` y no con `_SESSION_NAME_RE`: aquí la
+    sesión ya existe, y el estricto dejaba la lupa muerta en todas las que el
+    panel nombra con espacio o paréntesis (`Terminal (2)`).
     """
-    if not _SESSION_NAME_RE.match(name):
-        raise http_error(400, "err.session_name_invalid", {"name": name})
+    if not _nombre_de_sesion_valido(name):
+        raise http_error(400, "err.session_name_invalid", name=name[:80])
     try:
         panel = tmux_pane_info(name)
     except TmuxError as exc:
@@ -1814,17 +1835,14 @@ async def mark_attention(
     list-sessions` de más en el camino solo añadiría una forma de que el
     aviso se pierda.
 
-    Lo que sí se comprueba es que el nombre pueda ser el de una sesión. NO se
-    usa `_SESSION_NAME_RE` —el filtro estricto de `/api/create-session`—
-    porque aquí llegan nombres que ese filtro rechaza y son legítimos: los que
-    genera el propio panel al desduplicar (`Terminal (2)`, con espacio y
-    paréntesis, ver `_next_label_name`) y los de las sesiones creadas a mano
-    en tmux. Aplicarlo dejaría sin aviso justo a esas. Lo que se acota es lo
-    que puede crecer sin límite: el largo del nombre, porque cada marca lo
-    guarda en un mapa en memoria.
+    Lo que sí se comprueba es que el nombre pueda ser el de una sesión, con
+    `_nombre_de_sesion_valido` y no con el filtro estricto de
+    `/api/create-session`: ver allí el porqué. Lo que se acota es lo que puede
+    crecer sin límite, el largo del nombre, porque cada marca lo guarda en un
+    mapa en memoria.
     """
-    if not name or len(name) > _MAX_ATTENTION_NAME or _CONTROL_RE.search(name):
-        raise http_error(400, "err.attention_name_invalid", {"name": name[:80]})
+    if not _nombre_de_sesion_valido(name):
+        raise http_error(400, "err.attention_name_invalid", name=name[:80])
     pendiente = attention_store.mark(name, body.label if body else None)
     _publicar_atencion(name, pendiente)
     return _aviso(pendiente)

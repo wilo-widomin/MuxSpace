@@ -418,7 +418,9 @@ async def bridge(websocket: WebSocket, name: str) -> None:
         pass
     os.set_blocking(master, False)
 
-    out_q: asyncio.Queue[bytes | None] = asyncio.Queue()
+    # Lleva los bytes del PTY y, intercalados en el MISMO orden, los avisos de
+    # que el tamaño ya se ha aplicado (ver el `resize` más abajo).
+    out_q: asyncio.Queue[bytes | dict | None] = asyncio.Queue()
 
     def _on_readable() -> None:
         try:
@@ -436,6 +438,9 @@ async def bridge(websocket: WebSocket, name: str) -> None:
             data = await out_q.get()
             if data is None:  # EOF del PTY
                 break
+            if isinstance(data, dict):
+                await websocket.send_text(json.dumps(data))
+                continue
             await websocket.send_bytes(data)
 
     out_task = asyncio.create_task(_pump_out())
@@ -494,7 +499,19 @@ async def bridge(websocket: WebSocket, name: str) -> None:
                 tipo = ctl.get("type")
                 if tipo == "resize":
                     try:
-                        _set_winsize(master, int(ctl["rows"]), int(ctl["cols"]))
+                        filas, columnas = int(ctl["rows"]), int(ctl["cols"])
+                        _set_winsize(master, filas, columnas)
+                        # El aviso viaja por la MISMA cola que la salida y se
+                        # encola sin ceder el control del bucle, así que cae
+                        # exactamente entre los bytes que tmux pintó con el
+                        # tamaño viejo y los que pinte con el nuevo. El
+                        # navegador cambia de tamaño justo ahí: si lo hiciera
+                        # antes (al medir), aplicaría con la geometría nueva
+                        # unos bytes dibujados para la vieja, y la pantalla se
+                        # quedaba con líneas repetidas hasta recargar.
+                        out_q.put_nowait({
+                            "type": "resized", "cols": columnas, "rows": filas,
+                        })
                     except Exception:
                         # Un resize con valores basura del cliente se descarta:
                         # tirar la terminal entera por un mensaje mal formado

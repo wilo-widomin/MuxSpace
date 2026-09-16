@@ -37,6 +37,8 @@ texto largo y búsqueda del transcript de Claude Code.
   token en la URL. Todo rechazo cierra con code 1008, sin distinguir causa.
 - El PTY solo se redimensiona por mensaje de control (`ioctl TIOCSWINSZ`,
   clamp 1..1000); valores basura se descartan sin tumbar la terminal.
+- **El navegador nunca cambia el tamaño de xterm por su cuenta**: mide, lo pide
+  y espera el `resized` del backend. Ver `puente-pty.md`.
 - **Un tile que no se ve no manda tamaño.** `refit()` sale sin hacer nada si el
   contenedor mide 0 (`offsetWidth`/`offsetHeight`), porque `display:none` no es
   un tamaño nuevo, es la ausencia de tamaño.
@@ -78,6 +80,9 @@ texto largo y búsqueda del transcript de Claude Code.
 - El pegado usa `term.paste()` y no una escritura de bytes: `paste` aplica
   bracketed paste, que es lo que hace que una TUI trate 20 líneas como un
   pegado y no como 20 Enter.
+- **`FitAddon` solo se usa para medir (`proposeDimensions`), nunca para
+  redimensionar (`fit`)**: `fit()` cambia el tamaño de xterm en el acto, que es
+  justo lo que rompía la pantalla.
 - **`FitAddon` no mide píxeles: lee `getComputedStyle` del contenedor.** Con un
   ancestro en `display:none` el navegador NO resuelve los porcentajes y
   devuelve el literal del CSS —aquí `h-full w-full`, o sea «100%»—, que el

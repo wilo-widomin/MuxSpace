@@ -1,7 +1,7 @@
 ---
 dominio: sesiones
 accion: estado-del-grid
-actualizado: 2026-09-01
+actualizado: 2026-09-16
 archivos:
   - frontend/src/App.jsx
   - frontend/src/lib/grid.js
@@ -50,7 +50,9 @@ Claves de `localStorage`: `muxspace:hidden-sessions`, `muxspace:session-order`,
   veces el componente estaba bien y sus tests en verde.
 
 - Minimizar y ocultar **no desmontan** el tile (CSS `display:none`):
-  desmontarlo cerraría el WebSocket y perdería el scrollback de xterm.
+  desmontarlo cerraría el WebSocket y perdería el scrollback de xterm. A
+  cambio, la terminal escondida sigue viva y su `ResizeObserver` dispara con el
+  contenedor a cero: ver la trampa de `FitAddon` en `terminal/_dominio`.
 - Al abrir o cerrar una terminal cambia la forma de la rejilla, así que se
   recuperan otros tamaños. Parece que «se pierden» y no es un bug.
 - Un `space` guardado en sessionStorage que ya no existe (borrado desde otra

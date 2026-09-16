@@ -25,6 +25,8 @@ Transversal:
 - `arquitectura.md` — stack, capas, convenciones, cómo se arranca y se prueba,
   y las trampas que muerden en cualquier tarea (datos reales en
   `backend/data/`, un solo worker, `bun` nunca `npm`, recompilar `dist`).
+- `reproducir-en-e2e.md` — cómo montar un caso que reproduzca un fallo visual
+  del panel, con una medida objetiva, sin tocar el panel vivo del usuario.
 
 ## Mapa rápido
 

@@ -37,15 +37,10 @@ El resize se dispara en `ws.onopen`, en `requestAnimationFrame`, en
 ese debounce, arrastrar un separador del grid manda ~60 resizes por segundo y
 por ventana.
 
-**El cambio de tamaño es de ida y vuelta, y el orden es el arreglo.** El
-navegador mide el tile y solo PIDE ese tamaño; no toca el suyo. El backend
-aplica el `ioctl` y encola `resized` **en la misma cola que la salida del PTY y
-sin ceder el bucle**, así que el aviso cae exactamente entre los bytes que tmux
-dibujó con la geometría vieja y los que dibujará con la nueva. El cliente
-redimensiona xterm al recibirlo, dentro de `term.write('', callback)` para que
-ocurra cuando xterm ha terminado de procesar lo anterior. Si el navegador
-cambiara de tamaño al medir —como hacía `fit.fit()`—, aplicaría con la
-geometría nueva bytes dibujados para la vieja; ver la trampa de abajo.
+**El cambio de tamaño es de ida y vuelta**: el navegador solo PIDE el tamaño y
+lo aplica cuando el backend confirma con `resized` que el PTY ya lo tiene. El
+orden es el arreglo de un fallo caro; está entero en
+[tamaño de la terminal](tamano-de-la-terminal.md) y no se toca sin leerlo.
 
 ## Reglas
 
@@ -70,11 +65,6 @@ geometría nueva bytes dibujados para la vieja; ver la trampa de abajo.
   se suelta hasta que pase el recolector.
 - Si estás en el historial hay que salir de copy-mode **antes** de escribir los
   bytes, o el copy-mode se come las teclas.
-- **Un desajuste de geometría de un instante no se arregla solo.** tmux dibuja
-  por diferencias, con la posición del cursor y los márgenes de scroll
-  (`DECSTBM`) del cliente como estado compartido; si el cliente cambia de
-  tamaño por su cuenta, xterm reinicia esos márgenes y tmux sigue dibujando
-  contra un estado que ya no existe. El resultado —medido— es la MISMA línea
-  repetida en toda la pantalla, y ni `refresh-client` ni el repintado que tmux
-  hace al redimensionar lo recuperan: solo recargar la página o otro cambio de
-  tamaño. Por eso el tamaño lo manda el backend y no el navegador.
+- **Un desajuste de geometría de un instante no se arregla solo**, porque tmux
+  dibuja por diferencias contra el estado que cree que tiene el cliente. Es la
+  razón de que el tamaño lo confirme el backend: `tamano-de-la-terminal.md`.

@@ -36,12 +36,8 @@ texto largo y búsqueda del transcript de Claude Code.
 - El WebSocket se autentica con la **cookie de sesión del handshake**; no hay
   token en la URL. Todo rechazo cierra con code 1008, sin distinguir causa.
 - El PTY solo se redimensiona por mensaje de control (`ioctl TIOCSWINSZ`,
-  clamp 1..1000); valores basura se descartan sin tumbar la terminal.
-- **El navegador nunca cambia el tamaño de xterm por su cuenta**: mide, lo pide
-  y espera el `resized` del backend. Ver `puente-pty.md`.
-- **Un tile que no se ve no manda tamaño.** `refit()` sale sin hacer nada si el
-  contenedor mide 0 (`offsetWidth`/`offsetHeight`), porque `display:none` no es
-  un tamaño nuevo, es la ausencia de tamaño.
+  clamp 1..1000); valores basura se descartan sin tumbar la terminal. El
+  navegador **no** redimensiona xterm por su cuenta (`tamano-de-la-terminal.md`).
 - Cerrar la vista no mata la sesión: al cerrar el WS se manda SIGTERM al
   `tmux attach`, que solo desengancha ese cliente, y se hace `waitpid`
   obligatorio (con `forkpty` nadie cosecha el hijo: si no, zombis).
@@ -49,6 +45,7 @@ texto largo y búsqueda del transcript de Claude Code.
 ## Acciones documentadas
 
 - [Puente PTY y protocolo del WebSocket](puente-pty.md)
+- [Tamaño de la terminal](tamano-de-la-terminal.md)
 - [Scroll y búsqueda del historial](scroll-y-busqueda.md)
 
 ## Trampas
@@ -80,16 +77,7 @@ texto largo y búsqueda del transcript de Claude Code.
 - El pegado usa `term.paste()` y no una escritura de bytes: `paste` aplica
   bracketed paste, que es lo que hace que una TUI trate 20 líneas como un
   pegado y no como 20 Enter.
-- **`FitAddon` solo se usa para medir (`proposeDimensions`), nunca para
-  redimensionar (`fit`)**: `fit()` cambia el tamaño de xterm en el acto, que es
-  justo lo que rompía la pantalla.
-- **`FitAddon` no mide píxeles: lee `getComputedStyle` del contenedor.** Con un
-  ancestro en `display:none` el navegador NO resuelve los porcentajes y
-  devuelve el literal del CSS —aquí `h-full w-full`, o sea «100%»—, que el
-  addon convierte en 100 px: unas 11 columnas por 5 filas. Sin la guarda de
-  tamaño, minimizar una ventana (o maximizar otra, que oculta todas las demás)
-  le mandaba ese 11x5 a tmux, que redibujaba la sesión a 11 columnas y metía en
-  el historial líneas partidas y repetidas. Al restaurar se recupera el tamaño,
-  pero lo que ya se escribió estrecho se queda así.
+- **Cambiar de tamaño es lo más frágil de aquí**: mal hecho deja la pantalla
+  del navegador con una línea repetida, y tmux intacto. Ver su documento.
 - `z-20` en la barra de scroll no es decorativo: xterm.css apila hasta 10 y sin
   eso la barra queda invisible y sorda a los clics.

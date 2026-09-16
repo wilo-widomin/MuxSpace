@@ -1,5 +1,5 @@
 ---
-actualizado: 2026-08-28
+actualizado: 2026-09-16
 archivos:
   - backend/main.py
   - backend/config.py
@@ -65,6 +65,9 @@ cd frontend && bun audit
 cd frontend && bun run check-i18n && bun run test:e2e
 ```
 
+Un fallo visual del panel se reproduce con ese mismo E2E antes de arreglarlo:
+`reproducir-en-e2e.md`.
+
 El gate de CI (`.github/workflows/ci.yml`) corre eso mismo en cuatro jobs
 —backend, frontend, extension, e2e— con `--cov-fail-under=80` y tmux real: lo
 que no se pueda reproducir en local no entra en el gate.
@@ -82,8 +85,11 @@ llamar al ejecutable.
 - **`backend/data/` son datos reales del usuario.** Ninguna prueba escribe ahí:
   `conftest.py` aísla los stores en `tmp_path` y su primer test lo verifica.
 - **El backend en 127.0.0.1:8000 es el panel vivo del usuario**, con terminales
-  abiertas. Las sesiones de tmux sobreviven a un reinicio; los WebSocket no.
-  Pregunta antes de reiniciarlo; para probar, levanta una copia con su `data/`.
+  abiertas. Pregunta antes de reiniciarlo. Las sesiones de tmux **no se pierden**
+  —el servidor de tmux es otra unidad de systemd (`tmux-server.service`), fuera
+  del cgroup del panel—, pero los WebSocket sí: cada terminal abierta en el
+  navegador queda muerta hasta que el usuario recargue. Para probar sin
+  molestar, levanta una copia con su `data/` o usa `reproducir-en-e2e.md`.
 - El backend sirve `frontend/dist`: sin `bun run build` se ve lo de antes.
 - `kill-server` de tmux es asíncrono: vuelve cuando ha mandado la orden, no
   cuando el servidor ha muerto. Encadenar `kill-server` + `new-session` falla

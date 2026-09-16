@@ -104,6 +104,16 @@ export default function XtermTerminal({
     // WebSocket abierto, ResizeObserver) para cubrir el momento exacto en
     // que el layout queda estable y xterm puede ocupar todo el div.
     const refit = () => {
+      // Con la ventana minimizada o fuera del modo foco, el tile lleva
+      // `display:none` y el contenedor deja de medir. FitAddon no mide
+      // píxeles: lee el `height`/`width` calculados del contenedor, que aquí
+      // son `h-full w-full`, y con un ancestro oculto el navegador NO resuelve
+      // los porcentajes: devuelve el literal «100%», que el addon convierte en
+      // 100 px. Eso daba ~11x5 y se le mandaba a tmux, que reflotaba la sesión
+      // entera a 11 columnas y dejaba el historial hecho un amasijo. Mientras
+      // no se vea, no se toca nada: al reaparecer, el ResizeObserver vuelve a
+      // disparar con el tamaño de verdad.
+      if (!container.offsetWidth || !container.offsetHeight) return
       try {
         fit.fit()
         sendResize()

@@ -1,7 +1,7 @@
 ---
 dominio: terminal
 accion: puente-pty
-actualizado: 2026-08-28
+actualizado: 2026-09-16
 archivos:
   - backend/pty_bridge.py
   - backend/main.py
@@ -30,12 +30,22 @@ duplicados a mano en el endpoint. Tocar uno sin el otro abre un agujero.
 | cliente → servidor | binario | stdin crudo |
 | cliente → servidor | texto JSON | `resize`, `scroll`, `scroll-to`, `scroll-query`, `scroll-exit`, `search` |
 | servidor → cliente | binario | stdout del PTY (lecturas de hasta 64 KB) |
-| servidor → cliente | texto JSON | `scroll-state`, `search-result` |
+| servidor → cliente | texto JSON | `resized`, `scroll-state`, `search-result` |
 
 El resize se dispara en `ws.onopen`, en `requestAnimationFrame`, en
 `document.fonts.ready` y en un `ResizeObserver` **con debounce de 60 ms**: sin
 ese debounce, arrastrar un separador del grid manda ~60 resizes por segundo y
 por ventana.
+
+**El cambio de tamaño es de ida y vuelta, y el orden es el arreglo.** El
+navegador mide el tile y solo PIDE ese tamaño; no toca el suyo. El backend
+aplica el `ioctl` y encola `resized` **en la misma cola que la salida del PTY y
+sin ceder el bucle**, así que el aviso cae exactamente entre los bytes que tmux
+dibujó con la geometría vieja y los que dibujará con la nueva. El cliente
+redimensiona xterm al recibirlo, dentro de `term.write('', callback)` para que
+ocurra cuando xterm ha terminado de procesar lo anterior. Si el navegador
+cambiara de tamaño al medir —como hacía `fit.fit()`—, aplicaría con la
+geometría nueva bytes dibujados para la vieja; ver la trampa de abajo.
 
 ## Reglas
 
@@ -60,3 +70,11 @@ por ventana.
   se suelta hasta que pase el recolector.
 - Si estás en el historial hay que salir de copy-mode **antes** de escribir los
   bytes, o el copy-mode se come las teclas.
+- **Un desajuste de geometría de un instante no se arregla solo.** tmux dibuja
+  por diferencias, con la posición del cursor y los márgenes de scroll
+  (`DECSTBM`) del cliente como estado compartido; si el cliente cambia de
+  tamaño por su cuenta, xterm reinicia esos márgenes y tmux sigue dibujando
+  contra un estado que ya no existe. El resultado —medido— es la MISMA línea
+  repetida en toda la pantalla, y ni `refresh-client` ni el repintado que tmux
+  hace al redimensionar lo recuperan: solo recargar la página o otro cambio de
+  tamaño. Por eso el tamaño lo manda el backend y no el navegador.

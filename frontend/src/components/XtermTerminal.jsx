@@ -99,7 +99,16 @@ export default function XtermTerminal({
 
     const enc = new TextEncoder()
 
-    // Reajusta filas/columnas al tamaño real del contenedor y avisa a tmux.
+    // Último tamaño pedido al backend. Sin esto, cada latido del
+    // ResizeObserver repetiría la misma petición y tmux redibujaría de balde.
+    let pedido = { cols: 0, rows: 0 }
+    // Reintentos de la primera medida (ver `refit`).
+    let intentos = 0
+
+    // Mide el tile y le PIDE ese tamaño a tmux. Lo que NO hace es cambiar el
+    // tamaño de xterm: eso ocurre al recibir el aviso `resized` del backend
+    // (ver `ws.onmessage`), que llega en el punto exacto del flujo donde tmux
+    // pasa a dibujar con la geometría nueva.
     // Definido pronto porque lo usan varios disparadores (fuente lista,
     // WebSocket abierto, ResizeObserver) para cubrir el momento exacto en
     // que el layout queda estable y xterm puede ocupar todo el div.
@@ -114,12 +123,29 @@ export default function XtermTerminal({
       // no se vea, no se toca nada: al reaparecer, el ResizeObserver vuelve a
       // disparar con el tamaño de verdad.
       if (!container.offsetWidth || !container.offsetHeight) return
+      let dims
       try {
-        fit.fit()
-        sendResize()
+        dims = fit.proposeDimensions()
       } catch {
-        /* el contenedor aún no tiene tamaño; se reintenta al reaparecer */
+        dims = null
       }
+      const medible = dims && Number.isFinite(dims.cols) && Number.isFinite(dims.rows)
+      // Al abrir, la primera medida puede salir en blanco (la fuente aún no
+      // ha cargado) y el WebSocket puede no estar abierto todavía. Sin
+      // reintentar, la terminal se quedaba con el tamaño con el que nació el
+      // PTY —80x24— para siempre, porque el ResizeObserver ya no vuelve a
+      // dispararse si el tile no cambia de tamaño.
+      if (!medible || ws.readyState !== WebSocket.OPEN) {
+        if (intentos < 40) {
+          intentos += 1
+          refitSoon()
+        }
+        return
+      }
+      intentos = 0
+      if (dims.cols === pedido.cols && dims.rows === pedido.rows) return
+      pedido = dims
+      sendResize(dims)
     }
 
     // Al arrastrar un separador del grid el ResizeObserver dispara en cada
@@ -244,9 +270,9 @@ export default function XtermTerminal({
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
     }
 
-    const sendResize = () => {
+    const sendResize = (dims) => {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
+        ws.send(JSON.stringify({ type: 'resize', cols: dims.cols, rows: dims.rows }))
       }
     }
 
@@ -265,6 +291,18 @@ export default function XtermTerminal({
           const msg = JSON.parse(ev.data)
           if (msg.type === 'search-result') {
             setCoincidencias(msg.matches || 0)
+            return
+          }
+          if (msg.type === 'resized') {
+            // tmux YA ha cambiado de tamaño: de aquí en adelante todo lo que
+            // llegue está dibujado con esta geometría. El `write` vacío no
+            // pinta nada; su callback se ejecuta cuando xterm ha terminado de
+            // procesar lo que tenía en cola, que es justo lo dibujado con la
+            // geometría vieja. Redimensionar ahí y no al medir es lo que evita
+            // que la pantalla quede con líneas repetidas: ese desajuste no se
+            // arregla solo, porque tmux dibuja por diferencias y da por bueno
+            // lo que cree que el navegador ya tiene.
+            term.write('', () => term.resize(msg.cols, msg.rows))
             return
           }
           if (msg.type === 'scroll-state') {
@@ -424,6 +462,7 @@ export default function XtermTerminal({
     // la celda; disparamos en el frame siguiente y cuando la fuente carga,
     // además del ResizeObserver para cualquier cambio de tamaño posterior.
     const raf = requestAnimationFrame(refit)
+
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(refit).catch(() => {})
     }

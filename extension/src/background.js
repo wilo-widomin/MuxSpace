@@ -7,7 +7,7 @@
 // le devuelve. Así no hay que tocar ni el CORS ni la cookie del backend.
 
 import { groupColor, plannedUrls, reconcileGroup } from './lib/group.js'
-import { isPanelUrl, originPattern, panelSpaceUrl } from './lib/panel.js'
+import { isAuthError, isPanelUrl, originPattern, panelSpaceUrl } from './lib/panel.js'
 import { needsLaunch, sessionsToAdopt } from './lib/sessions.js'
 import {
   readPanelOrigin,
@@ -20,6 +20,24 @@ import {
 /** Error con mensaje ya listo para enseñar en el popup. */
 class ExtensionError extends Error {}
 
+/**
+ * No hay sesión en el panel.
+ *
+ * Es el único error que tiene arreglo sin salir de la extensión: basta con
+ * enseñarle al usuario la pantalla de login del panel. Por eso viaja como
+ * clase propia y el popup la distingue para ofrecer el botón de entrar.
+ */
+class AuthError extends ExtensionError {
+  constructor() {
+    super('No hay sesión en el panel: entra para poder abrir proyectos.')
+  }
+}
+
+// Cada cuánto se le pregunta al panel si ya hay sesión, y cuánto se espera
+// antes de rendirse. El sondeo también mantiene despierto al service worker.
+const LOGIN_POLL_MS = 1500
+const LOGIN_TIMEOUT_MS = 5 * 60 * 1000
+
 // Las dos funciones siguientes se ejecutan DENTRO de la pestaña del panel,
 // inyectadas en su mundo principal (`MAIN`): las peticiones salen exactamente
 // igual que si las hiciera el propio panel, con su cookie y su certificado.
@@ -31,7 +49,7 @@ class ExtensionError extends Error {}
 /** GET a una ruta de la API del panel. */
 function getInPage(path) {
   return fetch(path, { credentials: 'same-origin' })
-    .then((r) => (r.ok ? r.json() : { __error: `HTTP ${r.status}` }))
+    .then((r) => (r.ok ? r.json() : { __error: `HTTP ${r.status}`, __status: r.status }))
     .catch((e) => ({ __error: String(e) }))
 }
 
@@ -55,7 +73,7 @@ function readActiveSpaceInPage() {
 /** POST sin cuerpo a una ruta de la API del panel. */
 function postInPage(path) {
   return fetch(path, { method: 'POST', credentials: 'same-origin' })
-    .then((r) => (r.ok ? r.json() : { __error: `HTTP ${r.status}` }))
+    .then((r) => (r.ok ? r.json() : { __error: `HTTP ${r.status}`, __status: r.status }))
     .catch((e) => ({ __error: String(e) }))
 }
 
@@ -67,7 +85,7 @@ function putInPage(path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-    .then((r) => (r.ok ? r.json() : { __error: `HTTP ${r.status}` }))
+    .then((r) => (r.ok ? r.json() : { __error: `HTTP ${r.status}`, __status: r.status }))
     .catch((e) => ({ __error: String(e) }))
 }
 
@@ -103,14 +121,18 @@ async function panelBridge(origin) {
 }
 
 /**
- * Ejecuta una petición a la API desde una pestaña del panel.
+ * Ejecuta una petición a la API desde una pestaña del panel, sin juzgarla.
+ *
+ * Devuelve tal cual lo que salga, incluidos los `{__error, __status}`: quien
+ * llama decide si un 401 es un fallo o una invitación a pedir el login.
  *
  * @param {number} tabId - Pestaña del panel que hace de puente.
- * @param {Function} func - `getInPage` o `postInPage`.
+ * @param {Function} func - `getInPage`, `postInPage` o `putInPage`.
  * @param {string} path - Ruta de la API.
- * @returns {Promise<any>} Lo que devuelva la API.
+ * @param {any} [body] - Cuerpo, para el PUT.
+ * @returns {Promise<any>}
  */
-async function askPanel(tabId, func, path, body) {
+async function tryPanel(tabId, func, path, body) {
   let resultados
   try {
     resultados = await chrome.scripting.executeScript({
@@ -122,32 +144,131 @@ async function askPanel(tabId, func, path, body) {
   } catch (err) {
     throw new ExtensionError(`No se pudo hablar con el panel: ${err.message}`)
   }
-  const salida = resultados?.[0]?.result
+  return resultados?.[0]?.result
+}
+
+/**
+ * Lo mismo, pero exigiendo respuesta buena: cualquier error aborta.
+ *
+ * @returns {Promise<any>} Lo que devuelva la API.
+ */
+async function askPanel(tabId, func, path, body) {
+  const salida = await tryPanel(tabId, func, path, body)
+  if (isAuthError(salida)) throw new AuthError()
   if (!salida || salida.__error) {
-    // Lo más probable con diferencia: la sesión del panel caducó y la API
-    // responde 401. Se dice así y no "error desconocido".
     throw new ExtensionError(
-      `El panel no respondió a ${path} (${salida?.__error || 'sin respuesta'}). ` +
-        'Comprueba que has iniciado sesión en el panel.',
+      `El panel no respondió a ${path} (${salida?.__error || 'sin respuesta'}).`,
     )
   }
   return salida
 }
 
 /**
+ * ¿Hay sesión abierta en el panel?
+ *
+ * `GET /api/me` es la pregunta barata: contesta 401 si no la hay y no toca
+ * nada si la hay.
+ *
+ * @param {number} tabId - Pestaña puente.
+ * @returns {Promise<boolean>}
+ */
+async function isLoggedIn(tabId) {
+  const salida = await tryPanel(tabId, getInPage, '/api/me')
+  if (isAuthError(salida)) return false
+  if (!salida || salida.__error) {
+    throw new ExtensionError(
+      `El panel no respondió a /api/me (${salida?.__error || 'sin respuesta'}).`,
+    )
+  }
+  return true
+}
+
+/** Trae una pestaña al frente, con su ventana. */
+async function focusTab(tabId) {
+  const tab = await chrome.tabs.update(tabId, { active: true })
+  if (tab?.windowId !== undefined) {
+    await chrome.windows.update(tab.windowId, { focused: true })
+  }
+}
+
+/**
+ * Pone el login del panel delante del usuario y espera a que entre.
+ *
+ * La extensión no puede pedir la contraseña ella misma: la cookie y el
+ * certificado de cliente son de la pestaña, no suyos, y un formulario propio
+ * sería pedir credenciales fuera del sitio al que pertenecen. Así que lo que
+ * hace es enseñar el panel —que sin sesión pinta su pantalla de login— y
+ * sondearlo hasta que la sesión exista, para poder seguir con lo que se
+ * estaba haciendo sin obligar a repetir el clic.
+ *
+ * @param {number} tabId - Pestaña del panel.
+ * @returns {Promise<void>}
+ */
+async function waitForLogin(tabId) {
+  await focusTab(tabId)
+  const limite = Date.now() + LOGIN_TIMEOUT_MS
+  while (Date.now() < limite) {
+    await new Promise((resolve) => setTimeout(resolve, LOGIN_POLL_MS))
+    try {
+      if (await isLoggedIn(tabId)) return
+    } catch (err) {
+      // La pestaña se cerró o dejó de ser el panel: no hay a quién preguntar.
+      err.keepTab = true
+      throw err
+    }
+  }
+  const agotado = new ExtensionError(
+    'Se agotó la espera: no se inició sesión en el panel.',
+  )
+  // La pestaña del login se queda como está: cerrarla mientras el usuario
+  // puede estar tecleando la contraseña es peor que dejar una de más.
+  agotado.keepTab = true
+  throw agotado
+}
+
+/**
+ * Garantiza que hay sesión, pidiéndola si se permite interrumpir.
+ *
+ * `promptLogin` separa los dos usos: abrir un proyecto es una orden del
+ * usuario y merece robarle el foco para que entre; refrescar la lista pasa
+ * solo al abrir el popup, y ahí lo que toca es avisar, no secuestrar la
+ * pantalla.
+ *
+ * @param {number} tabId - Pestaña puente.
+ * @param {boolean} promptLogin
+ */
+async function ensureLoggedIn(tabId, promptLogin) {
+  if (await isLoggedIn(tabId)) return
+  if (!promptLogin) throw new AuthError()
+  await waitForLogin(tabId)
+}
+
+/**
  * Pide los proyectos al panel a través de una de sus pestañas.
  *
  * @param {string} origin
+ * @param {boolean} [promptLogin] - Si sin sesión se pide el login y se espera.
  * @returns {Promise<{projects: Array, bridgeTabId: number, opened: boolean}>}
  */
-async function loadProjects(origin) {
+async function loadProjects(origin, promptLogin = false) {
   const { tabId, opened } = await panelBridge(origin)
-  const salida = await askPanel(tabId, getInPage, '/api/projects')
-  if (!Array.isArray(salida)) {
-    throw new ExtensionError('El panel devolvió algo que no es una lista de proyectos.')
+  try {
+    await ensureLoggedIn(tabId, promptLogin)
+    const salida = await askPanel(tabId, getInPage, '/api/projects')
+    if (!Array.isArray(salida)) {
+      throw new ExtensionError('El panel devolvió algo que no es una lista de proyectos.')
+    }
+    await writeProjects(salida)
+    return { projects: salida, bridgeTabId: tabId, opened }
+  } catch (err) {
+    // La puente que abrió la extensión se abrió solo para preguntar: si la
+    // pregunta falla, no tiene por qué quedarse. La del usuario nunca se
+    // toca, y la que ya está enseñando el login tampoco (`keepTab`).
+    if (opened && !err.keepTab) {
+      await chrome.tabs.remove(tabId).catch(() => {})
+    }
+    throw err
   }
-  await writeProjects(salida)
-  return { projects: salida, bridgeTabId: tabId, opened }
 }
 
 /**
@@ -259,7 +380,9 @@ async function openProject(projectId) {
     throw new ExtensionError('Falta la dirección del panel: ábrela en las opciones.')
   }
 
-  const { projects, bridgeTabId, opened } = await loadProjects(origin)
+  // Abrir un proyecto es una orden explícita: si falta la sesión se pide y
+  // se espera, y la apertura sigue sola en cuanto el usuario entra.
+  const { projects, bridgeTabId, opened } = await loadProjects(origin, true)
   const project = projects.find((p) => p.id === projectId)
   if (!project) {
     throw new ExtensionError('Ese proyecto ya no existe en el panel.')
@@ -368,6 +491,21 @@ function openProjectOnce(projectId) {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const acciones = {
     openProject: () => openProjectOnce(message.projectId),
+    // Entrar en el panel a petición del popup, cuando refrescar ha avisado
+    // de que no hay sesión y el usuario decide ocuparse de ello.
+    login: async () => {
+      const origin = await readPanelOrigin()
+      if (!origin) {
+        throw new ExtensionError('Falta la dirección del panel: ábrela en las opciones.')
+      }
+      const { tabId } = await panelBridge(origin)
+      if (await isLoggedIn(tabId)) {
+        await focusTab(tabId)
+        return {}
+      }
+      await waitForLogin(tabId)
+      return {}
+    },
     refreshProjects: async () => {
       const origin = await readPanelOrigin()
       if (!origin) {
@@ -384,7 +522,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   accion()
     .then((data) => sendResponse({ ok: true, ...data }))
-    .catch((err) => sendResponse({ ok: false, error: err.message }))
+    // `needsLogin` es lo que deja al popup ofrecer el botón de entrar en vez
+    // de enseñar un error contra el que no se puede hacer nada.
+    .catch((err) =>
+      sendResponse({
+        ok: false,
+        error: err.message,
+        needsLogin: err instanceof AuthError,
+      }),
+    )
   // `true`: la respuesta llega más tarde, en la promesa.
   return true
 })

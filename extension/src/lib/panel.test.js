@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  isAuthError,
   isPanelUrl,
   normalizePanelOrigin,
   originPattern,
@@ -83,5 +84,21 @@ describe('isPanelUrl', () => {
   it('una URL ilegible no es el panel', () => {
     expect(isPanelUrl('no-es-una-url', 'https://panel.interno')).toBe(false)
     expect(isPanelUrl('', 'https://panel.interno')).toBe(false)
+  })
+})
+
+describe('isAuthError', () => {
+  it('reconoce el 401 del panel', () => {
+    expect(isAuthError({ __error: 'HTTP 401', __status: 401 })).toBe(true)
+  })
+
+  it('no confunde otros errores con falta de sesión', () => {
+    expect(isAuthError({ __error: 'HTTP 500', __status: 500 })).toBe(false)
+    expect(isAuthError({ __error: 'TypeError: Failed to fetch' })).toBe(false)
+  })
+
+  it('una respuesta buena no es error de sesión', () => {
+    expect(isAuthError([])).toBe(false)
+    expect(isAuthError(null)).toBe(false)
   })
 })

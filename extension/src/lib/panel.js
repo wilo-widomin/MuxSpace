@@ -75,3 +75,17 @@ export function isPanelUrl(url, origin) {
     return false
   }
 }
+
+/**
+ * ¿Lo que devolvió la pestaña puente es «no has iniciado sesión»?
+ *
+ * El panel contesta 401 tanto si nunca se entró como si la sesión caducó, y
+ * es el único error que se arregla solo: enseñándole el login al usuario. El
+ * resto (500, red caída, pestaña muerta) no tiene más salida que avisar.
+ *
+ * @param {{__error?: string, __status?: number}} salida - Respuesta inyectada.
+ * @returns {boolean}
+ */
+export function isAuthError(salida) {
+  return Boolean(salida && salida.__status === 401)
+}

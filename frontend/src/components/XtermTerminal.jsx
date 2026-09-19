@@ -715,7 +715,19 @@ export default function XtermTerminal({
         ref={containerRef}
         onMouseDown={onFocus}
         className="h-full w-full overflow-hidden"
-        style={{ background: '#000000' }}
+        // `touchAction: none` es lo que devuelve el scroll con el dedo en una
+        // tableta. Para ver lo anterior hay que arrastrar HACIA ABAJO, que es
+        // justo el gesto del «tirar para recargar» de Chrome en Android, y el
+        // navegador decide quién se queda el arrastre en el PRIMER
+        // `touchmove`: cancelarlo más tarde ya no se lo quita. Como el gesto
+        // del panel espera 10 px antes de cancelar —umbral que protege el
+        // toque simple—, ese primer tramo se le iba limpio al navegador y el
+        // scroll moría. Con esto el navegador no interpreta nada que empiece
+        // aquí dentro y el arrastre llega entero desde el primer píxel.
+        // Va SOLO en este div, no en el padre: el modal de la lupa es hermano
+        // y ahí sí hacen falta el scroll y la selección nativos, que es como
+        // se copia texto desde una tableta.
+        style={{ background: '#000000', touchAction: 'none' }}
       />
       {transcript && (
         <TranscriptSearch
@@ -791,6 +803,10 @@ export default function XtermTerminal({
           // (xterm.css), así que sin esto la barra queda DEBAJO del terminal —
           // invisible y sorda a los clics.
           className="absolute right-0 top-0 bottom-0 z-20 w-2.5 cursor-pointer"
+          // Por lo mismo que la terminal: sin esto el navegador se queda el
+          // arrastre de la barra a mitad de camino y el pulgar deja de seguir
+          // al dedo.
+          style={{ touchAction: 'none' }}
           onPointerDown={onPulgarDown}
           onPointerMove={onPulgarMove}
           onPointerUp={onPulgarUp}

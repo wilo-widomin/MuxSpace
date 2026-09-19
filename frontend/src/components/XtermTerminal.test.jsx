@@ -122,7 +122,7 @@ afterEach(() => {
 })
 
 function montar() {
-  render(
+  return render(
     <LangProvider>
       <XtermTerminal name="panel" />
     </LangProvider>,
@@ -190,5 +190,32 @@ describe('XtermTerminal: tamaño', () => {
     llegaConfirmacion(120, 40)
 
     expect(resizeSpy).toHaveBeenCalledWith(120, 40)
+  })
+})
+
+// Por qué esto merece un test: el fallo que arregla no se ve en jsdom ni en
+// Playwright, porque es el navegador de verdad quien se queda el gesto. Para
+// ver lo anterior en una tableta hay que arrastrar HACIA ABAJO, que es el
+// «tirar para recargar» de Chrome en Android, y el navegador lo reclama en el
+// primer `touchmove`. El gesto del panel cancela recién a los 10 px, así que
+// llegaba tarde. Lo único que lo evita es que el contenedor declare que ahí
+// dentro no hay gestos del navegador; lo que se comprueba es justo eso, que la
+// declaración está en el DOM, porque es toda la causa y todo el arreglo.
+describe('XtermTerminal: gestos táctiles', () => {
+  it('la terminal no le deja ningún gesto al navegador', () => {
+    const { container } = montar()
+    const terminal = container.querySelector('.overflow-hidden')
+
+    expect(terminal.style.touchAction).toBe('none')
+  })
+
+  it('el modal de la lupa NO queda dentro de esa zona', () => {
+    // Si `touchAction: none` estuviera en el div padre, el modal lo heredaría
+    // y se quedaría sin scroll ni selección nativos — que es precisamente
+    // como se copia texto desde una tableta.
+    const { container } = montar()
+    const raiz = container.querySelector('.relative')
+
+    expect(raiz.style.touchAction).toBe('')
   })
 })

@@ -209,12 +209,17 @@ funcionan como con un ratón. Esto es cómo se hacen:
   programa, no de tmux, así que nadie sabe cuánto hay ni por dónde vas: no se
   puede dibujar un tirador en ninguna posición. Se mueve **arrastrando el dedo
   sobre la terminal**, y para ver lo anterior se arrastra **hacia abajo**.
-- **Trampa, y su apaño**: arrastrar hacia abajo es justo el gesto que Chrome en
-  Android reserva para **recargar la página**, y el navegador decide quién se
-  queda el gesto en el primer movimiento. Si empiezas bajando, se lo queda él y
-  el scroll no responde. Mientras no esté arreglado (ver más abajo), el apaño
-  es **empezar subiendo un poco y, sin soltar, bajar**: ese primer tramo hacia
-  arriba no le interesa al navegador, y a partir de ahí el gesto es del panel.
+- **Por qué antes no iba**: arrastrar hacia abajo es justo el gesto que Chrome
+  en Android reserva para **recargar la página**, y el navegador decide quién
+  se queda el arrastre en el primer movimiento. Como el panel no lo cancelaba
+  hasta los 10 px, ese primer tramo se le iba limpio y el scroll no respondía;
+  el rodeo era empezar subiendo un poco y luego bajar. Ya no hace falta: la
+  terminal declara `touch-action: none`, así que el navegador no interpreta
+  ningún gesto que empiece dentro de ella.
+- **El «tirar para recargar» sigue funcionando fuera de la terminal** —en el
+  sidebar, por ejemplo—, porque esa declaración va solo en la terminal y en su
+  barra de scroll. Para recargar de verdad están el botón del navegador y el
+  **Refrescar** del panel, que además no tira abajo las terminales.
 
 **Seleccionar y copiar texto**
 
@@ -226,13 +231,6 @@ Se hace **en la lupa**: abre un modal con lo mismo que hay en pantalla, que es
 HTML normal, así que ahí funcionan la selección y el copiar del propio
 navegador. La lupa es un **interruptor** —se cierra volviendo a tocarla—
 porque en una tableta no hay tecla Escape.
-
-**Pendiente de arreglar**
-
-El apaño del gesto sobra en cuanto el panel declare `overscroll-behavior: none`
-(desactiva el «tirar para recargar») y `touch-action: none` en la terminal (el
-navegador deja de interpretar el arrastre por su cuenta y llega entero desde el
-primer píxel). Hasta entonces, el apaño de arriba es la forma de usarlo.
 
 ## CI: qué bloquea un merge
 

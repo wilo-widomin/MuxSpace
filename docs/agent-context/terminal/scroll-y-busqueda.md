@@ -55,15 +55,20 @@ se traducen a copy-mode de tmux por mensajes de control.
   umbral la tableta perdería el toque simple. Y lleva `preventDefault()` por lo
   de siempre — sin él, el navegador desplaza la página y xterm hace además su
   propio scroll, así que el gesto cuenta dos veces.
-- **Ese umbral es, a la vez, el motivo de que el gesto falle en Android.** Para
-  ver lo anterior hay que arrastrar hacia abajo, que es el gesto del «tirar
-  para recargar» de Chrome, y el navegador decide quién se queda el arrastre
-  **en el primer `touchmove`**: cancelarlo después no se lo quita. Como los
-  primeros 10 px pasan sin cancelar, el navegador reclama el gesto y el scroll
-  muere. Se nota en que empezar hacia arriba y luego bajar sí funciona. Lo que
-  lo arregla de raíz no es bajar el umbral, es `overscroll-behavior: none` en
-  `html`/`body` y `touch-action: none` en el contenedor de la terminal; con
-  eso el navegador no interpreta nada y el arrastre llega entero.
+- **Ese umbral es, a la vez, lo que hacía fallar el gesto en Android**, y por
+  eso el contenedor lleva `touchAction: 'none'`. Para ver lo anterior hay que
+  arrastrar hacia abajo, que es el gesto del «tirar para recargar» de Chrome, y
+  el navegador decide quién se queda el arrastre **en el primer `touchmove`**:
+  cancelarlo después no se lo quita. Como los primeros 10 px pasaban sin
+  cancelar, el navegador reclamaba el gesto y el scroll moría. Bajar el umbral
+  no lo arreglaba —costaría el toque simple y seguiría siendo tarde—: lo que lo
+  arregla es que el navegador no interprete nada que empiece ahí dentro.
+- **`touchAction: 'none'` va en el div de xterm y en la pista de la barra, NUNCA
+  en el div padre.** El modal de la lupa es hermano y cuelga de ese padre: con
+  la declaración arriba heredaría la restricción y se quedaría sin scroll ni
+  selección nativos, que es justo como se copia texto desde una tableta.
+  Ponerlo solo en la terminal deja además el «tirar para recargar» vivo en el
+  resto del panel.
 - **La selección de texto no se arregla en la terminal.** xterm pinta la
   selección desde eventos de ratón, que un arrastre táctil no genera, y
   `xterm.css` pone `user-select: none`, así que tampoco hay selección nativa.

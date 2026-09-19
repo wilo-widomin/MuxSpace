@@ -144,6 +144,25 @@ input {
   font-size: 12px;
 }
 
+/* El botón de entrar aparece bajo el aviso de «no hay sesión»: es la única
+   acción posible en ese momento, así que se ve como acción, no como enlace. */
+#entrar {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--acento);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--acento);
+  font: inherit;
+  cursor: pointer;
+}
+
+#entrar[hidden] {
+  display: none;
+}
+
 #aviso.error {
   background: color-mix(in srgb, #ef4444 15%, transparent);
 }

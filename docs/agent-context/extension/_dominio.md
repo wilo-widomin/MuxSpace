@@ -1,6 +1,6 @@
 ---
 dominio: extension
-actualizado: 2026-08-28
+actualizado: 2026-09-18
 archivos:
   - extension/manifest.json
   - extension/src/background.js
@@ -30,8 +30,22 @@ Paquete aparte: su propio `package.json`, su lockfile y su job de CI.
 y cookie de sesión, que pertenecen a la pestaña; así que la extensión inyecta
 código en una pestaña del panel (`chrome.scripting.executeScript` con
 `world: 'MAIN'`) y es esa pestaña la que llama a la API con sus credenciales.
-Endpoints que usa: `GET /api/projects`, `GET /api/sessions`,
+Endpoints que usa: `GET /api/me`, `GET /api/projects`, `GET /api/sessions`,
 `PUT /api/sessions/{name}/space` y `POST /api/projects/{id}/run`.
+
+**Sin sesión en el panel, la extensión no hace nada**, así que antes de pedir
+nada pregunta por `GET /api/me`. Si contesta 401, hay dos comportamientos y
+los separa `promptLogin`:
+
+- **Abrir un proyecto** (el usuario ha pulsado): trae la pestaña del panel al
+  frente —sin sesión pinta su pantalla de login—, sondea `/api/me` cada 1,5 s
+  hasta 5 minutos y, en cuanto hay sesión, **continúa la apertura sola**.
+- **Refrescar la lista** (pasa solo al abrir el popup): no roba el foco.
+  Devuelve `needsLogin: true` y el popup enseña el botón «Iniciar sesión en el
+  panel», que dispara lo mismo a petición del usuario.
+
+La contraseña se teclea **siempre en la pestaña del panel**, nunca en el
+popup: la cookie y el certificado de cliente son de esa pestaña.
 
 La dirección del panel se escribe en las opciones, se normaliza y se guarda en
 `chrome.storage.local` (`panelOrigin`); **no hay ninguna por defecto en el
@@ -65,5 +79,11 @@ repo**. Ahí viven también la caché `projects` y el mapa `projectGroups`
   agrupar.
 - `waitForLoad` no tiene timeout: una pestaña que nunca termina de cargar deja
   la promesa colgada y el botón bloqueado.
+- Sondear el login mantiene vivo el service worker mientras dura la espera,
+  pero si la pestaña del panel se cierra en medio, la apertura muere con
+  «no se pudo hablar con el panel».
+- La pestaña que ya está enseñando el login no se cierra aunque la abriera la
+  extensión (`keepTab`): cerrarla mientras se teclea la contraseña sería peor
+  que dejar una de más.
 - Los tests (vitest, con `bun run test`) solo cubren `lib/`: todo lo que llama a
   Chrome se prueba a mano cargando la extensión descomprimida.

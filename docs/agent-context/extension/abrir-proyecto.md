@@ -1,10 +1,11 @@
 ---
 dominio: extension
 accion: abrir-proyecto
-actualizado: 2026-08-28
+actualizado: 2026-09-18
 archivos:
   - extension/src/background.js
   - extension/src/lib/group.js
+  - extension/src/lib/panel.js
   - extension/src/lib/sessions.js
   - extension/src/lib/storage.js
 depende_de: [biblioteca/ejecutar-proyecto, espacios/_dominio]
@@ -18,14 +19,17 @@ en el espacio del proyecto y sus enlaces, y el proyecto con terminal viva.
 ## Flujo
 
 1. Leer `panelOrigin` (sin él, error que manda a las opciones).
-2. Cargar los proyectos por el puente y cachearlos.
-3. `ensureProjectReady`: pedir las sesiones, mover al espacio del proyecto las
+2. Comprobar la sesión con `GET /api/me`. Sin ella, poner la pestaña del
+   panel delante y esperar a que el usuario entre; después se sigue por donde
+   iba, sin pedirle otro clic.
+3. Cargar los proyectos por el puente y cachearlos.
+4. `ensureProjectReady`: pedir las sesiones, mover al espacio del proyecto las
    suyas que estén en otro (`sessionsToAdopt`) y lanzarlo si no le queda
    ninguna (`needsLaunch`). **Los fallos de este paso no abortan**: se acumulan
    como aviso.
-4. Buscar el grupo existente y reconciliar: navegar la pestaña del panel al
+5. Buscar el grupo existente y reconciliar: navegar la pestaña del panel al
    espacio correcto y abrir **solo** las pestañas que falten.
-5. Agrupar, poner título y color, recordar el `groupId`, activar la primera
+6. Agrupar, poner título y color, recordar el `groupId`, activar la primera
    pestaña del grupo y enfocar la ventana.
 
 ## Reglas

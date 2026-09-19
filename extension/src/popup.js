@@ -5,15 +5,17 @@ import { filterProjects } from './lib/projects.js'
 const lista = document.getElementById('proyectos')
 const aviso = document.getElementById('aviso')
 const buscar = document.getElementById('buscar')
+const entrar = document.getElementById('entrar')
 
 // Última lista conocida, sin filtrar. El buscador filtra sobre esto en vez de
 // volver a preguntar al panel: escribir tiene que responder al instante.
 let proyectos = []
 
-function mostrarAviso(texto, esError = false) {
+function mostrarAviso(texto, esError = false, pedirLogin = false) {
   aviso.textContent = texto
   aviso.classList.toggle('error', esError)
   aviso.hidden = !texto
+  entrar.hidden = !pedirLogin
 }
 
 /** Repinta la lista con el filtro que haya escrito ahora mismo. */
@@ -54,6 +56,9 @@ async function abrir(projectId, boton) {
   const respuesta = await chrome.runtime.sendMessage({ type: 'openProject', projectId })
   boton.disabled = false
   if (!respuesta?.ok) {
+    // Sin sesión, el service worker ya ha puesto el login del panel delante y
+    // seguirá con la apertura solo; este mensaje casi nunca llega a verse,
+    // porque al pasar el foco a esa pestaña el popup se cierra.
     mostrarAviso(respuesta?.error || 'No se pudo abrir el proyecto.', true)
     return
   }
@@ -71,12 +76,32 @@ async function refrescar() {
   mostrarAviso('Preguntando al panel…')
   const respuesta = await chrome.runtime.sendMessage({ type: 'refreshProjects' })
   if (!respuesta?.ok) {
-    mostrarAviso(respuesta?.error || 'No se pudo leer el panel.', true)
+    // Refrescar pasa solo al abrir el popup: si falta la sesión se ofrece
+    // entrar, pero no se le roba la pantalla al usuario sin que lo pida.
+    mostrarAviso(
+      respuesta?.error || 'No se pudo leer el panel.',
+      true,
+      Boolean(respuesta?.needsLogin),
+    )
     return
   }
   proyectos = respuesta.projects
   pintar()
 }
+
+// El login se hace SIEMPRE en una pestaña del panel: la contraseña se teclea
+// en el sitio al que pertenece, no en el popup de una extensión.
+entrar.addEventListener('click', async () => {
+  entrar.disabled = true
+  mostrarAviso('Abriendo el panel para que inicies sesión…')
+  const respuesta = await chrome.runtime.sendMessage({ type: 'login' })
+  entrar.disabled = false
+  if (!respuesta?.ok) {
+    mostrarAviso(respuesta?.error || 'No se pudo abrir el panel.', true)
+    return
+  }
+  refrescar()
+})
 
 document.getElementById('refrescar').addEventListener('click', refrescar)
 document.getElementById('opciones').addEventListener('click', () => {

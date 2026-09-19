@@ -195,6 +195,45 @@ aunque se recargue la web: solo se cierra la "ventana" de visualización.
   caracteres que interpretaría el shell, para poder pegarlas de una pieza.
 - La anchura del sidebar es arrastrable.
 
+### Desde una tableta (pantalla táctil)
+
+El panel se usa a diario desde una tableta, y ahí hay dos cosas que no
+funcionan como con un ratón. Esto es cómo se hacen:
+
+**Moverse por el historial**
+
+- **En un shell o cualquier salida normal**: la barra de scroll propia, en el
+  borde derecho del tile. Es estrecha; hay que apuntar al borde mismo.
+- **Dentro de Claude Code, `vim` o `less`** (programas que ocupan la *pantalla
+  alternativa*): **no hay barra, y no puede haberla**. Ese historial es del
+  programa, no de tmux, así que nadie sabe cuánto hay ni por dónde vas: no se
+  puede dibujar un tirador en ninguna posición. Se mueve **arrastrando el dedo
+  sobre la terminal**, y para ver lo anterior se arrastra **hacia abajo**.
+- **Trampa, y su apaño**: arrastrar hacia abajo es justo el gesto que Chrome en
+  Android reserva para **recargar la página**, y el navegador decide quién se
+  queda el gesto en el primer movimiento. Si empiezas bajando, se lo queda él y
+  el scroll no responde. Mientras no esté arreglado (ver más abajo), el apaño
+  es **empezar subiendo un poco y, sin soltar, bajar**: ese primer tramo hacia
+  arriba no le interesa al navegador, y a partir de ahí el gesto es del panel.
+
+**Seleccionar y copiar texto**
+
+Sobre la terminal **no se puede**, y no es un fallo del panel: xterm.js dibuja
+la selección a partir de eventos de ratón, y un arrastre con el dedo no los
+produce.
+
+Se hace **en la lupa**: abre un modal con lo mismo que hay en pantalla, que es
+HTML normal, así que ahí funcionan la selección y el copiar del propio
+navegador. La lupa es un **interruptor** —se cierra volviendo a tocarla—
+porque en una tableta no hay tecla Escape.
+
+**Pendiente de arreglar**
+
+El apaño del gesto sobra en cuanto el panel declare `overscroll-behavior: none`
+(desactiva el «tirar para recargar») y `touch-action: none` en la terminal (el
+navegador deja de interpretar el arrastre por su cuenta y llega entero desde el
+primer píxel). Hasta entonces, el apaño de arriba es la forma de usarlo.
+
 ## CI: qué bloquea un merge
 
 `.github/workflows/ci.yml` corre en cada `pull_request` y en cada `push` a

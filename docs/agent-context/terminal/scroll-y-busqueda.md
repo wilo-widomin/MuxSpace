@@ -1,7 +1,7 @@
 ---
 dominio: terminal
 accion: scroll-y-busqueda
-actualizado: 2026-09-15
+actualizado: 2026-09-19
 archivos:
   - backend/pty_bridge.py
   - backend/tmux_service.py
@@ -52,10 +52,23 @@ se traducen a copy-mode de tmux por mensajes de control.
 - Con un arrastre en curso se ignora todo `scroll-state` entrante; si no, el
   pulgar salta atrás con estado viejo.
 - El gesto táctil espera **10 px antes de secuestrar el arrastre**: sin ese
-  umbral la tableta perdería el toque simple y la selección dentro del
-  programa. Y lleva `preventDefault()` por lo de siempre — sin él, el navegador
-  desplaza la página y xterm hace además su propio scroll, así que el gesto
-  cuenta dos veces.
+  umbral la tableta perdería el toque simple. Y lleva `preventDefault()` por lo
+  de siempre — sin él, el navegador desplaza la página y xterm hace además su
+  propio scroll, así que el gesto cuenta dos veces.
+- **Ese umbral es, a la vez, el motivo de que el gesto falle en Android.** Para
+  ver lo anterior hay que arrastrar hacia abajo, que es el gesto del «tirar
+  para recargar» de Chrome, y el navegador decide quién se queda el arrastre
+  **en el primer `touchmove`**: cancelarlo después no se lo quita. Como los
+  primeros 10 px pasan sin cancelar, el navegador reclama el gesto y el scroll
+  muere. Se nota en que empezar hacia arriba y luego bajar sí funciona. Lo que
+  lo arregla de raíz no es bajar el umbral, es `overscroll-behavior: none` en
+  `html`/`body` y `touch-action: none` en el contenedor de la terminal; con
+  eso el navegador no interpreta nada y el arrastre llega entero.
+- **La selección de texto no se arregla en la terminal.** xterm pinta la
+  selección desde eventos de ratón, que un arrastre táctil no genera, y
+  `xterm.css` pone `user-select: none`, así que tampoco hay selección nativa.
+  En tableta se copia desde el modal de la lupa, que es HTML normal. No hace
+  falta construir selección por pulsación larga.
 - Los `wheel` sintéticos se emiten **de fila en fila**, no por píxel: un delta
   menor que la altura de fila lo redondea xterm a cero y el gesto se pierde
   entero. El resto se guarda para el movimiento siguiente.

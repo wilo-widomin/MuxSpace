@@ -1,7 +1,7 @@
 ---
 dominio: terminal
 accion: scroll-y-busqueda
-actualizado: 2026-09-15
+actualizado: 2026-09-19
 archivos:
   - backend/pty_bridge.py
   - backend/tmux_service.py
@@ -52,10 +52,28 @@ se traducen a copy-mode de tmux por mensajes de control.
 - Con un arrastre en curso se ignora todo `scroll-state` entrante; si no, el
   pulgar salta atrás con estado viejo.
 - El gesto táctil espera **10 px antes de secuestrar el arrastre**: sin ese
-  umbral la tableta perdería el toque simple y la selección dentro del
-  programa. Y lleva `preventDefault()` por lo de siempre — sin él, el navegador
-  desplaza la página y xterm hace además su propio scroll, así que el gesto
-  cuenta dos veces.
+  umbral la tableta perdería el toque simple. Y lleva `preventDefault()` por lo
+  de siempre — sin él, el navegador desplaza la página y xterm hace además su
+  propio scroll, así que el gesto cuenta dos veces.
+- **Ese umbral es, a la vez, lo que hacía fallar el gesto en Android**, y por
+  eso el contenedor lleva `touchAction: 'none'`. Para ver lo anterior hay que
+  arrastrar hacia abajo, que es el gesto del «tirar para recargar» de Chrome, y
+  el navegador decide quién se queda el arrastre **en el primer `touchmove`**:
+  cancelarlo después no se lo quita. Como los primeros 10 px pasaban sin
+  cancelar, el navegador reclamaba el gesto y el scroll moría. Bajar el umbral
+  no lo arreglaba —costaría el toque simple y seguiría siendo tarde—: lo que lo
+  arregla es que el navegador no interprete nada que empiece ahí dentro.
+- **`touchAction: 'none'` va en el div de xterm y en la pista de la barra, NUNCA
+  en el div padre.** El modal de la lupa es hermano y cuelga de ese padre: con
+  la declaración arriba heredaría la restricción y se quedaría sin scroll ni
+  selección nativos, que es justo como se copia texto desde una tableta.
+  Ponerlo solo en la terminal deja además el «tirar para recargar» vivo en el
+  resto del panel.
+- **La selección de texto no se arregla en la terminal.** xterm pinta la
+  selección desde eventos de ratón, que un arrastre táctil no genera, y
+  `xterm.css` pone `user-select: none`, así que tampoco hay selección nativa.
+  En tableta se copia desde el modal de la lupa, que es HTML normal. No hace
+  falta construir selección por pulsación larga.
 - Los `wheel` sintéticos se emiten **de fila en fila**, no por píxel: un delta
   menor que la altura de fila lo redondea xterm a cero y el gesto se pierde
   entero. El resto se guarda para el movimiento siguiente.

@@ -1,6 +1,6 @@
 ---
 dominio: terminal
-actualizado: 2026-09-16
+actualizado: 2026-09-23
 archivos:
   - backend/pty_bridge.py
   - backend/claude_transcript.py
@@ -81,3 +81,19 @@ texto largo y búsqueda del transcript de Claude Code.
   del navegador con una línea repetida, y tmux intacto. Ver su documento.
 - `z-20` en la barra de scroll no es decorativo: xterm.css apila hasta 10 y sin
   eso la barra queda invisible y sorda a los clics.
+- **El clic que reactiva la ventana de Chrome no llega a la página**, y no es
+  un fallo del panel. Síntoma: con dos terminales, se sale a otra ventana, se
+  vuelve pulsando en la terminal que no tenía el foco, y el foco sigue en la
+  de antes; hay que pulsar otra vez. Se midió el 23/09/2026 en el Chrome de
+  Willy: al volver llegan `focus` de la ventana y el `focusin` de la terminal
+  que Chrome restaura, pero **ni `pointerdown`, ni `mousedown`, ni `mouseup`,
+  ni `click`** del clic que la activó. Sin ese evento el panel no sabe dónde se
+  pulsó. Willy decidió dejarlo así (el segundo clic lo resuelve). El apaño
+  posible, que no se hizo, era dar el foco a la terminal bajo el ratón al
+  volver; tiene el riesgo de robar el foco al volver con Alt+Tab.
+  **Con DevTools abierto Chrome sí entrega el clic y el fallo no se ve**, así
+  que para diagnosticarlo no sirve registrar en la consola: se pega en la
+  consola un registro que pinta los eventos en una caja fija sobre la página
+  (`position:fixed; pointer-events:none`), se cierra DevTools y se reproduce.
+  Los E2E tampoco sirven aquí: Playwright emula que la página tiene el foco
+  siempre (`document.hasFocus()` es `true` aunque haya otra pestaña delante).

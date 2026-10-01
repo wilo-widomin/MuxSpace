@@ -110,3 +110,21 @@ describe('SessionGrid: minimizar', () => {
     }
   })
 })
+
+describe('SessionGrid: sin huecos en la rejilla', () => {
+  it('con tres, la de arriba a la derecha ocupa toda la columna derecha', () => {
+    renderGrid()
+
+    // 2x2 con una de menos: pistas 1 y 3 (la 2 es el canal del separador).
+    expect(wrapper('uno')).toHaveStyle({ gridColumn: '1', gridRow: '1' })
+    expect(wrapper('dos')).toHaveStyle({ gridColumn: '3', gridRow: '1 / 4' })
+    expect(wrapper('tres')).toHaveStyle({ gridColumn: '1', gridRow: '3' })
+  })
+
+  it('con cuatro no se estira ninguna', () => {
+    renderGrid({ openSessions: [...sessions, { name: 'cuatro' }] })
+
+    expect(wrapper('dos')).toHaveStyle({ gridColumn: '3', gridRow: '1' })
+    expect(wrapper('cuatro')).toHaveStyle({ gridColumn: '3', gridRow: '3' })
+  })
+})

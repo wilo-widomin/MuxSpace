@@ -218,6 +218,11 @@ export default function SessionGrid({
   // grid 1-based; las pares son los canales donde viven los separadores.
   const trackLine = (i) => 2 * i + 1
   const gutterLine = (i) => 2 * i + 2
+  // Si la última fila queda incompleta (3 terminales en 2x2, 5 en 3x2…), la
+  // ventana que tiene el hueco debajo se estira hasta abajo en vez de dejarlo
+  // vacío. El último separador horizontal solo cruza las columnas que siguen
+  // partidas: encima de una ventana estirada robaría sus clics.
+  const lastRowCount = visibleSessions.length - (rows - 1) * cols
 
   // Modo foco: una terminal ocupa todo el grid y las demás se esconden con
   // CSS. Se ocultan, no se desmontan: al desmontarlas se cerraría su
@@ -310,6 +315,8 @@ export default function SessionGrid({
           const visibleIndex = visibleSessions.indexOf(session)
           const col = visibleIndex % cols
           const row = Math.floor(visibleIndex / cols)
+          const rowEnd =
+            visibleIndex + cols >= visibleSessions.length ? rows - 1 : row
           const hidden =
             visibleIndex === -1 || (isFocus && session.name !== focusedName)
           return (
@@ -321,7 +328,13 @@ export default function SessionGrid({
                   ? { display: 'none' }
                   : isFocus
                     ? { gridColumn: 1, gridRow: 1 }
-                    : { gridColumn: trackLine(col), gridRow: trackLine(row) }
+                    : {
+                        gridColumn: trackLine(col),
+                        gridRow:
+                          rowEnd === row
+                            ? trackLine(row)
+                            : `${trackLine(row)} / ${trackLine(rowEnd) + 1}`,
+                      }
               }
             >
               <TerminalTile
@@ -386,7 +399,13 @@ export default function SessionGrid({
               onDoubleClick={resetAxis('row')}
               title={t('grid.resize_hint')}
               className="group z-10 flex cursor-row-resize items-center justify-center"
-              style={{ gridRow: gutterLine(i), gridColumn: '1 / -1' }}
+              style={{
+                gridRow: gutterLine(i),
+                gridColumn:
+                  i === rows - 2 && lastRowCount < cols
+                    ? `1 / ${trackLine(lastRowCount - 1) + 1}`
+                    : '1 / -1',
+              }}
             >
               <div className="h-[3px] w-full rounded-full bg-transparent transition group-hover:bg-panel-accent/60" />
             </div>

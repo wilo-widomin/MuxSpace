@@ -36,6 +36,10 @@ Claves de `localStorage`: `muxspace:hidden-sessions`, `muxspace:session-order`,
   alfabéticamente.
 - Los pesos de los separadores se guardan **por forma de rejilla** (`2x2`,
   `3x2`…): unos pesos de 3 columnas no significan nada en una de 2.
+- **La rejilla no deja huecos.** Si la última fila queda incompleta (3
+  terminales en 2x2, 5 en 3x2), la ventana que tiene el hueco debajo se estira
+  hasta la última fila. El último separador horizontal cruza solo las columnas
+  que siguen partidas; encima de la ventana estirada le robaría los clics.
 - `?space=<id>` es una **orden de apertura de una sola vez**: `initialSpace` la
   obedece y un efecto la borra de la URL con `replaceState`. Si se quedara,
   cada recarga te sacaría del espacio en el que trabajas.

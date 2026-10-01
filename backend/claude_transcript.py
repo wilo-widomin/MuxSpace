@@ -31,6 +31,9 @@ import logs
 _log = logs.obtener(__name__)
 
 RAIZ_PROYECTOS = Path.home() / ".claude" / "projects"
+# Claude Code apunta aquí, en `<pid>.json`, qué conversación lleva cada proceso
+# vivo (`sessionId`) y desde qué directorio arrancó (`cwd`).
+RAIZ_SESIONES = Path.home() / ".claude" / "sessions"
 
 # Cuánto se devuelve. Un transcript puede pasar de 5 MB y el modal lo pinta
 # entero en el navegador: sin tope, abrir la búsqueda congelaría la pestaña.
@@ -71,6 +74,48 @@ def sesion_mas_reciente(directorio: Path) -> Path | None:
     if not transcripts:
         return None
     return max(transcripts, key=lambda p: p.stat().st_mtime)
+
+
+def _descendientes(pid: int) -> list[int]:
+    """Procesos que cuelgan de `pid`, a cualquier profundidad.
+
+    Se lee de `/proc`: el Claude de un panel no es el proceso del panel (ese
+    es la shell), sino un hijo suyo, o un nieto si se lanzó con un envoltorio.
+    """
+    pendientes, vistos = [pid], []
+    while pendientes:
+        actual = pendientes.pop()
+        for tarea in Path(f"/proc/{actual}/task").glob("*/children"):
+            try:
+                hijos = tarea.read_text().split()
+            except OSError:
+                continue
+            for hijo in hijos:
+                if hijo.isdigit() and int(hijo) not in vistos:
+                    vistos.append(int(hijo))
+                    pendientes.append(int(hijo))
+    return vistos
+
+
+def sesion_del_panel(pane_pid: int) -> tuple[str, str] | None:
+    """`(cwd, sessionId)` del Claude que corre en el panel, si hay uno.
+
+    Es lo que distingue dos Claude abiertos en el mismo proyecto: los dos
+    escriben en el mismo directorio de transcripts, y «el más reciente» es el
+    del que haya hablado último, no el del panel que se está mirando.
+    """
+    for pid in [pane_pid, *_descendientes(pane_pid)]:
+        registro = RAIZ_SESIONES / f"{pid}.json"
+        try:
+            dato = json.loads(registro.read_text())
+        except (OSError, ValueError):
+            continue
+        sesion, cwd = dato.get("sessionId"), dato.get("cwd")
+        # El id acaba en un nombre de archivo: nada que no sea un id de verdad.
+        if isinstance(sesion, str) and re.fullmatch(r"[A-Za-z0-9-]+", sesion) \
+                and isinstance(cwd, str):
+            return cwd, sesion
+    return None
 
 
 def _recortar(texto: str) -> str:
@@ -159,17 +204,32 @@ def leer(transcript: Path) -> list[dict[str, Any]]:
     return mensajes[-MAX_MENSAJES:]
 
 
-def para_cwd(cwd: str) -> dict[str, Any]:
+def para_cwd(cwd: str, pane_pid: str | None = None) -> dict[str, Any]:
     """Transcript de la sesión de Claude que corre en `cwd`.
+
+    Con `pane_pid` se enseña la conversación del Claude de ESE panel. Solo si
+    no se encuentra (un Claude antiguo que no deja registro) se cae a la más
+    reciente del proyecto, que acierta mientras haya un único Claude en él.
 
     Devuelve siempre la misma forma; `available` en falso con un motivo
     cuando no hay nada que enseñar, para que el panel pueda decir POR QUÉ en
     vez de abrir un modal vacío.
     """
+    del_panel = (
+        sesion_del_panel(int(pane_pid)) if pane_pid and pane_pid.isdigit() else None
+    )
+    if del_panel is not None:
+        cwd = del_panel[0]
     directorio = directorio_de(cwd)
     if directorio is None:
         return {"available": False, "reason": "no_project", "messages": []}
-    transcript = sesion_mas_reciente(directorio)
+    if del_panel is not None:
+        # Si aún no existe (Claude recién abierto, sin un solo mensaje), se
+        # dice que no hay sesión: caer a otra sería enseñar la de otro panel.
+        candidato = directorio / f"{del_panel[1]}.jsonl"
+        transcript = candidato if candidato.is_file() else None
+    else:
+        transcript = sesion_mas_reciente(directorio)
     if transcript is None:
         return {"available": False, "reason": "no_session", "messages": []}
     try:

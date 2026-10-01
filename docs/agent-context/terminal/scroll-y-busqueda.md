@@ -92,5 +92,13 @@ se traducen a copy-mode de tmux por mensajes de control.
 - El nombre se pasa a `http_error` como **parámetro con nombre**
   (`name=name[:80]`), nunca como tercer argumento posicional: ese hueco es
   `technical`, y un dict ahí sale en la interfaz como `([object Object])`.
+- **Qué conversación se enseña la decide el panel, no el proyecto.** Dos
+  Claude en el mismo directorio escriben en la misma carpeta de transcripts, y
+  coger «el `.jsonl` más reciente» enseñaba en las dos ventanas la del que
+  hubiera hablado último. Ahora `pane_info` devuelve el `pane_pid`, se buscan
+  sus descendientes en `/proc` y el que tenga `~/.claude/sessions/<pid>.json`
+  da el `sessionId` (y el `cwd` con que arrancó Claude). Si ese `.jsonl` aún no
+  existe se responde `no_session`, nunca la de otro panel; «el más reciente»
+  queda solo para cuando no aparece ningún registro.
 - En el transcript, las coincidencias se numeran **después** de filtrar; si no,
   «3 de 17» llevaría a bloques ocultos.

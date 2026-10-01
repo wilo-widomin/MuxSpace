@@ -160,6 +160,7 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     transcripts = tmp_path / "claude-projects"
     transcripts.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(claude_transcript, "RAIZ_PROYECTOS", transcripts)
+    monkeypatch.setattr(claude_transcript, "RAIZ_SESIONES", tmp_path / "claude-sessions")
 
     monkeypatch.setattr(library_store, "_STORE_PATH", datos / "library.json")
     monkeypatch.setattr(space_store, "_STORE_PATH", datos / "spaces.json")

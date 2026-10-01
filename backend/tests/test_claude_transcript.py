@@ -107,6 +107,66 @@ def test_coge_la_sesion_mas_reciente(proyectos: Path) -> None:
     assert ct.para_cwd("/tmp/proyecto")["session"] == "nueva"
 
 
+def _dos_claude_en_el_mismo_proyecto(
+    proyectos: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Paneles 100 y 200, cada uno con su Claude (101 y 201) en /tmp/proyecto.
+
+    La conversación del panel 100 es la MÁS VIEJA: así, si se cayera a «la más
+    reciente», el test lo vería.
+    """
+    sesiones = proyectos.parent / "sessions"
+    sesiones.mkdir()
+    monkeypatch.setattr(ct, "RAIZ_SESIONES", sesiones)
+    monkeypatch.setattr(ct, "_descendientes", lambda pid: [pid + 1])
+    dir_proyecto = proyectos / ct._slug("/tmp/proyecto")
+    dir_proyecto.mkdir()
+    for pid, sesion in ((101, "uno"), (201, "dos")):
+        (sesiones / f"{pid}.json").write_text(
+            json.dumps({"pid": pid, "sessionId": sesion, "cwd": "/tmp/proyecto"})
+        )
+        escribir(dir_proyecto / f"{sesion}.jsonl", [mensaje("user", f"soy {sesion}")])
+    import os
+    os.utime(dir_proyecto / "uno.jsonl", (1_000_000, 1_000_000))
+
+
+def test_cada_panel_ve_su_propia_conversacion(
+    proyectos: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """El fallo que fija: dos ventanas con Claude en el mismo proyecto
+    enseñaban la misma conversación (la que hubiera hablado último)."""
+    _dos_claude_en_el_mismo_proyecto(proyectos, monkeypatch)
+
+    assert ct.para_cwd("/tmp/proyecto", "100")["session"] == "uno"
+    assert ct.para_cwd("/tmp/proyecto", "200")["session"] == "dos"
+
+
+def test_un_claude_sin_mensajes_no_ensena_la_de_otro_panel(
+    proyectos: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Recién abierto, su `.jsonl` aún no existe: mejor «nada» que la ajena."""
+    _dos_claude_en_el_mismo_proyecto(proyectos, monkeypatch)
+    (proyectos / ct._slug("/tmp/proyecto") / "uno.jsonl").unlink()
+
+    datos = ct.para_cwd("/tmp/proyecto", "100")
+
+    assert datos["available"] is False
+    assert datos["reason"] == "no_session"
+
+
+def test_los_descendientes_se_leen_de_proc() -> None:
+    """El Claude es hijo de la shell del panel, no la shell misma."""
+    import os
+    import subprocess
+
+    hijo = subprocess.Popen(["sleep", "5"])
+    try:
+        assert hijo.pid in ct._descendientes(os.getpid())
+    finally:
+        hijo.kill()
+        hijo.wait()
+
+
 def test_sin_proyecto_lo_dice_en_vez_de_reventar(proyectos: Path) -> None:
     """El panel necesita poder explicar POR QUÉ no hay nada que enseñar."""
     datos = ct.para_cwd("/tmp/un-sitio-sin-claude")

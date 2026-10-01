@@ -1488,7 +1488,7 @@ def get_transcript(name: str, user: str = _auth) -> dict:
         raise http_from(404, exc) from exc
     if not panel["path"]:
         return {"available": False, "reason": "no_project", "messages": []}
-    return claude_transcript.para_cwd(panel["path"])
+    return claude_transcript.para_cwd(panel["path"], panel.get("pid") or None)
 
 
 # Sufijo ` (N)` que `_next_label_name` le pone a la segunda sesión de un

@@ -191,9 +191,13 @@ def pane_info(name: str) -> dict[str, str]:
     Lo usa la búsqueda del transcript de Claude: del directorio sale el
     proyecto, y de ahí el `.jsonl` de la conversación. `alternate_on` dice si
     el programa ocupa su propia pantalla, que es lo que distingue "aquí busca
-    tmux" de "aquí hay que leer el transcript".
+    tmux" de "aquí hay que leer el transcript". `pid` es el del proceso que
+    abrió el panel: de él cuelga el Claude que corre ahí, y eso dice QUÉ
+    conversación es cuando hay varias en el mismo proyecto.
     """
-    formato = "#{pane_current_path}\t#{pane_current_command}\t#{alternate_on}"
+    formato = (
+        "#{pane_current_path}\t#{pane_current_command}\t#{alternate_on}\t#{pane_pid}"
+    )
     resultado = _run_tmux(["display-message", "-p", "-t", name, "-F", formato])
     if resultado.returncode != 0:
         raise TmuxError("err.tmux_session_missing", {"name": name})
@@ -202,6 +206,7 @@ def pane_info(name: str) -> dict[str, str]:
         "path": partes[0] if partes else "",
         "command": partes[1] if len(partes) > 1 else "",
         "alternate": partes[2] if len(partes) > 2 else "0",
+        "pid": partes[3] if len(partes) > 3 else "",
     }
 
 

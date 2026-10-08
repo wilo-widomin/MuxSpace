@@ -636,8 +636,7 @@ export default function App() {
   // se lo lleva la ventana recién abierta.
   const handleRunCommand = async (cmd) => {
     try {
-      const name = await handleLaunchCommand(cmd.id)
-      if (name) focusTerminal(name)
+      await handleLaunchCommand(cmd.id)
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) handleAuthFailure()
       else setError(tError(err))
@@ -683,7 +682,6 @@ export default function App() {
       }
     }
     await handleSelect(res.name)
-    focusTerminal(res.name)
   }
 
   // ---- Ejecutar un Proyecto en su propio espacio, en una pestaña nueva ----
@@ -716,6 +714,9 @@ export default function App() {
   // sola al puente PTY cuando se monta el tile. Mostrar una sesión es
   // des-ocultarla y, si vive en otro espacio, saltar a ese espacio para que
   // el clic en el sidebar nunca resulte en "no pasa nada visible".
+  // La terminal que se abre se lleva el foco de teclado, venga de donde
+  // venga (sesión nueva, comando, proyecto, clic en el sidebar): así lo que
+  // se escribe a continuación ya cae dentro, sin tener que hacer clic.
   const handleSelect = async (name) => {
     unhideSession(name)
     const session = sessions.find((s) => s.name === name)
@@ -729,6 +730,7 @@ export default function App() {
       }
     }
     setActiveName(name)
+    focusTerminal(name)
   }
 
   // ---- Quitar una ventana del grid ----

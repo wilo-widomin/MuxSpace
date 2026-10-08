@@ -223,3 +223,25 @@ test('matar la sesión desde el panel cierra la terminal', async ({
   // Y desaparece del listado, que es lo que ve el usuario.
   await expect(sesionEnLista(page, nombre)).toHaveCount(0)
 })
+
+test('una terminal recién creada desde el panel recibe lo que se escribe sin hacer clic', async ({
+  page,
+  entorno,
+  tmux,
+}) => {
+  limpiarSesiones(tmux)
+  await entrar(page, entorno)
+  const nombre = nombreSesion('-foco')
+
+  await page.getByRole('button', { name: T['sidebar.new_session'] }).click()
+  await page.getByLabel(T['form.session_name_label']).fill(nombre)
+  await page.getByRole('button', { name: T['form.create_session'] }).click()
+  await expect(pantalla(page, nombre)).not.toBeEmpty()
+
+  // Sin clic en la terminal: el foco tiene que haber llegado solo.
+  const marca = `foco-${Math.random().toString(36).slice(2, 8)}`
+  await page.keyboard.type(`echo ${marca}`)
+  await page.keyboard.press('Enter')
+
+  await expect(pantalla(page, nombre)).toContainText(marca)
+})

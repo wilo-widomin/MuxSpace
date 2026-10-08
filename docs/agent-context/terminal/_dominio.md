@@ -1,6 +1,6 @@
 ---
 dominio: terminal
-actualizado: 2026-09-23
+actualizado: 2026-10-08
 archivos:
   - backend/pty_bridge.py
   - backend/claude_transcript.py
@@ -79,6 +79,13 @@ texto largo y búsqueda del transcript de Claude Code.
   pegado y no como 20 Enter.
 - **Cambiar de tamaño es lo más frágil de aquí**: mal hecho deja la pantalla
   del navegador con una línea repetida, y tmux intacto. Ver su documento.
+- **Toda terminal que se abre se lleva el foco de teclado**: sesión nueva,
+  otra terminal en el mismo directorio, comando, proyecto o clic en el
+  sidebar. Pasa todo por `handleSelect` de `App.jsx`, que sube el contador
+  `focusReq`; la terminal con ese nombre llama a `term.focus()` al verlo
+  cambiar. Es un contador y no un booleano para que pedir el foco dos veces
+  seguidas a la misma funcione. Lo cubre el E2E «una terminal recién creada
+  desde el panel recibe lo que se escribe sin hacer clic».
 - `z-20` en la barra de scroll no es decorativo: xterm.css apila hasta 10 y sin
   eso la barra queda invisible y sorda a los clics.
 - **El clic que reactiva la ventana de Chrome no llega a la página**, y no es

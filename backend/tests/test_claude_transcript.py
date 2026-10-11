@@ -157,9 +157,10 @@ def test_un_claude_sin_mensajes_no_ensena_la_de_otro_panel(
 def test_los_descendientes_se_leen_de_proc() -> None:
     """El Claude es hijo de la shell del panel, no la shell misma."""
     import os
+    import shutil
     import subprocess
 
-    hijo = subprocess.Popen(["sleep", "5"])
+    hijo = subprocess.Popen([shutil.which("sleep"), "5"])
     try:
         assert hijo.pid in ct._descendientes(os.getpid())
     finally:

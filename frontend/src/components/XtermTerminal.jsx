@@ -710,7 +710,10 @@ export default function XtermTerminal({
   }, [])
 
   return (
-    <div className="relative h-full w-full" style={{ background: '#000000' }}>
+    // El margen va aquí y no en el contenedor de xterm: FitAddon mide el
+    // ancho calculado de ese contenedor, y con `box-sizing: border-box` un
+    // padding suyo contaría como sitio para columnas que luego no caben.
+    <div className="relative h-full w-full px-1" style={{ background: '#000000' }}>
       <div
         ref={containerRef}
         onMouseDown={onFocus}

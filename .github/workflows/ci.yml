@@ -106,9 +106,15 @@ jobs:
       # La pareja de `pip-audit` para el otro lado. Estas dependencias no se
       # ejecutan en el navegador —viven en el build y en el linter—, así que
       # lo que vigila es la cadena de construcción (SEC-002).
+      #
+      # Se ignora UN aviso, `braces` (GHSA-vfj7-8cjw-p6xm): afecta a todas sus
+      # versiones publicadas y no hay ninguna corregida. Llega solo por
+      # Tailwind 3 (fast-glob → micromatch) y solo expande los patrones de
+      # `tailwind.config.js`, que escribimos nosotros. Se quita al pasar a
+      # Tailwind 4 o en cuanto `braces` publique un arreglo.
       - name: bun audit
         working-directory: frontend
-        run: bun audit
+        run: bun audit --ignore GHSA-vfj7-8cjw-p6xm
 
       - name: eslint
         working-directory: frontend

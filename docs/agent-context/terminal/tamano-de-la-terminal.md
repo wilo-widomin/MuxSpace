@@ -1,10 +1,11 @@
 ---
 dominio: terminal
 accion: tamano-de-la-terminal
-actualizado: 2026-09-16
+actualizado: 2026-10-11
 archivos:
   - frontend/src/components/XtermTerminal.jsx
   - frontend/src/components/XtermTerminal.test.jsx
+  - frontend/e2e/terminal.spec.js
   - backend/pty_bridge.py
 depende_de: [terminal/puente-pty, sesiones/estado-del-grid]
 ---
@@ -44,6 +45,12 @@ navegador con la misma línea repetida decenas de veces.
 - Un tile con `display:none` (minimizado, o escondido por el modo foco) **no
   mide ni pide nada**: `refit()` sale en cuanto `offsetWidth` u `offsetHeight`
   valen 0.
+
+- **El margen de 4 px a cada lado va en el `div` exterior**, nunca en el
+  contenedor que se le da a xterm: `FitAddon` lee el ancho calculado de ese
+  contenedor y, con `box-sizing: border-box`, un padding suyo contaría como
+  sitio para columnas que luego no caben. Lo vigila el E2E «el texto deja
+  margen a los dos lados de la ventana».
 
 ## Trampas
 

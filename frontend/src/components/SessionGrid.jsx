@@ -315,8 +315,7 @@ export default function SessionGrid({
           const visibleIndex = visibleSessions.indexOf(session)
           const col = visibleIndex % cols
           const row = Math.floor(visibleIndex / cols)
-          const rowEnd =
-            visibleIndex + cols >= visibleSessions.length ? rows - 1 : row
+          const rowEnd = visibleIndex + cols >= visibleSessions.length ? rows - 1 : row
           const hidden =
             visibleIndex === -1 || (isFocus && session.name !== focusedName)
           return (

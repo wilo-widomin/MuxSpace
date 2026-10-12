@@ -303,7 +303,7 @@ export default function TerminalTile({
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
                   title={link.url}
-                  className="shrink-0 cursor-pointer rounded-full border border-panel-border px-2 py-0.5 text-[11px] leading-none text-panel-muted transition hover:border-panel-accent hover:text-panel-accent"
+                  className="shrink-0 cursor-pointer rounded-full border border-panel-border px-2 py-0.5 text-[0.6875rem] leading-none text-panel-muted transition hover:border-panel-accent hover:text-panel-accent"
                 >
                   {link.title}
                 </a>
@@ -454,7 +454,10 @@ export default function TerminalTile({
                   {/* Los que se envían solos se ven ANTES de tocarlos: es la
                       diferencia entre dejar algo escrito y lanzarlo. */}
                   {s.submit && (
-                    <span className="shrink-0 text-[10px]" title={t('snippets.submit')}>
+                    <span
+                      className="shrink-0 text-[0.625rem]"
+                      title={t('snippets.submit')}
+                    >
                       ⏎
                     </span>
                   )}

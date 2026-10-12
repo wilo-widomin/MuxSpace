@@ -1,5 +1,6 @@
 import { useT } from '../i18n/index.jsx'
 import { LanguagePicker } from './LanguagePicker.jsx'
+import { ScalePicker } from './ScalePicker.jsx'
 import { Modal } from './sidebar/Modal.jsx'
 import { BellIcon, BoltIcon, LinkIcon } from './sidebar/icons.jsx'
 
@@ -16,7 +17,7 @@ import { BellIcon, BoltIcon, LinkIcon } from './sidebar/icons.jsx'
  *
  * El idioma es la excepción a "una fila, un diálogo": es un desplegable de
  * seis opciones y abrirle una ventana propia sería un clic de más para algo
- * que se resuelve ahí mismo.
+ * que se resuelve ahí mismo. El tamaño del panel sigue la misma excepción.
  */
 export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets, onOpenLinks }) {
   const { t } = useT()
@@ -74,6 +75,17 @@ export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets, onOpenLinks
           </span>
         </span>
         <LanguagePicker />
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-3 rounded border border-panel-border px-3 py-3">
+        <span className="min-w-0">
+          <span className="block text-xs font-medium text-gray-100">
+            {t('scale.label')}
+          </span>
+          <span className="block text-xs text-panel-muted">
+            {t('settings.scale_hint')}
+          </span>
+        </span>
+        <ScalePicker />
       </div>
     </Modal>
   )

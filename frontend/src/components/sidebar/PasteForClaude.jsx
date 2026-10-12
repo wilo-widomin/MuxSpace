@@ -240,7 +240,7 @@ export function PasteForClaude({ open, onToggle }) {
                 <code
                   onClick={() => copyToClipboard(selectedPath)}
                   title={t('paste.copy_path')}
-                  className="mt-1 block cursor-pointer break-all rounded bg-black/30 px-1.5 py-1 text-[11px] leading-snug text-green-300 transition hover:bg-black/50"
+                  className="mt-1 block cursor-pointer break-all rounded bg-black/30 px-1.5 py-1 text-[0.6875rem] leading-snug text-green-300 transition hover:bg-black/50"
                 >
                   {quotePath(selectedPath)}
                 </code>

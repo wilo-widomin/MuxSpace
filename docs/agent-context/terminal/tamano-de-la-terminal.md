@@ -1,11 +1,13 @@
 ---
 dominio: terminal
 accion: tamano-de-la-terminal
-actualizado: 2026-10-11
+actualizado: 2026-10-12
 archivos:
   - frontend/src/components/XtermTerminal.jsx
   - frontend/src/components/XtermTerminal.test.jsx
   - frontend/e2e/terminal.spec.js
+  - frontend/src/uiScale.js
+  - frontend/src/components/ScalePicker.jsx
   - backend/pty_bridge.py
 depende_de: [terminal/puente-pty, sesiones/estado-del-grid]
 ---
@@ -52,7 +54,18 @@ navegador con la misma línea repetida decenas de veces.
   sitio para columnas que luego no caben. Lo vigila el E2E «el texto deja
   margen a los dos lados de la ventana».
 
+- **El tamaño de letra sale de `uiScale.js`**: 13 px por el tamaño elegido en
+  Ajustes (100 % a 200 %, guardado en `localStorage` de cada aparato). Al
+  cambiarlo, la terminal recibe `muxspace:scale`, cambia `fontSize` y vuelve a
+  medir: el `ResizeObserver` no se entera si el tile no cambia de tamaño.
+
 ## Trampas
+
+- **El zoom del navegador a 150 % cortaba la última letra.** Cada letra se
+  pinta una fracción de píxel más ancha de lo que xterm midió; en 206 columnas
+  la fila se salía 2,9 px y xterm recorta cada fila (`overflow: hidden`) al
+  ancho de su lienzo. Medido en el Mac de Willy, no reproducible en el Chromium
+  del E2E. Por eso existe el tamaño en Ajustes: agrandar sin zoom.
 
 - **tmux dibuja por diferencias**, con la posición del cursor y los márgenes de
   scroll (`DECSTBM`) del cliente como estado compartido. Si el cliente cambia

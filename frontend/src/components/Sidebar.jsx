@@ -1015,7 +1015,7 @@ export default function Sidebar({
             </div>
             {cmdOpen && (
               <>
-                <p className="px-2 pb-1 text-[11px] text-panel-muted/70">
+                <p className="px-2 pb-1 text-[0.6875rem] text-panel-muted/70">
                   {t('sidebar.commands_hint')}
                 </p>
                 <ul className="space-y-0.5">
@@ -1090,7 +1090,7 @@ export default function Sidebar({
             </div>
             {projOpen && (
               <>
-                <p className="px-2 pb-1 text-[11px] text-panel-muted/70">
+                <p className="px-2 pb-1 text-[0.6875rem] text-panel-muted/70">
                   {t('sidebar.projects_hint')}
                 </p>
 

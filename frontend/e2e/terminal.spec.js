@@ -246,58 +246,71 @@ test('una terminal recién creada desde el panel recibe lo que se escribe sin ha
   await expect(pantalla(page, nombre)).toContainText(marca)
 })
 
-test('el texto deja margen a los dos lados de la ventana', async ({
-  page,
-  entorno,
-  tmux,
-}) => {
-  limpiarSesiones(tmux)
-  const nombre = nombreSesion('-margen')
-  // Una línea que llena el ancho exacto que tmux cree tener y acaba en `#`:
-  // si la última columna se saliera del tile, el borde del texto lo diría.
-  // Se repinta sola para seguir al ancho tras cada cambio de tamaño.
-  tmux([
-    'new-session',
-    '-d',
-    '-s',
-    nombre,
-    `sh -c 'while true; do c=$(tput cols); printf "\\033[H\\033[2J"; printf "%0\${c}d" 0 | tr 0 W | sed "s/W$/#/"; sleep 0.3; done'`,
-  ])
-  await entrar(page, entorno)
-  await sesionEnLista(page, nombre).click()
-  await expect(pantalla(page, nombre)).toContainText('W#')
-
-  for (const ancho of [900, 1237, 1451]) {
-    await page.setViewportSize({ width: ancho, height: 800 })
-    // Por condición: justo tras el cambio la fila todavía es la del ancho
-    // anterior, y hasta que el programa la repinta puede sobresalir. Lo que
-    // se exige es que, ya repintada a todo lo ancho (acaba en `#`), quepa.
-    const medir = () =>
-      pantalla(page, nombre).evaluate((rows) => {
-        const fila = rows.firstElementChild
-        const tile = rows
-          .closest('.xterm')
-          .parentElement.parentElement.getBoundingClientRect()
-        const rango = document.createRange()
-        rango.selectNodeContents(fila)
-        const texto = [...rango.getClientRects()]
-        return {
-          llena: fila.textContent.trimEnd().endsWith('W#'),
-          izquierda: Math.min(...texto.map((r) => r.left)) - tile.left,
-          derecha: tile.right - Math.max(...texto.map((r) => r.right)),
-        }
-      })
-    await expect
-      .poll(
-        async () => {
-          const m = await medir()
-          return m.llena && m.izquierda >= 4 && m.derecha >= 4
-        },
-        { message: `margen a ${ancho}px` },
+// También con el panel agrandado desde Ajustes: la letra de la terminal
+// crece y el número de columnas tiene que seguirla.
+for (const escala of [1, 1.5]) {
+  test(`el texto deja margen a los dos lados de la ventana (tamaño ${escala * 100} %)`, async ({
+    page,
+    entorno,
+    tmux,
+  }) => {
+    if (escala !== 1) {
+      await page.evaluate(
+        (v) => localStorage.setItem('muxspace:scale', String(v)),
+        escala,
       )
-      .toBe(true)
-    const medida = await medir()
-    expect(medida.izquierda, `margen izquierdo a ${ancho}px`).toBeGreaterThanOrEqual(4)
-    expect(medida.derecha, `margen derecho a ${ancho}px`).toBeGreaterThanOrEqual(4)
-  }
-})
+      await page.reload()
+    }
+    limpiarSesiones(tmux)
+    const nombre = nombreSesion('-margen')
+    // Una línea que llena el ancho exacto que tmux cree tener y acaba en `#`:
+    // si la última columna se saliera del tile, el borde del texto lo diría.
+    // Se repinta sola para seguir al ancho tras cada cambio de tamaño.
+    tmux([
+      'new-session',
+      '-d',
+      '-s',
+      nombre,
+      `sh -c 'while true; do c=$(tput cols); printf "\\033[H\\033[2J"; printf "%0\${c}d" 0 | tr 0 W | sed "s/W$/#/"; sleep 0.3; done'`,
+    ])
+    await entrar(page, entorno)
+    await sesionEnLista(page, nombre).click()
+    await expect(pantalla(page, nombre)).toContainText('W#')
+
+    for (const ancho of [900, 1237, 1451]) {
+      await page.setViewportSize({ width: ancho, height: 800 })
+      // Por condición: justo tras el cambio la fila todavía es la del ancho
+      // anterior, y hasta que el programa la repinta puede sobresalir. Lo que
+      // se exige es que, ya repintada a todo lo ancho (acaba en `#`), quepa.
+      const medir = () =>
+        pantalla(page, nombre).evaluate((rows) => {
+          const fila = rows.firstElementChild
+          const tile = rows
+            .closest('.xterm')
+            .parentElement.parentElement.getBoundingClientRect()
+          const rango = document.createRange()
+          rango.selectNodeContents(fila)
+          const texto = [...rango.getClientRects()]
+          return {
+            llena: fila.textContent.trimEnd().endsWith('W#'),
+            izquierda: Math.min(...texto.map((r) => r.left)) - tile.left,
+            derecha: tile.right - Math.max(...texto.map((r) => r.right)),
+          }
+        })
+      await expect
+        .poll(
+          async () => {
+            const m = await medir()
+            return m.llena && m.izquierda >= 4 && m.derecha >= 4
+          },
+          { message: `margen a ${ancho}px` },
+        )
+        .toBe(true)
+      const medida = await medir()
+      expect(medida.izquierda, `margen izquierdo a ${ancho}px`).toBeGreaterThanOrEqual(
+        4,
+      )
+      expect(medida.derecha, `margen derecho a ${ancho}px`).toBeGreaterThanOrEqual(4)
+    }
+  })
+}

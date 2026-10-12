@@ -690,7 +690,7 @@ function GraficoDias({ dias, max }) {
         {dias.map((d, i) => (
           <div
             key={d.day}
-            className="flex-1 pt-1 text-center text-[10px] text-panel-muted"
+            className="flex-1 pt-1 text-center text-[0.625rem] text-panel-muted"
             style={{ minWidth: 4, maxWidth: 48 }}
           >
             {i % cadaCuantas === 0 ? formatDate(d.day).slice(0, 5) : ''}
@@ -763,7 +763,7 @@ function TablaTramos({ tramos, titulo, t }) {
                 {titulo(b.space)}
                 {b.manual_seconds > 0 && (
                   <span
-                    className="ml-2 rounded-full border border-amber-400/60 px-1.5 py-0.5 text-[10px] text-amber-400"
+                    className="ml-2 rounded-full border border-amber-400/60 px-1.5 py-0.5 text-[0.625rem] text-amber-400"
                     title={t('dashboard.declared_hint')}
                   >
                     {t('dashboard.declared')}
@@ -771,7 +771,7 @@ function TablaTramos({ tramos, titulo, t }) {
                 )}
                 {b.bridge_seconds > 0 && (
                   <span
-                    className="ml-2 rounded-full border border-panel-border px-1.5 py-0.5 text-[10px] text-panel-muted"
+                    className="ml-2 rounded-full border border-panel-border px-1.5 py-0.5 text-[0.625rem] text-panel-muted"
                     title={t('dashboard.inferred_hint', {
                       time: formatDurationExact(b.bridge_seconds),
                     })}

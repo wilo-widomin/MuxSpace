@@ -57,4 +57,17 @@ describe('Menú de ajustes', () => {
 
     expect(screen.getByText(es['snippets.title'])).toBeInTheDocument()
   })
+
+  it('el tamaño se guarda en este aparato y agranda la página', () => {
+    abrir()
+
+    fireEvent.change(screen.getByLabelText(en['scale.label']), {
+      target: { value: '1.5' },
+    })
+
+    expect(localStorage.getItem('muxspace:scale')).toBe('1.5')
+    expect(document.documentElement.style.fontSize).toBe('24px')
+    localStorage.removeItem('muxspace:scale')
+    document.documentElement.style.fontSize = ''
+  })
 })

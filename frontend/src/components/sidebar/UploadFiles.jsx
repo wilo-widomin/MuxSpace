@@ -178,7 +178,7 @@ export function UploadFiles({ open, onToggle, space }) {
           <div className="mt-2">
             <p className="text-xs text-panel-muted">{t('upload.dest_label')}</p>
             <div className="mt-1 flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded bg-black/30 px-1.5 py-1 text-[11px] text-gray-200">
+              <code className="min-w-0 flex-1 truncate rounded bg-black/30 px-1.5 py-1 text-[0.6875rem] text-gray-200">
                 {destDir || '—'}
               </code>
               <button
@@ -241,7 +241,7 @@ export function UploadFiles({ open, onToggle, space }) {
                           <span className="block truncate text-xs text-gray-100">
                             {u.name}
                           </span>
-                          <span className="block truncate text-[10px] text-panel-muted">
+                          <span className="block truncate text-[0.625rem] text-panel-muted">
                             {quotePath(u.path)}
                           </span>
                         </button>
@@ -268,7 +268,7 @@ export function UploadFiles({ open, onToggle, space }) {
                 <code
                   onClick={() => copyToClipboard(selectedPath)}
                   title={t('upload.copy_path')}
-                  className="mt-1 block cursor-pointer break-all rounded bg-black/30 px-1.5 py-1 text-[11px] leading-snug text-green-300 transition hover:bg-black/50"
+                  className="mt-1 block cursor-pointer break-all rounded bg-black/30 px-1.5 py-1 text-[0.6875rem] leading-snug text-green-300 transition hover:bg-black/50"
                 >
                   {quotePath(selectedPath)}
                 </code>

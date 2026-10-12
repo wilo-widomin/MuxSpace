@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { useT } from '../i18n/index.jsx'
 import TranscriptSearch from './TranscriptSearch.jsx'
+import { SCALE_EVENT, terminalFontSize } from '../uiScale.js'
 
 // Terminal propia basada en xterm.js, conectada por WebSocket al puente PTY
 // del backend (`/api/terminal/{name}` -> `tmux attach`). Reemplaza al iframe
@@ -87,7 +88,7 @@ export default function XtermTerminal({
     const term = new Terminal({
       cursorBlink: true,
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-      fontSize: 13,
+      fontSize: terminalFontSize(),
       scrollback: 10000,
       allowProposedApi: true,
       theme: { background: '#000000', foreground: '#e5e7eb' },
@@ -469,12 +470,23 @@ export default function XtermTerminal({
     const ro = new ResizeObserver(() => refitSoon())
     ro.observe(container)
 
+    // Tamaño del panel elegido en Ajustes (ver `uiScale.js`). Cambia la
+    // letra pero no siempre el tile, así que el ResizeObserver puede no
+    // enterarse: se vuelve a medir a mano. Las filas y columnas siguen el
+    // ciclo de siempre, pedidas a tmux y aplicadas al llegar `resized`.
+    const onScale = () => {
+      term.options.fontSize = terminalFontSize()
+      refitSoon()
+    }
+    window.addEventListener(SCALE_EVENT, onScale)
+
     return () => {
       cancelAnimationFrame(raf)
       if (refitTimer) clearTimeout(refitTimer)
       if (scrollTimer) clearTimeout(scrollTimer)
       clearInterval(sondeo)
       ro.disconnect()
+      window.removeEventListener(SCALE_EVENT, onScale)
       container.removeEventListener('mouseup', copySelection)
       container.removeEventListener('contextmenu', onContextMenu)
       container.removeEventListener('wheel', onWheel, { capture: true })

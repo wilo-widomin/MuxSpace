@@ -91,7 +91,7 @@ export function SnippetSettings({ onClose, onChanged }) {
             {s.submit && (
               <span
                 title={t('snippets.submit')}
-                className="shrink-0 rounded bg-panel-bg px-1.5 py-0.5 text-[10px] text-panel-muted"
+                className="shrink-0 rounded bg-panel-bg px-1.5 py-0.5 text-[0.625rem] text-panel-muted"
               >
                 {t('snippets.submit_badge')}
               </span>

@@ -271,7 +271,7 @@ export default function TranscriptSearch({ name, onClose }) {
       {/* Alineadas a la derecha para que caigan bajo el buscador: son sus
           controles, y a la izquierda parecían de otra cosa. */}
       <div className="flex flex-wrap items-center justify-end gap-1 border-b border-panel-border bg-panel-surface px-3 py-1">
-        <span className="mr-1 text-[10px] uppercase tracking-wide text-panel-muted">
+        <span className="mr-1 text-[0.625rem] uppercase tracking-wide text-panel-muted">
           {t('transcript.filters')}
         </span>
         {TIPOS.map((tipo) => {
@@ -282,7 +282,7 @@ export default function TranscriptSearch({ name, onClose }) {
               type="button"
               onClick={() => alternarFiltro(tipo)}
               aria-pressed={activo}
-              className={`rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
+              className={`rounded-full border px-2 py-0.5 text-[0.6875rem] transition-colors ${
                 activo
                   ? 'border-panel-accent bg-panel-accent/20 text-gray-100'
                   : 'border-panel-border text-panel-muted hover:text-gray-100'
@@ -305,13 +305,13 @@ export default function TranscriptSearch({ name, onClose }) {
         )}
         {mensajes.map((mensaje, i) => (
           <div key={i} className="mb-3 border-l-2 border-panel-border pl-2">
-            <div className="mb-1 text-[10px] uppercase tracking-wide text-panel-muted">
+            <div className="mb-1 text-[0.625rem] uppercase tracking-wide text-panel-muted">
               {t(`transcript.role_${mensaje.role}`)} · {mensaje.timestamp.slice(11, 19)}
             </div>
             {mensaje.blocks.map((bloque, j) => (
               <div key={j} className={bloque.kind === 'text' ? '' : 'opacity-70'}>
                 {bloque.kind !== 'text' && (
-                  <div className="text-[10px] text-panel-muted">
+                  <div className="text-[0.625rem] text-panel-muted">
                     {bloque.kind === 'tool_use'
                       ? `⚙ ${bloque.name}`
                       : t(`transcript.block_${bloque.kind}`)}

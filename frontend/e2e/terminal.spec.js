@@ -277,7 +277,7 @@ for (const escala of [1, 1.5]) {
     await sesionEnLista(page, nombre).click()
     await expect(pantalla(page, nombre)).toContainText('W#')
 
-    for (const ancho of [900, 1237, 1451]) {
+    for (const ancho of [900, 1451, 2560]) {
       await page.setViewportSize({ width: ancho, height: 800 })
       // Por condición: justo tras el cambio la fila todavía es la del ancho
       // anterior, y hasta que el programa la repinta puede sobresalir. Lo que
@@ -292,16 +292,29 @@ for (const escala of [1, 1.5]) {
           rango.selectNodeContents(fila)
           const texto = [...rango.getClientRects()]
           return {
-            llena: fila.textContent.trimEnd().endsWith('W#'),
+            // Llena de verdad: tantos caracteres como columnas tiene la fila.
+            // Solo «acaba en #» lo cumple también la línea del ancho anterior.
+            llena:
+              fila.textContent.trimEnd().endsWith('W#') &&
+              fila.textContent.trimEnd().length ===
+                fila.textContent.replace(/\u00a0/g, ' ').length,
             izquierda: Math.min(...texto.map((r) => r.left)) - tile.left,
             derecha: tile.right - Math.max(...texto.map((r) => r.right)),
+            // Lo que el texto se pasa de su fila SI la fila recorta. xterm
+            // recorta cada fila a su ancho y su separación entre letras la
+            // hacía acabar 1 a 4 px más allá: se perdía media última letra.
+            sobra:
+              Math.max(...texto.map((r) => r.right)) -
+              (getComputedStyle(fila).overflowX === 'visible'
+                ? Infinity
+                : fila.getBoundingClientRect().right),
           }
         })
       await expect
         .poll(
           async () => {
             const m = await medir()
-            return m.llena && m.izquierda >= 4 && m.derecha >= 4
+            return m.llena && m.izquierda >= 4 && m.derecha >= 4 && m.sobra <= 1
           },
           { message: `margen a ${ancho}px` },
         )
@@ -311,6 +324,10 @@ for (const escala of [1, 1.5]) {
         4,
       )
       expect(medida.derecha, `margen derecho a ${ancho}px`).toBeGreaterThanOrEqual(4)
+      expect(
+        medida.sobra,
+        `la fila se sale de su ancho a ${ancho}px`,
+      ).toBeLessThanOrEqual(1)
     }
   })
 }

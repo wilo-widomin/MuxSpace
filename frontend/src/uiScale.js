@@ -1,11 +1,9 @@
 // Tamaño del panel en ESTE aparato.
 //
-// Existe para no tener que usar el zoom del navegador. Con el zoom de Chrome
-// a 150 %, cada letra de la terminal se pinta una fracción de píxel más
-// ancha de lo que xterm midió; repartido en doscientas columnas, la fila se
-// salía casi 3 px por la derecha y xterm, que recorta cada fila a su ancho,
-// se comía media última letra. Aquí, en cambio, crece el tamaño de la letra
-// y el navegador sigue al 100 %: cada letra cae en píxeles enteros.
+// Existe para no tener que usar el zoom del navegador: Willy trabajaba con
+// Chrome al 150 % y así puede dejarlo al 100 % con la letra del mismo tamaño.
+// (El corte de la última letra que se vio entonces no era del zoom; ver la
+// regla de `.xterm-rows` en index.css.)
 //
 // Se guarda en localStorage y no en el servidor a propósito: el mismo panel
 // se abre desde un portátil y desde una tableta, y el tamaño cómodo en uno
@@ -15,7 +13,8 @@
 // tamaño de letra de `<html>`. La terminal no: xterm recibe su tamaño en
 // píxeles, así que escucha el evento SCALE_EVENT y vuelve a medir.
 
-export const SCALES = [1, 1.25, 1.5, 1.75, 2]
+// De 10 en 10: entre 125 y 150 % estaba justo el tamaño que Willy quería.
+export const SCALES = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2]
 
 const STORAGE_KEY = 'muxspace:scale'
 export const SCALE_EVENT = 'muxspace:scale'

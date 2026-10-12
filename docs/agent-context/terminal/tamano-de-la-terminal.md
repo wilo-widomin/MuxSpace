@@ -55,17 +55,19 @@ navegador con la misma línea repetida decenas de veces.
   margen a los dos lados de la ventana».
 
 - **El tamaño de letra sale de `uiScale.js`**: 13 px por el tamaño elegido en
-  Ajustes (100 % a 200 %, guardado en `localStorage` de cada aparato). Al
+  Ajustes (100 % a 200 %, de 10 en 10, guardado en `localStorage` de cada aparato). Al
   cambiarlo, la terminal recibe `muxspace:scale`, cambia `fontSize` y vuelve a
   medir: el `ResizeObserver` no se entera si el tile no cambia de tamaño.
 
 ## Trampas
 
-- **El zoom del navegador a 150 % cortaba la última letra.** Cada letra se
-  pinta una fracción de píxel más ancha de lo que xterm midió; en 206 columnas
-  la fila se salía 2,9 px y xterm recorta cada fila (`overflow: hidden`) al
-  ancho de su lienzo. Medido en el Mac de Willy, no reproducible en el Chromium
-  del E2E. Por eso existe el tamaño en Ajustes: agrandar sin zoom.
+- **La última letra salía cortada** (medido en el Mac de Willy, al 100 % y al
+  150 %, y en el Chromium del E2E a 2560 px). xterm da a cada letra una
+  separación de centésimas de píxel para cuadrarla con la celda, pero el
+  navegador ya la pinta a ese ancho: en 200 o 300 columnas la fila acaba 1 a
+  4 px más allá. xterm recorta cada fila a su ancho, así que se perdía media
+  letra. `index.css` quita ese recorte (`.xterm-rows > div`) y el sobrante cae
+  en el margen. La separación no se toca: va letra a letra.
 
 - **tmux dibuja por diferencias**, con la posición del cursor y los márgenes de
   scroll (`DECSTBM`) del cliente como estado compartido. Si el cliente cambia

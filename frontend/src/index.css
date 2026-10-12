@@ -34,3 +34,14 @@ body.muxspace-resizing-col * {
   cursor: col-resize !important;
   user-select: none !important;
 }
+
+/* xterm añade a cada letra una separación de centésimas de píxel para cuadrarla
+   con el ancho de la celda, pero el navegador ya la pinta a ese ancho: en 200 o
+   300 columnas la fila acaba 1 a 4 px más allá de su sitio. Y xterm recorta
+   cada fila a su ancho, así que lo que sobra se come media última letra. Sin
+   recorte, ese sobrante cae en el margen y en el hueco que xterm reserva a la
+   derecha para la barra de desplazamiento. No se toca la separación: es letra
+   a letra, y las que de verdad son más estrechas la necesitan. */
+.xterm .xterm-rows > div {
+  overflow: visible !important;
+}

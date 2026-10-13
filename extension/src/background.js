@@ -7,6 +7,7 @@
 // le devuelve. Así no hay que tocar ni el CORS ni la cookie del backend.
 
 import { groupColor, plannedUrls, reconcileGroup } from './lib/group.js'
+import { centeredBounds, sessionState } from './lib/login.js'
 import { isAuthError, isPanelUrl, originPattern, panelSpaceUrl } from './lib/panel.js'
 import { needsLaunch, sessionsToAdopt } from './lib/sessions.js'
 import {
@@ -28,8 +29,8 @@ class ExtensionError extends Error {}
  * clase propia y el popup la distingue para ofrecer el botón de entrar.
  */
 class AuthError extends ExtensionError {
-  constructor() {
-    super('No hay sesión en el panel: entra para poder abrir proyectos.')
+  constructor(message = 'No hay sesión en el panel: entra para poder abrir proyectos.') {
+    super(message)
   }
 }
 
@@ -37,6 +38,24 @@ class AuthError extends ExtensionError {
 // antes de rendirse. El sondeo también mantiene despierto al service worker.
 const LOGIN_POLL_MS = 1500
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000
+
+// Lo que se espera a que recargue la pestaña del usuario tras el login.
+const LOAD_TIMEOUT_MS = 6000
+
+// Lo que se espera a que una pestaña conteste a `/api/me`.
+const PROBE_TIMEOUT_MS = 3000
+
+// Paciencia con la puente minimizada recién abierta. Con sesión y certificado
+// ya elegido, `/api/me` contesta en unos cientos de milisegundos; mientras
+// falta el certificado no contesta nada, y la única forma de saberlo es que
+// pase este rato en silencio. Se pregunta cada `BRIDGE_POLL_MS`.
+const BRIDGE_PATIENCE_MS = 1500
+const BRIDGE_POLL_MS = 200
+// Tras el login, la puente nueva ya tiene certificado: solo falta que cargue.
+const RENEWED_PATIENCE_MS = 6000
+
+// Tamaño de la ventana de inicio de sesión: lo justo para el login del panel.
+const LOGIN_WINDOW = { width: 480, height: 720 }
 
 // Las dos funciones siguientes se ejecutan DENTRO de la pestaña del panel,
 // inyectadas en su mundo principal (`MAIN`): las peticiones salen exactamente
@@ -89,15 +108,25 @@ function putInPage(path, body) {
     .catch((e) => ({ __error: String(e) }))
 }
 
-/** Espera a que una pestaña termine de cargar. */
-function waitForLoad(tabId) {
+/**
+ * Espera a que una pestaña termine de cargar, como mucho `timeoutMs`.
+ *
+ * Con tope porque una pestaña puede no terminar nunca: la de segundo plano
+ * que espera a que se elija el certificado de cliente se queda así.
+ *
+ * @returns {Promise<boolean>} Si terminó de cargar a tiempo.
+ */
+function waitForLoad(tabId, timeoutMs = LOAD_TIMEOUT_MS) {
   return new Promise((resolve) => {
-    const listener = (id, info) => {
-      if (id === tabId && info.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(listener)
-        resolve()
-      }
+    const terminar = (cargada) => {
+      clearTimeout(reloj)
+      chrome.tabs.onUpdated.removeListener(listener)
+      resolve(cargada)
     }
+    const listener = (id, info) => {
+      if (id === tabId && info.status === 'complete') terminar(true)
+    }
+    const reloj = setTimeout(() => terminar(false), timeoutMs)
     chrome.tabs.onUpdated.addListener(listener)
   })
 }
@@ -108,16 +137,30 @@ function waitForLoad(tabId) {
  * Se reutiliza la que ya haya SIN TOCARLA: navegar la pestaña de alguien
  * para preguntarle algo le tiraría lo que estuviera mirando.
  *
+ * Si no hay ninguna, se abre en una **ventana emergente minimizada**, nunca
+ * como pestaña de la ventana del usuario: si falta el certificado de cliente,
+ * Chrome trae al frente la pestaña que lo pide, y en la ventana del usuario
+ * eso tapaba a la de login. Así, si hace falta entrar, esa misma ventana se
+ * pone delante y hace de ventana de login (`loginInWindow`).
+ *
  * @param {string} origin
- * @returns {Promise<{tabId: number, opened: boolean}>}
+ * @returns {Promise<{tabId: number, opened: boolean, windowId?: number}>}
  */
 async function panelBridge(origin) {
-  const abiertas = await chrome.tabs.query({ url: originPattern(origin) })
+  const abiertas = await chrome.tabs.query({ url: originPattern(origin), windowType: 'normal' })
   if (abiertas.length > 0) return { tabId: abiertas[0].id, opened: false }
 
-  const creada = await chrome.tabs.create({ url: `${origin}/`, active: false })
-  await waitForLoad(creada.id)
-  return { tabId: creada.id, opened: true }
+  const ventana = await chrome.windows.create({
+    url: `${origin}/`,
+    type: 'popup',
+    state: 'minimized',
+  })
+  return { tabId: ventana.tabs[0].id, opened: true, windowId: ventana.id }
+}
+
+/** Cierra la puente si la abrió la extensión. La del usuario no se toca. */
+async function closeBridge(bridge) {
+  if (bridge.opened) await chrome.windows.remove(bridge.windowId).catch(() => {})
 }
 
 /**
@@ -164,111 +207,239 @@ async function askPanel(tabId, func, path, body) {
 }
 
 /**
- * ¿Hay sesión abierta en el panel?
+ * ¿Cómo está la conexión con el panel desde esta pestaña?
  *
- * `GET /api/me` es la pregunta barata: contesta 401 si no la hay y no toca
- * nada si la hay.
+ * `GET /api/me` es la pregunta barata: contesta 401 si no hay sesión y no
+ * toca nada si la hay. Que ni siquiera se pueda inyectar —la pestaña enseña
+ * la página de error de Chrome porque falta el certificado, o aún no ha
+ * cargado— no es un fallo aquí: es otra forma de «todavía no».
  *
- * @param {number} tabId - Pestaña puente.
- * @returns {Promise<boolean>}
+ * @param {number} tabId
+ * @returns {Promise<'ok'|'login'|'unreachable'>}
  */
-async function isLoggedIn(tabId) {
-  const salida = await tryPanel(tabId, getInPage, '/api/me')
-  if (isAuthError(salida)) return false
-  if (!salida || salida.__error) {
-    throw new ExtensionError(
-      `El panel no respondió a /api/me (${salida?.__error || 'sin respuesta'}).`,
-    )
-  }
-  return true
+async function probeSession(tabId, timeoutMs = PROBE_TIMEOUT_MS) {
+  // Con tope y sin esperar a la carga: mientras Chrome espera a que se elija
+  // el certificado, la página no termina de cargar nunca, y una inyección
+  // normal (que aguarda a `document_idle`) se quedaría colgada para siempre.
+  const inyeccion = chrome.scripting
+    .executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      injectImmediately: true,
+      func: getInPage,
+      args: ['/api/me'],
+    })
+    .then((resultados) => sessionState(resultados?.[0]?.result))
+    .catch(() => 'unreachable')
+  const tope = new Promise((resolve) => setTimeout(() => resolve('unreachable'), timeoutMs))
+  return Promise.race([inyeccion, tope])
 }
 
-/** Trae una pestaña al frente, con su ventana. */
-async function focusTab(tabId) {
-  const tab = await chrome.tabs.update(tabId, { active: true })
-  if (tab?.windowId !== undefined) {
-    await chrome.windows.update(tab.windowId, { focused: true })
+/**
+ * Pregunta seguido a una puente recién abierta hasta tener respuesta clara.
+ *
+ * La pestaña del usuario ya está cargada y basta con una pregunta; la puente
+ * que acaba de abrir la extensión puede no tener aún documento donde
+ * inyectar, así que se reintenta cada `BRIDGE_POLL_MS` hasta `patienceMs`.
+ *
+ * @param {{tabId: number, opened: boolean}} bridge
+ * @param {number} patienceMs
+ * @returns {Promise<'ok'|'login'|'unreachable'>}
+ */
+async function waitForSession(bridge, patienceMs) {
+  if (!bridge.opened) return probeSession(bridge.tabId)
+  const limite = Date.now() + patienceMs
+  for (;;) {
+    const restante = limite - Date.now()
+    if (restante <= 0) return 'unreachable'
+    const estado = await probeSession(bridge.tabId, Math.min(restante, 500))
+    if (estado !== 'unreachable') return estado
+    await new Promise((resolve) => setTimeout(resolve, BRIDGE_POLL_MS))
+  }
+}
+
+/** La última ventana normal que tuvo el foco, o null. */
+async function frontWindow() {
+  try {
+    return await chrome.windows.getLastFocused({ windowTypes: ['normal'] })
+  } catch {
+    return null
   }
 }
 
 /**
- * Pone el login del panel delante del usuario y espera a que entre.
+ * Pone delante la ventana puente, centrada sobre la del usuario, y la recarga.
  *
- * La extensión no puede pedir la contraseña ella misma: la cookie y el
- * certificado de cliente son de la pestaña, no suyos, y un formulario propio
- * sería pedir credenciales fuera del sitio al que pertenecen. Así que lo que
- * hace es enseñar el panel —que sin sesión pinta su pantalla de login— y
- * sondearlo hasta que la sesión exista, para poder seguir con lo que se
- * estaba haciendo sin obligar a repetir el clic.
+ * Son dos llamadas porque Chrome no deja cambiar posición y tamaño a la vez
+ * que se saca una ventana de minimizada.
  *
- * @param {number} tabId - Pestaña del panel.
- * @returns {Promise<void>}
+ * La recarga es lo que hace aparecer el selector de certificado: en macOS,
+ * el que nació con la ventana minimizada no se pinta al restaurarla, solo
+ * cuando la ventana recibe un evento del sistema (cambiar de escritorio, por
+ * ejemplo). Recargando, la petición que lo pide empieza ya con la ventana
+ * visible.
+ *
+ * @param {number} windowId
+ * @param {number} tabId
+ * @param {boolean} reload - Solo hace falta si no se alcanzó el panel; con
+ *   la pantalla de login ya pintada, recargar solo la haría parpadear.
  */
-async function waitForLogin(tabId) {
-  await focusTab(tabId)
-  const limite = Date.now() + LOGIN_TIMEOUT_MS
-  while (Date.now() < limite) {
-    await new Promise((resolve) => setTimeout(resolve, LOGIN_POLL_MS))
-    try {
-      if (await isLoggedIn(tabId)) return
-    } catch (err) {
-      // La pestaña se cerró o dejó de ser el panel: no hay a quién preguntar.
-      err.keepTab = true
-      throw err
-    }
-  }
-  const agotado = new ExtensionError(
-    'Se agotó la espera: no se inició sesión en el panel.',
-  )
-  // La pestaña del login se queda como está: cerrarla mientras el usuario
-  // puede estar tecleando la contraseña es peor que dejar una de más.
-  agotado.keepTab = true
-  throw agotado
+async function showBridgeWindow(windowId, tabId, reload) {
+  const delante = await frontWindow()
+  await chrome.windows.update(windowId, { state: 'normal' })
+  await chrome.windows.update(windowId, {
+    focused: true,
+    ...LOGIN_WINDOW,
+    ...centeredBounds(delante, LOGIN_WINDOW),
+  })
+  if (reload) await chrome.tabs.reload(tabId)
+}
+
+/** Abre el panel en una ventana emergente visible, centrada sobre la del usuario. */
+async function openLoginWindow(origin) {
+  return chrome.windows.create({
+    url: `${origin}/`,
+    type: 'popup',
+    focused: true,
+    ...LOGIN_WINDOW,
+    ...centeredBounds(await frontWindow(), LOGIN_WINDOW),
+  })
 }
 
 /**
- * Garantiza que hay sesión, pidiéndola si se permite interrumpir.
+ * Pone el panel delante en una ventana aparte y espera a que haya sesión.
  *
- * `promptLogin` separa los dos usos: abrir un proyecto es una orden del
- * usuario y merece robarle el foco para que entre; refrescar la lista pasa
- * solo al abrir el popup, y ahí lo que toca es avisar, no secuestrar la
- * pantalla.
+ * Ahí pasan las dos cosas que la extensión no puede hacer por el usuario:
+ * elegir el certificado de cliente —el selector de Chrome sale solo al cargar
+ * la dirección— y teclear la contraseña en el login del panel, que es el
+ * sitio al que pertenece. Mientras tanto se sondea `/api/me`.
  *
- * @param {number} tabId - Pestaña puente.
- * @param {boolean} promptLogin
- */
-async function ensureLoggedIn(tabId, promptLogin) {
-  if (await isLoggedIn(tabId)) return
-  if (!promptLogin) throw new AuthError()
-  await waitForLogin(tabId)
-}
-
-/**
- * Pide los proyectos al panel a través de una de sus pestañas.
+ * La ventana es la propia puente cuando la abrió la extensión: se saca de
+ * minimizada y, al entrar, se deja para que quien llama la cierre cuando
+ * acabe de preguntar. Si la puente es una pestaña del usuario, se abre una
+ * ventana nueva y se cierra en cuanto hay sesión.
+ *
+ * No va en el popup de la extensión porque el popup se cierra al perder el
+ * foco, y el selector de certificado se lo lleva.
  *
  * @param {string} origin
- * @param {boolean} [promptLogin] - Si sin sesión se pide el login y se espera.
- * @returns {Promise<{projects: Array, bridgeTabId: number, opened: boolean}>}
+ * @param {{tabId: number, opened: boolean, windowId?: number}} bridge
+ * @param {'login'|'unreachable'} estado - Lo que contestó la puente.
+ * @returns {Promise<number>} La pestaña donde se inició sesión.
  */
-async function loadProjects(origin, promptLogin = false) {
-  const { tabId, opened } = await panelBridge(origin)
+async function loginInWindow(origin, bridge, estado) {
+  let tabId = bridge.tabId
+  let windowId = bridge.windowId
+  const propia = !bridge.opened
+  if (propia) {
+    const ventana = await openLoginWindow(origin)
+    tabId = ventana.tabs[0].id
+    windowId = ventana.id
+  } else {
+    await showBridgeWindow(windowId, tabId, estado === 'unreachable')
+  }
+
+  let cerrada = false
+  const alCerrar = (id) => {
+    if (id === windowId) cerrada = true
+  }
+  chrome.windows.onRemoved.addListener(alCerrar)
   try {
-    await ensureLoggedIn(tabId, promptLogin)
-    const salida = await askPanel(tabId, getInPage, '/api/projects')
+    const limite = Date.now() + LOGIN_TIMEOUT_MS
+    while (Date.now() < limite) {
+      await new Promise((resolve) => setTimeout(resolve, LOGIN_POLL_MS))
+      if (cerrada) {
+        throw new AuthError('Se cerró la ventana del panel sin iniciar sesión.')
+      }
+      if ((await probeSession(tabId)) === 'ok') {
+        if (propia) await chrome.windows.remove(windowId).catch(() => {})
+        return tabId
+      }
+    }
+    // La ventana se queda como está: cerrarla mientras el usuario puede estar
+    // tecleando la contraseña es peor que dejar una de más.
+    const agotado = new AuthError('Se agotó la espera: no se inició sesión en el panel.')
+    agotado.keepWindow = true
+    throw agotado
+  } finally {
+    chrome.windows.onRemoved.removeListener(alCerrar)
+  }
+}
+
+// La ventana de login que esté abierta. Abrir el popup dos veces, o abrir un
+// proyecto mientras se refresca la lista, no debe sacar dos ventanas: la
+// segunda petición espera a la misma.
+let loginEnCurso = null
+
+function loginOnce(origin, bridge, estado) {
+  if (!loginEnCurso) {
+    loginEnCurso = loginInWindow(origin, bridge, estado).finally(() => {
+      loginEnCurso = null
+    })
+  }
+  return loginEnCurso
+}
+
+/**
+ * Pide los proyectos al panel a través de una de sus pestañas, pasando antes
+ * por la ventana de login si no hay sesión o no se alcanza el panel.
+ *
+ * @param {string} origin
+ * @returns {Promise<{projects: Array, bridge: {tabId: number, opened: boolean, windowId?: number}, loggedIn: boolean}>}
+ */
+async function loadProjects(origin) {
+  let bridge = await panelBridge(origin)
+  let loggedIn = false
+  try {
+    const estado = await waitForSession(bridge, BRIDGE_PATIENCE_MS)
+    if (estado !== 'ok') {
+      const donde = await loginOnce(origin, bridge, estado)
+      loggedIn = true
+      if (donde !== bridge.tabId) bridge = await renewBridge(origin, bridge)
+      if ((await waitForSession(bridge, RENEWED_PATIENCE_MS)) !== 'ok') {
+        throw new ExtensionError('Se inició sesión, pero el panel sigue sin responder.')
+      }
+    }
+    const salida = await askPanel(bridge.tabId, getInPage, '/api/projects')
     if (!Array.isArray(salida)) {
       throw new ExtensionError('El panel devolvió algo que no es una lista de proyectos.')
     }
     await writeProjects(salida)
-    return { projects: salida, bridgeTabId: tabId, opened }
+    return { projects: salida, bridge, loggedIn }
   } catch (err) {
     // La puente que abrió la extensión se abrió solo para preguntar: si la
-    // pregunta falla, no tiene por qué quedarse. La del usuario nunca se
-    // toca, y la que ya está enseñando el login tampoco (`keepTab`).
-    if (opened && !err.keepTab) {
-      await chrome.tabs.remove(tabId).catch(() => {})
-    }
+    // pregunta falla, no tiene por qué quedarse, salvo que sea la ventana de
+    // login con el usuario aún dentro (`keepWindow`).
+    if (!err.keepWindow) await closeBridge(bridge)
     throw err
   }
+}
+
+/**
+ * Deja la pestaña puente servible después de un login hecho en otra parte.
+ *
+ * La puente se quedó como estaba antes de entrar: con la pantalla de login,
+ * con la página de error del certificado o esperando al selector. La que abrió
+ * la extensión se tira y se abre otra; la del usuario se recarga, que no
+ * pierde nada porque no estaba enseñando el panel.
+ *
+ * @param {string} origin
+ * @param {{tabId: number, opened: boolean, windowId?: number}} bridge
+ * @returns {Promise<{tabId: number, opened: boolean, windowId?: number}>}
+ */
+async function renewBridge(origin, bridge) {
+  if (bridge.opened) {
+    await closeBridge(bridge)
+    return panelBridge(origin)
+  }
+  const cargada = waitForLoad(bridge.tabId)
+  try {
+    await chrome.tabs.reload(bridge.tabId)
+  } catch {
+    return panelBridge(origin)
+  }
+  await cargada
+  return bridge
 }
 
 /**
@@ -380,19 +551,23 @@ async function openProject(projectId) {
     throw new ExtensionError('Falta la dirección del panel: ábrela en las opciones.')
   }
 
-  // Abrir un proyecto es una orden explícita: si falta la sesión se pide y
-  // se espera, y la apertura sigue sola en cuanto el usuario entra.
-  const { projects, bridgeTabId, opened } = await loadProjects(origin, true)
-  const project = projects.find((p) => p.id === projectId)
-  if (!project) {
-    throw new ExtensionError('Ese proyecto ya no existe en el panel.')
-  }
-
-  // Antes de tocar la pestaña puente: si es la que la extensión abrió, luego
-  // se la lleva el grupo y ya no serviría para preguntar.
+  // Si falta la sesión se pide en la ventana de login y se espera: la
+  // apertura sigue sola en cuanto el usuario entra.
+  const { projects, bridge } = await loadProjects(origin)
   const avisos = []
-  const avisoTerminal = await ensureProjectReady(bridgeTabId, project)
-  if (avisoTerminal) avisos.push(avisoTerminal)
+  let project
+  try {
+    project = projects.find((p) => p.id === projectId)
+    if (!project) {
+      throw new ExtensionError('Ese proyecto ya no existe en el panel.')
+    }
+    const avisoTerminal = await ensureProjectReady(bridge.tabId, project)
+    if (avisoTerminal) avisos.push(avisoTerminal)
+  } finally {
+    // La puente de la extensión vive en una ventana emergente, y una pestaña
+    // de ahí no se puede llevar a un grupo: se cierra y el grupo abre las suyas.
+    await closeBridge(bridge)
+  }
   // Los proyectos creados antes de que existiera el campo no tienen espacio,
   // y entonces el panel se abre donde le toque en vez de en el del proyecto.
   // Callárselo hace parecer que la extensión no funciona.
@@ -422,24 +597,17 @@ async function openProject(projectId) {
     await chrome.tabs.update(navigate.tabId, { url: navigate.url })
   }
 
-  // La pestaña puente, si la abrió la extensión, se convierte en la del panel
-  // del grupo en vez de crear otra y dejar una en blanco por ahí.
+  // Las pestañas nuevas van a la ventana del grupo, o a la normal que tuvo el
+  // foco por última vez: dicho explícitamente, porque la «actual» para el
+  // service worker podría ser la ventana emergente de login.
+  const windowId =
+    existente === null
+      ? (await frontWindow())?.id
+      : (await chrome.tabGroups.get(existente)).windowId
   const nuevas = []
-  let puenteUsado = false
   for (const url of open) {
-    if (opened && !puenteUsado && isPanelUrl(url, origin)) {
-      await chrome.tabs.update(bridgeTabId, { url })
-      nuevas.push(bridgeTabId)
-      puenteUsado = true
-      continue
-    }
-    const creada = await chrome.tabs.create({ url, active: false })
+    const creada = await chrome.tabs.create({ url, active: false, windowId })
     nuevas.push(creada.id)
-  }
-
-  // La puente que no se aprovechó sobra: se abrió solo para preguntar.
-  if (opened && !puenteUsado) {
-    await chrome.tabs.remove(bridgeTabId)
   }
 
   let groupId = existente
@@ -491,28 +659,17 @@ function openProjectOnce(projectId) {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const acciones = {
     openProject: () => openProjectOnce(message.projectId),
-    // Entrar en el panel a petición del popup, cuando refrescar ha avisado
-    // de que no hay sesión y el usuario decide ocuparse de ello.
-    login: async () => {
-      const origin = await readPanelOrigin()
-      if (!origin) {
-        throw new ExtensionError('Falta la dirección del panel: ábrela en las opciones.')
-      }
-      const { tabId } = await panelBridge(origin)
-      if (await isLoggedIn(tabId)) {
-        await focusTab(tabId)
-        return {}
-      }
-      await waitForLogin(tabId)
-      return {}
-    },
+    // Refrescar pasa al abrir el popup. Sin sesión abre la ventana de login,
+    // que se lleva el foco y cierra el popup; así que, al volver, se vuelve a
+    // abrir el popup para que la lista aparezca sin otro clic.
     refreshProjects: async () => {
       const origin = await readPanelOrigin()
       if (!origin) {
         throw new ExtensionError('Falta la dirección del panel: ábrela en las opciones.')
       }
-      const { projects, bridgeTabId, opened } = await loadProjects(origin)
-      if (opened) await chrome.tabs.remove(bridgeTabId)
+      const { projects, bridge, loggedIn } = await loadProjects(origin)
+      await closeBridge(bridge)
+      if (loggedIn) await chrome.action.openPopup().catch(() => {})
       return { projects }
     },
     cachedProjects: async () => ({ projects: await readProjects() }),

@@ -56,9 +56,9 @@ async function abrir(projectId, boton) {
   const respuesta = await chrome.runtime.sendMessage({ type: 'openProject', projectId })
   boton.disabled = false
   if (!respuesta?.ok) {
-    // Sin sesión, el service worker ya ha puesto el login del panel delante y
+    // Sin sesión, el service worker ya ha abierto la ventana de login y
     // seguirá con la apertura solo; este mensaje casi nunca llega a verse,
-    // porque al pasar el foco a esa pestaña el popup se cierra.
+    // porque al pasar el foco a esa ventana el popup se cierra.
     mostrarAviso(respuesta?.error || 'No se pudo abrir el proyecto.', true)
     return
   }
@@ -76,8 +76,9 @@ async function refrescar() {
   mostrarAviso('Preguntando al panel…')
   const respuesta = await chrome.runtime.sendMessage({ type: 'refreshProjects' })
   if (!respuesta?.ok) {
-    // Refrescar pasa solo al abrir el popup: si falta la sesión se ofrece
-    // entrar, pero no se le roba la pantalla al usuario sin que lo pida.
+    // Sin sesión, el service worker abre la ventana de login y este popup se
+    // cierra antes de llegar aquí. Si se llega es porque esa ventana se cerró
+    // o se agotó la espera: se ofrece volver a intentarlo.
     mostrarAviso(
       respuesta?.error || 'No se pudo leer el panel.',
       true,
@@ -89,19 +90,10 @@ async function refrescar() {
   pintar()
 }
 
-// El login se hace SIEMPRE en una pestaña del panel: la contraseña se teclea
-// en el sitio al que pertenece, no en el popup de una extensión.
-entrar.addEventListener('click', async () => {
-  entrar.disabled = true
-  mostrarAviso('Abriendo el panel para que inicies sesión…')
-  const respuesta = await chrome.runtime.sendMessage({ type: 'login' })
-  entrar.disabled = false
-  if (!respuesta?.ok) {
-    mostrarAviso(respuesta?.error || 'No se pudo abrir el panel.', true)
-    return
-  }
-  refrescar()
-})
+// El login se hace SIEMPRE en una ventana del panel: la contraseña se teclea
+// en el sitio al que pertenece, no en el popup de una extensión. Refrescar ya
+// abre esa ventana cuando hace falta, así que el botón solo reintenta.
+entrar.addEventListener('click', refrescar)
 
 document.getElementById('refrescar').addEventListener('click', refrescar)
 document.getElementById('opciones').addEventListener('click', () => {

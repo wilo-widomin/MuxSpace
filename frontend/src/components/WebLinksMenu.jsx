@@ -11,9 +11,10 @@ import { LinkIcon } from './sidebar/icons.jsx'
  * sesión que mires, y repetir el botón en cada tile era repetir el mismo
  * menú tantas veces como ventanas hubiera abiertas.
  *
- * Se pinta también con el sidebar plegado (`compacto`), donde la barra es
- * demasiado estrecha para el menú: por eso este se abre hacia la derecha en
- * ese caso y hacia la izquierda en el normal.
+ * El menú cuelga alineado a la izquierda del icono y se abre hacia la
+ * derecha, tanto con el sidebar plegado (`compacto`) como desplegado. Abrirlo
+ * hacia la izquierda con el sidebar desplegado lo dejaba encima del logo y
+ * medio fuera de la barra, y no se leía.
  */
 export function WebLinksMenu({ links = [], compacto = false }) {
   const { t } = useT()
@@ -53,9 +54,7 @@ export function WebLinksMenu({ links = [], compacto = false }) {
       </button>
       {abierto && (
         <div
-          className={`absolute top-full z-40 mt-1 max-h-64 w-56 overflow-y-auto rounded border border-panel-border bg-panel-surface shadow-lg ${
-            compacto ? 'left-0' : 'right-0'
-          }`}
+          className="absolute left-0 top-full z-40 mt-1 max-h-64 w-56 overflow-y-auto rounded border border-panel-border bg-panel-surface shadow-lg"
         >
           <ul>
             {links.map((x) => (

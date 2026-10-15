@@ -54,3 +54,39 @@ test('al ancho mínimo cabe en dos filas y ningún control se sale', async ({
     ).toBe(true)
   }
 })
+
+// Con el tamaño del panel subido en Ajustes los iconos crecen (van en rem) y
+// el sidebar no: al 130 % y a 245 px, como lo tenía Willy, el refresco y el
+// cronómetro se metían debajo del logo. Se mide lo que se ve: ningún control
+// puede pisar la caja del logo.
+for (const escala of [1, 1.3, 2]) {
+  test(`al ${Math.round(escala * 100)} % ningún control queda debajo del logo`, async ({
+    page,
+    entorno,
+  }) => {
+    await entrar(page, entorno)
+    await page.evaluate(
+      ([ancho, s]) => {
+        localStorage.setItem('muxspace-sidebar-width', String(ancho))
+        localStorage.setItem('muxspace:scale', String(s))
+      },
+      [245, escala],
+    )
+    await page.reload()
+    await page.getByRole('button', { name: T['sidebar.new_session'] }).waitFor()
+
+    const cabecera = page.locator('header').first()
+    const logo = await cabecera.locator('img').boundingBox()
+    const controles = cabecera.locator('button, a')
+    const cuantos = await controles.count()
+    for (let i = 0; i < cuantos; i++) {
+      const b = await controles.nth(i).boundingBox()
+      const pisa =
+        b.x < logo.x + logo.width &&
+        b.x + b.width > logo.x &&
+        b.y < logo.y + logo.height &&
+        b.y + b.height > logo.y
+      expect(pisa, `el control ${i} queda debajo del logo`).toBe(false)
+    }
+  })
+}

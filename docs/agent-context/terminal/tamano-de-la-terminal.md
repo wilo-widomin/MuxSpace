@@ -60,6 +60,10 @@ navegador con la misma línea repetida decenas de veces.
   medir: el `ResizeObserver` no se entera si el tile no cambia de tamaño.
   El resto del panel crece solo porque va en `rem`, iconos incluidos: su
   `width`/`height` se escribe en `rem` (16 px → `1rem`), nunca en píxeles.
+  El logo de la cabecera también, y el ancho mínimo del sidebar es 220 px
+  por el tamaño (`clampSidebarWidth` en `App.jsx`): con el sidebar fijo en
+  píxeles, al 130 % los iconos se metían debajo del logo. Lo vigila
+  `e2e/cabecera.spec.js`.
 
 ## Trampas
 

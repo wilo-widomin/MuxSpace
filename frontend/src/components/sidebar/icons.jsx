@@ -13,8 +13,8 @@ export function PlusIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      width="1rem"
+      height="1rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -33,8 +33,8 @@ function PencilIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="13"
-      height="13"
+      width="0.8125rem"
+      height="0.8125rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -53,8 +53,8 @@ function CheckIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
+      width="0.875rem"
+      height="0.875rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -83,8 +83,8 @@ function SpaceIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      width="1rem"
+      height="1rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -109,8 +109,8 @@ function TrashIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="13"
-      height="13"
+      width="0.8125rem"
+      height="0.8125rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -133,8 +133,8 @@ export function ClockIcon({ activo = false }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="15"
-      height="15"
+      width="0.9375rem"
+      height="0.9375rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -157,8 +157,8 @@ export function PauseIcon({ pausado = false }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="15"
-      height="15"
+      width="0.9375rem"
+      height="0.9375rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -183,8 +183,8 @@ export function ChartIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="15"
-      height="15"
+      width="0.9375rem"
+      height="0.9375rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -205,8 +205,8 @@ export function BellIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
+      width="0.875rem"
+      height="0.875rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -224,8 +224,8 @@ export function GearIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      width="1rem"
+      height="1rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -249,8 +249,8 @@ export function BoltIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      width="1rem"
+      height="1rem"
       viewBox="0 0 24 24"
       fill="currentColor"
     >
@@ -266,8 +266,8 @@ export function LinkIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      width="1rem"
+      height="1rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

@@ -10,7 +10,8 @@
 // es enorme en el otro.
 //
 // Todo lo que va en `rem` (casi todo Tailwind) crece solo al cambiar el
-// tamaño de letra de `<html>`. La terminal no: xterm recibe su tamaño en
+// tamaño de letra de `<html>`. Los iconos también, porque su `width` y su
+// `height` van en `rem` y no en píxeles. La terminal no: xterm recibe su tamaño en
 // píxeles, así que escucha el evento SCALE_EVENT y vuelve a medir.
 
 // De 10 en 10: entre 125 y 150 % estaba justo el tamaño que Willy quería.

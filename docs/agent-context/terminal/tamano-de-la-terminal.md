@@ -58,6 +58,8 @@ navegador con la misma línea repetida decenas de veces.
   Ajustes (100 % a 200 %, de 10 en 10, guardado en `localStorage` de cada aparato). Al
   cambiarlo, la terminal recibe `muxspace:scale`, cambia `fontSize` y vuelve a
   medir: el `ResizeObserver` no se entera si el tile no cambia de tamaño.
+  El resto del panel crece solo porque va en `rem`, iconos incluidos: su
+  `width`/`height` se escribe en `rem` (16 px → `1rem`), nunca en píxeles.
 
 ## Trampas
 

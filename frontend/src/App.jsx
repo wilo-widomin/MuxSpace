@@ -14,6 +14,7 @@ import { armChime, chime, configure as configureChime } from './lib/chime.js'
 import GapQuestion from './components/GapQuestion.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import { useT } from './i18n/index.jsx'
+import { SCALE_EVENT, readScale } from './uiScale.js'
 
 // ---- Espacios y visibilidad ----
 // Un **espacio** agrupa sesiones (un cliente, una categoría). Cada sesión
@@ -200,9 +201,13 @@ export default function App() {
 
   // Ancho del sidebar arrastrable (divisor vertical en su borde derecho).
   // Persiste el valor en localStorage para que sobreviva a recargas.
+  // El mínimo crece con el tamaño del panel (`uiScale.js`): los iconos de la
+  // cabecera van en rem y, con el sidebar en píxeles, al 130 % se metían
+  // debajo del logo. Lo vigila el E2E de `cabecera.spec.js`.
   const clampSidebarWidth = (w) => {
+    const min = Math.round(220 * readScale())
     const maxByWin = (typeof window !== 'undefined' ? window.innerWidth : 1280) - 420
-    return Math.max(220, Math.min(w, Math.min(760, Math.max(220, maxByWin))))
+    return Math.max(min, Math.min(w, Math.min(760, Math.max(min, maxByWin))))
   }
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = Number(localStorage.getItem('muxspace-sidebar-width'))
@@ -216,6 +221,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('muxspace-sidebar-width', String(sidebarWidth))
   }, [sidebarWidth])
+  useEffect(() => {
+    const onScale = () => setSidebarWidth((w) => clampSidebarWidth(w))
+    window.addEventListener(SCALE_EVENT, onScale)
+    return () => window.removeEventListener(SCALE_EVENT, onScale)
+  }, [])
 
   // Sesiones del espacio activo que no están ocultas: exactamente lo que
   // se renderiza en el grid. Es un valor DERIVADO, no un estado propio; por

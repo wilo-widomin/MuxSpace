@@ -689,7 +689,11 @@ export default function Sidebar({
               src={logo}
               alt={t('app.brand')}
               className="shrink-0"
-              style={{ position: 'absolute', width: '57px', marginTop: '26px' }}
+              style={{
+                position: 'absolute',
+                width: '3.5625rem',
+                marginTop: '1.625rem',
+              }}
             />
           </h1>
           <div className="flex shrink-0 items-center gap-0.5">

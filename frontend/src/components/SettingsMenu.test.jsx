@@ -67,6 +67,10 @@ describe('Menú de ajustes', () => {
 
     expect(localStorage.getItem('muxspace:scale')).toBe('1.5')
     expect(document.documentElement.style.fontSize).toBe('24px')
+    // Los iconos crecen con la letra: su tamaño va en rem, no en píxeles.
+    for (const svg of document.querySelectorAll('svg[width]')) {
+      expect(svg.getAttribute('width')).toMatch(/rem$/)
+    }
     localStorage.removeItem('muxspace:scale')
     document.documentElement.style.fontSize = ''
   })

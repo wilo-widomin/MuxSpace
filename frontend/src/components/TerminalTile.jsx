@@ -523,8 +523,8 @@ function PlayIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="13"
-      height="13"
+      width="0.8125rem"
+      height="0.8125rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -543,8 +543,8 @@ function PencilIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="13"
-      height="13"
+      width="0.8125rem"
+      height="0.8125rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -565,8 +565,8 @@ function TerminalIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="13"
-      height="13"
+      width="0.8125rem"
+      height="0.8125rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -586,8 +586,8 @@ function SearchIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="13"
-      height="13"
+      width="0.8125rem"
+      height="0.8125rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -605,8 +605,8 @@ function CloseIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      width="1rem"
+      height="1rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -626,8 +626,8 @@ function MinimizeIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      width="1rem"
+      height="1rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -644,8 +644,8 @@ function MaximizeIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      width="1rem"
+      height="1rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -666,8 +666,8 @@ function DoorIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      width="1rem"
+      height="1rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

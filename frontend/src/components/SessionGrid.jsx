@@ -419,8 +419,8 @@ function RestoreIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      width="1rem"
+      height="1rem"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -456,7 +456,7 @@ export function LayoutIcon({ mode }) {
             [14, 14, 7, 7],
           ]
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+    <svg width="1rem" height="1rem" viewBox="0 0 24 24" aria-hidden="true">
       {rects.map(([x, y, w, h]) => (
         <rect
           key={`${x}-${y}`}

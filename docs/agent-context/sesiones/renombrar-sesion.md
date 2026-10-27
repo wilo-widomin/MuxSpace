@@ -1,7 +1,7 @@
 ---
 dominio: sesiones
 accion: renombrar-sesion
-actualizado: 2026-08-28
+actualizado: 2026-10-27
 archivos:
   - backend/tmux_service.py
   - backend/main.py
@@ -33,9 +33,9 @@ un número detrás, y con varias abiertas ese número no identifica nada.
 ## Reglas
 
 - Mismo nombre → no se llama a tmux (los stores cortan solos con `old == new`).
-- Se aplica la misma validación que al crear: `^[A-Za-z0-9_-]{1,64}$` tras
-  sustituir `/` y `\`. Una sesión llamada «Terminal (2)» no se puede renombrar
-  a otro nombre con espacios.
+- Se aplica la misma normalización que al crear (`_slug_session_name`): lo
+  prohibido pasa a `-`, así que «mi terminal (2)» se guarda como
+  `mi-terminal-2`. Solo da 400 si no queda nada válido o pasa de 64.
 - El tile del grid no hay que tocarlo: `openSessions` es derivado de
   `sessions`, así que se recalcula solo con el nombre nuevo.
 

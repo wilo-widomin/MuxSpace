@@ -138,15 +138,18 @@ _log = logs.obtener(__name__)
 
 
 def _slug_session_name(name: str) -> str:
-    """Normaliza un nombre de sesión sustituyendo '/' y '\\' por '_'.
+    """Normaliza un nombre de sesión para que case `_SESSION_NAME_RE`.
 
-    Un nombre de sesión debe ser un **único segmento** de ruta: la barra
-    rompe el routing REST (`/api/.../{name}`) porque el proxy que hace
-    mTLS decodifica `%2F` a '/' antes de que FastAPI resuelva la ruta, y
-    la petición deja de casar (405). En vez de rechazar el nombre lo
-    normalizamos, que es lo que el usuario espera al teclear una barra.
+    Cada tramo de caracteres prohibidos (espacios, barras, tildes, '.',
+    ':', '$'…) pasa a un solo '-', y se quitan los '-' de los extremos:
+    «Mi terminal (2)» queda «Mi-terminal-2». En vez de rechazar el nombre
+    lo normalizamos, que es lo que el usuario espera al teclearlo.
+
+    La barra, además, rompería el routing REST (`/api/.../{name}`): el
+    proxy que hace mTLS decodifica `%2F` a '/' antes de que FastAPI
+    resuelva la ruta, y la petición deja de casar (405).
     """
-    return (name or "").replace("/", "_").replace("\\", "_")
+    return re.sub(r"[^A-Za-z0-9_-]+", "-", name or "").strip("-")
 
 
 def _tmux_safe_label(label: str) -> str:

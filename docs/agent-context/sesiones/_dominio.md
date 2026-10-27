@@ -40,8 +40,10 @@ estado de cliente**.
 
 ## Invariantes
 
-- Nombre tecleable: `^[A-Za-z0-9_-]{1,64}$`, tras sustituir `/` y `\` por `_`
-  (el proxy mTLS decodifica `%2F` y rompería el routing con un 405).
+- Nombre tecleable: `^[A-Za-z0-9_-]{1,64}$`, tras pasar `_slug_session_name`:
+  cada tramo de caracteres prohibidos (espacios, barras, tildes…) queda en un
+  solo `-` y se quitan los `-` de los extremos. La barra, además, rompería el
+  routing con un 405 (el proxy mTLS decodifica `%2F`).
 - Las sesiones que nacen de un comando o un proyecto NO pasan por esa regex:
   usan `_tmux_safe_label`, que solo cambia `. : / \ $` y deja espacios y
   paréntesis. Por eso existen nombres («Terminal (2)») que el usuario no podría

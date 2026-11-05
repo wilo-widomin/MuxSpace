@@ -19,25 +19,33 @@ import { useEffect, useRef } from 'react'
 // suspensión y quiere su conexión de vuelta ya.
 const RECONNECT_MS = [500, 1000, 2000, 5000, 10000]
 
+// `onReconnect` avisa de que la conexión ha vuelto tras haberse caído o de que
+// la primera no salió. El bus no guarda nada, así que lo emitido mientras tanto
+// se ha perdido y quien lleve estado en memoria tiene que volver a pedirlo.
+//
 // `enabled` existe porque el backend rechaza el handshake sin cookie con un
 // 403, y eso el navegador lo escribe en la consola: conectarse desde la
 // pantalla de login ensucia la consola y reintenta cada medio segundo contra
 // una puerta que sabemos cerrada.
-export function useAttentionEvents(onEvent, enabled = true) {
+export function useAttentionEvents(onEvent, enabled = true, onReconnect = undefined) {
   // Ref espejo: el callback cambia en cada render de App y el efecto no debe
   // reabrir el WebSocket por eso.
   const onEventRef = useRef(onEvent)
   onEventRef.current = onEvent
+  const onReconnectRef = useRef(onReconnect)
+  onReconnectRef.current = onReconnect
 
   useEffect(() => {
     if (!enabled) return undefined
     let ws = null
     let reintento = null
     let intentos = 0
+    let conexiones = 0
     let vivo = true
 
     const conectar = () => {
       if (!vivo) return
+      conexiones += 1
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       try {
         ws = new WebSocket(`${proto}//${window.location.host}/api/events`)
@@ -47,6 +55,7 @@ export function useAttentionEvents(onEvent, enabled = true) {
       }
       ws.onopen = () => {
         intentos = 0
+        if (conexiones > 1) onReconnectRef.current?.()
       }
       ws.onmessage = (ev) => {
         let msg

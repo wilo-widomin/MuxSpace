@@ -53,9 +53,7 @@ export function WebLinksMenu({ links = [], compacto = false }) {
         <LinkIcon />
       </button>
       {abierto && (
-        <div
-          className="absolute left-0 top-full z-40 mt-1 max-h-64 w-56 overflow-y-auto rounded border border-panel-border bg-panel-surface shadow-lg"
-        >
+        <div className="absolute left-0 top-full z-40 mt-1 max-h-64 w-56 overflow-y-auto rounded border border-panel-border bg-panel-surface shadow-lg">
           <ul>
             {links.map((x) => (
               <li key={x.id}>

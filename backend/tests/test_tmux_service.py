@@ -334,6 +334,10 @@ def tmux_aislado(
             "puede correr en estas condiciones."
         )
     assert tmux_service.kill_session(canario) is True
+    # Era la última sesión, así que el servidor se está apagando solo. Se espera
+    # a que acabe por lo mismo que al final de la fixture: el `new-session` del
+    # test podría caer en esa ventana. Con tmux 3.6a pasa de verdad.
+    servidor.apagar()
 
     yield servidor
 

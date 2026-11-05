@@ -1,7 +1,7 @@
 ---
 dominio: biblioteca
 accion: ejecutar-proyecto
-actualizado: 2026-09-07
+actualizado: 2026-11-05
 archivos:
   - backend/main.py
   - backend/tmux_service.py
@@ -25,6 +25,10 @@ y la vincula a él para que la cabecera muestre sus enlaces.
 4. `space_store.assign` (los errores se ignoran: la sesión ya existe) y
    `library_store.link_session(name, project_id)`.
 5. Se audita como `run-project`, con cwd y comandos.
+
+Con el token de scripts, antes del paso 1 se comprueba que el proyecto sea suyo
+y se revalidan comando y carpeta, y se usa la carpeta recién resuelta: ver
+[Token de scripts](../acceso/token-de-scripts.md).
 
 ## Reglas
 

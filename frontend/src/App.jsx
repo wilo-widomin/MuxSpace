@@ -6,6 +6,7 @@ import { api, ApiError } from './api.js'
 import { initialSpace, UNASSIGNED } from './spaces.js'
 import { sesionesDelGrid } from './lib/grid.js'
 import { porNombre } from './lib/orden.js'
+import { coalesce } from './lib/coalesce.js'
 import { useWorkClock } from './useWorkClock.js'
 import { useWorkPause } from './useWorkPause.js'
 import { useGapQuestion } from './useGapQuestion.js'
@@ -284,6 +285,16 @@ export default function App() {
     )
   }, [handleAuthFailure])
 
+  // Solo los proyectos, para el aviso de que han cambiado: no hace falta pedir
+  // otras tres listas que nadie ha tocado.
+  const loadProjects = useCallback(async () => {
+    try {
+      setProjects(await api.listProjects())
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) handleAuthFailure()
+    }
+  }, [handleAuthFailure])
+
   // Evita apilar sondeos: si la petición anterior de /api/sessions sigue
   // en vuelo (red lenta, diálogo de certificado mTLS, backend caído), el
   // siguiente tick del intervalo no lanza otra idéntica encima.
@@ -372,15 +383,43 @@ export default function App() {
     [loadSessions],
   )
 
+  // ---- Cambios hechos fuera de esta pestaña ----
+  // Proyectos y espacios no se sondean: sin esto, lo que crea un script o se
+  // edita en otro aparato no se veía hasta recargar. El aviso solo dice QUÉ
+  // lista ha cambiado y la lista se vuelve a pedir, así que es indiferente de
+  // dónde venga el cambio, y una recarga no publica nada que pueda provocar
+  // otra. Lo que se esté escribiendo no se toca: los formularios guardan su
+  // propio estado en `Sidebar`, que estas listas solo alimentan.
+  const refreshProjects = useMemo(() => coalesce(loadProjects), [loadProjects])
+  const refreshSpaces = useMemo(() => coalesce(loadSpaces), [loadSpaces])
+  // Tras un corte no se sabe qué se ha perdido: se pide todo lo de la pantalla.
+  const refreshAll = useMemo(
+    () =>
+      coalesce(() => Promise.all([loadCommands(), loadSpaces(), loadSessions(true)])),
+    [loadCommands, loadSpaces, loadSessions],
+  )
+  useEffect(
+    () => () => {
+      refreshProjects.cancelar()
+      refreshSpaces.cancelar()
+      refreshAll.cancelar()
+    },
+    [refreshProjects, refreshSpaces, refreshAll],
+  )
+
   useAttentionEvents(
     useCallback(
       (evento) => {
-        if (evento.type !== 'attention') return
-        applyAttention(evento.session, evento.attention || null)
+        if (evento.type === 'projects-changed') refreshProjects()
+        else if (evento.type === 'spaces-changed') refreshSpaces()
+        else if (evento.type === 'attention') {
+          applyAttention(evento.session, evento.attention || null)
+        }
       },
-      [applyAttention],
+      [applyAttention, refreshProjects, refreshSpaces],
     ),
     authed,
+    refreshAll,
   )
 
   // El audio del navegador nace bloqueado y solo lo desbloquea un gesto del

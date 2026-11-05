@@ -1,9 +1,11 @@
 ---
 dominio: biblioteca
-actualizado: 2026-09-07
+actualizado: 2026-11-05
 archivos:
   - backend/library_store.py
   - backend/main.py
+  - backend/script_policy.py
+  - backend/events.py
   - frontend/src/components/Sidebar.jsx
   - frontend/src/components/sidebar/CommandSelect.jsx
   - frontend/src/api.js
@@ -30,7 +32,9 @@ residuo: no lo lee nadie.)
   Ver [Textos rápidos](textos-rapidos.md).
 - `Project` — `title` obligatorio, `cwd` (`None` si vacío), `commands` (al menos
   uno; los vacíos se descartan), `links` (máx. 12), `space` (id de espacio, que
-  **el store no valida**).
+  **el store no valida**), `script_owned` (creado con el token de scripts; lo
+  fija solo esa alta, editar no lo cambia y lo antiguo se lee como `false`).
+  El título es texto para leer: solo cambian las barras (`_project_title`).
 - `Link` — `url` obligatoria; sin `title` se usa el `netloc`, truncado a 40.
   Es la forma de los enlaces DE UN PROYECTO, que se guardan y se reemplazan
   en bloque con él.
@@ -52,6 +56,11 @@ residuo: no lo lee nadie.)
   comandos se pasan tal cual: son shell por diseño.
 - Al crear un proyecto sin espacio, el backend crea uno con el título del
   proyecto y **lo revierte** si el alta falla.
+- Con el token de scripts, los comandos **no** son shell libre: ver
+  [Token de scripts](../acceso/token-de-scripts.md).
+- Todo cambio de un proyecto publica `projects-changed` en el bus desde el
+  propio store, venga de la vía que venga; las pestañas vuelven a pedir la
+  lista. Ver [estado del grid](../sesiones/estado-del-grid.md).
 
 ## Acciones documentadas
 
@@ -64,7 +73,11 @@ residuo: no lo lee nadie.)
   biblioteca no afecta a ningún proyecto.
 - Borrar un proyecto purga sus entradas de `session_projects` (las terminales
   vivas pierden las badges) pero **no** mata sesiones ni borra el espacio que
-  se creó con él, que queda huérfano.
+  se creó con él, que queda huérfano. Por eso, con token, hay que matar la
+  sesión antes de borrar el proyecto.
+- No confundir `_project_title` con `_slug_session_name`: aplicar el segundo al
+  título convertía «Diseño web» en «Dise-o-web». Solo con token se usa, porque
+  ahí el título es un identificador.
 - Los enlaces generales y los del proyecto comparten archivo y validación,
   pero son listas distintas y se ven en sitios distintos (sidebar / cabecera
   de la terminal): dar de alta uno general no lo convierte

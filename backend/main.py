@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import errno
+import ipaddress
 import os
 import re
 import sys
@@ -42,6 +43,8 @@ import config
 import events
 import library_store
 import logs
+import script_policy
+import script_token
 import space_store
 import upload_store
 import worklog
@@ -89,6 +92,7 @@ from library_store import (
     update_snippet,
 )
 from pty_bridge import _prepare_session, bridge
+from script_policy import ScriptPolicyError
 from space_store import SpaceError
 from tmux_service import (
     TmuxError,
@@ -150,6 +154,16 @@ def _slug_session_name(name: str) -> str:
     resuelva la ruta, y la petición deja de casar (405).
     """
     return re.sub(r"[^A-Za-z0-9_-]+", "-", name or "").strip("-")
+
+
+def _project_title(title: str) -> str:
+    """Normaliza el título de un proyecto, que es un texto para leer.
+
+    Solo se cambian las barras. `_slug_session_name` es para nombres que van
+    a una ruta; aplicado aquí, «Diseño web» se guardaba como «Dise-o-web». El
+    nombre de la sesión se deriva al lanzar, con `_tmux_safe_label`.
+    """
+    return (title or "").replace("/", "_").replace("\\", "_")
 
 
 def _tmux_safe_label(label: str) -> str:
@@ -343,6 +357,8 @@ class ProjectInfo(BaseModel):
     links: list[ProjectLink] = []
     # Id del espacio al que van las sesiones del proyecto (null = ninguno).
     space: str | None = None
+    # Creado con el token de scripts. Solo de lectura: ningún cuerpo lo fija.
+    script_owned: bool = False
 
 
 class ProjectCreateBody(BaseModel):
@@ -737,9 +753,149 @@ async def _security_headers(request: Request, call_next):
     return resp
 
 
+@app.middleware("http")
+async def _audit_script_token(request: Request, call_next):
+    """Una línea de auditoría por cada petición que trae el token de scripts.
+
+    Va aquí y no en cada ruta para que no quede ninguna salida sin registrar:
+    aceptada o rechazada, lectura o borrado, también si la frena un
+    middleware o si la ruta no admite token (`not-evaluated`). El token nunca
+    entra en la línea; `token_id` es un trozo de su huella.
+
+    Es el último que se declara para ser el más externo, y `script_use` se
+    crea antes de seguir porque ese diccionario es el mismo objeto que verán
+    `_script_auth` y las rutas.
+    """
+    if _SCRIPT_TOKEN_HEADER not in request.headers:
+        return await call_next(request)
+    use = {"result": "not-evaluated"}
+    request.state.script_use = use
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        audit.record(
+            "script-token",
+            request=request,
+            user="script",
+            target=f"{request.method} {request.url.path}",
+            detail={**use, "status": status_code},
+        )
+
+
 # Dependencia de autenticación reutilizable (sesión por cookie o HTTP
 # Basic para clientes CLI). Con la auth desactivada devuelve "anonymous".
 _auth = Depends(require_auth)
+
+_SCRIPT_TOKEN_HEADER = "X-Muxspace-Script-Token"  # noqa: S105 — es el nombre de una cabecera, no un secreto.
+
+# Con cualquiera de estas, la petición ha pasado por un proxy aunque el socket
+# diga que viene de la propia máquina (un proxy local que no reescribe la IP).
+_PROXY_HEADERS = (
+    "x-forwarded-for",
+    "x-forwarded-host",
+    "x-forwarded-proto",
+    "x-real-ip",
+    "forwarded",
+)
+
+# Todo el rango 127.0.0.0/8 y `::1` son la misma máquina: contarlos por
+# dirección dejaría a un proceso local cambiar de IP para no acumular fallos.
+_SCRIPT_ATTEMPTS_KEY = "loopback"
+
+# Los proyectos creados con token van todos aquí: el token no puede borrar
+# espacios, así que uno por proyecto dejaría huérfanos.
+_SCRIPT_SPACE_TITLE = "Entrevistas"
+
+
+def _is_local_client(request: Request) -> bool:
+    """¿La petición viene de esta máquina, y no a través del proxy?
+
+    `request.client` es la IP real: uvicorn la resuelve con `--proxy-headers`
+    antes de que llegue aquí, de modo que lo que entra por el proxy de confianza
+    trae la del cliente y no la del proxy. Las cabeceras se miran además por si
+    el proxy no estuviera en la lista de confianza o no las reescribiera.
+    """
+    if any(name in request.headers for name in _PROXY_HEADERS):
+        return False
+    try:
+        address = ipaddress.ip_address(request.client.host if request.client else "")
+    except ValueError:
+        return False
+    return (getattr(address, "ipv4_mapped", None) or address).is_loopback
+
+
+def _script_use(request: Request) -> dict:
+    """Lo que `_audit_script_token` anotará de esta petición."""
+    return request.state.script_use
+
+
+def _is_script(request: Request) -> bool:
+    """¿La autenticó el token? No se mira `user`: un usuario puede llamarse así."""
+    return "token_id" in getattr(request.state, "script_use", {})
+
+
+def _script_auth(request: Request) -> str:
+    """Autoriza al token de scripts, o a la sesión del panel.
+
+    Solo la declaran las rutas enumeradas en `test_auth_contract.py`, y
+    ampliarlas tiene que verse en ese diff. Sin token válido cae en
+    `require_auth`, así que el panel sigue llamándolas igual. Quien pasa por
+    aquí con token queda limitado por las comprobaciones de cada ruta.
+
+    Fuera de la máquina el token ni se compara: desde ahí no sirve para nada,
+    tampoco para adivinarlo.
+    """
+    candidate = request.headers.get(_SCRIPT_TOKEN_HEADER)
+    if candidate is None:
+        return require_auth(request)
+    use = _script_use(request)
+    if not _is_local_client(request):
+        use["result"] = "not-local"
+        return require_auth(request)
+    if not script_token.attempts_allowed(_SCRIPT_ATTEMPTS_KEY):
+        use["result"] = "rate-limited"
+        raise http_error(429, "err.script_token_rate_limited")
+    token_id = script_token.match(candidate)
+    if token_id is None:
+        script_token.register_failure(_SCRIPT_ATTEMPTS_KEY)
+        use["result"] = "invalid-token"
+        return require_auth(request)
+    use.update(result="accepted", token_id=token_id)
+    return "script"
+
+
+def _script_rejected(
+    request: Request, exc: ScriptPolicyError, **detail
+) -> HTTPException:
+    """Anota el rechazo para la auditoría y lo traduce a la respuesta HTTP."""
+    _script_use(request).update(result=exc.result, reason=exc.technical, **detail)
+    return HTTPException(status_code=exc.status, detail=exc.detail)
+
+
+def _check_script_project(
+    request: Request, commands: list[str], cwd: str | None
+) -> str:
+    """Aplica las reglas del token y devuelve la carpeta real del proyecto."""
+    try:
+        script_policy.check_commands(commands, config.SCRIPT_COMMAND_PREFIX)
+        return script_policy.resolve_cwd(cwd, config.SCRIPT_CWD_ROOT)
+    except ScriptPolicyError as exc:
+        raise _script_rejected(
+            request, exc, command=" ; ".join(commands)[:300], cwd=cwd
+        ) from exc
+
+
+def _deny_foreign_project(request: Request, proj) -> None:
+    """El token solo toca los proyectos que se crearon con él."""
+    if not proj.script_owned:
+        _script_use(request).update(result="foreign-project", project_id=proj.id)
+        raise http_error(403, "err.script_project_foreign")
+
+
+_script_auth_dep = Depends(_script_auth)
 
 
 # ----------------------------------------------------------------------
@@ -1679,13 +1835,21 @@ def spawn_terminal_endpoint(
 
 @app.post("/api/kill-session/{name}", response_model=KillSessionResponse)
 def kill_session_endpoint(
-    request: Request, name: str, user: str = _auth
+    request: Request, name: str, user: str = _script_auth_dep
 ) -> KillSessionResponse:
     """Termina la sesión de tmux `name` con `tmux kill-session`.
 
     Su terminal (puente PTY) se cierra sola al desaparecer la sesión, y la
     vista del grid se actualiza en el cliente al refrescar el listado.
+
+    Con token solo se pueden matar las sesiones de un proyecto suyo, y hay que
+    hacerlo antes de borrar el proyecto: borrarlo se lleva el vínculo.
     """
+    if _is_script(request):
+        proyecto = get_project(library_store.session_projects().get(name, ""))
+        if proyecto is None or not proyecto.script_owned:
+            _script_use(request)["result"] = "foreign-session"
+            raise http_error(403, "err.script_session_foreign")
     try:
         killed = kill_session(name)
     except TmuxError as exc:
@@ -2161,21 +2325,51 @@ def _project_info(proj, known_spaces: set[str] | None = None) -> ProjectInfo:
 
 
 @app.get("/api/projects", response_model=list[ProjectInfo])
-def get_projects(user: str = _auth) -> list[ProjectInfo]:
-    """Devuelve todos los proyectos guardados en la biblioteca."""
+def get_projects(
+    request: Request, user: str = _script_auth_dep
+) -> list[ProjectInfo]:
+    """Proyectos de la biblioteca; con token, solo los creados con él."""
     known = {s.id for s in space_store.list_spaces()}
-    return [_project_info(p, known) for p in list_projects()]
+    solo_suyos = _is_script(request)
+    return [
+        _project_info(p, known)
+        for p in list_projects()
+        if p.script_owned or not solo_suyos
+    ]
+
+
+def _create_script_project(request: Request, body: ProjectCreateBody) -> ProjectInfo:
+    """Alta con token: lo que no decide el cuerpo lo pone el servidor.
+
+    Se ignoran `links` y `space`, y el título se reduce a lo que admite el
+    nombre de una sesión: con token el título no es un texto para leer, es el
+    identificador con el que luego se mata la sesión desde una ruta.
+    """
+    commands = [c.strip() for c in body.commands if c.strip()]
+    cwd = _check_script_project(request, commands, body.cwd)
+    title = _slug_session_name(body.title)[:64].strip("-")
+    try:
+        created = add_project(
+            title, cwd, commands,
+            space=space_store.get_or_create_space(_SCRIPT_SPACE_TITLE),
+            script_owned=True,
+        )
+    except (SpaceError, LibraryError) as exc:
+        raise http_from(400, exc) from exc
+    _script_use(request)["project_id"] = created.id
+    return _project_info(created)
 
 
 @app.post("/api/projects", response_model=ProjectInfo, status_code=201)
 def create_project(
+    request: Request,
     body: ProjectCreateBody,
-    user: str = _auth,
+    user: str = _script_auth_dep,
 ) -> ProjectInfo:
     """Crea un proyecto nuevo en la biblioteca."""
-    # El título se usa como nombre de la sesión al ejecutar el proyecto, así
-    # que normalizamos las barras aquí también (ver `_slug_session_name`).
-    title = _slug_session_name(body.title)
+    if _is_script(request):
+        return _create_script_project(request, body)
+    title = _project_title(body.title)
     # Sin espacio elegido se crea uno con el título del proyecto: es lo que
     # el formulario de alta anuncia, y evita que la extensión de navegador
     # tenga que abrir un proyecto que no lleva a ninguna parte.
@@ -2212,7 +2406,7 @@ def update_project_endpoint(
     user: str = _auth,
 ) -> ProjectInfo:
     """Actualiza un proyecto existente."""
-    title = _slug_session_name(body.title)
+    title = _project_title(body.title)
     try:
         updated = update_project(
             project_id, title, body.cwd, body.commands,
@@ -2228,10 +2422,15 @@ def update_project_endpoint(
 
 @app.delete("/api/projects/{project_id}", response_model=MessageResponse)
 def delete_project_endpoint(
+    request: Request,
     project_id: str,
-    user: str = _auth,
+    user: str = _script_auth_dep,
 ) -> MessageResponse:
     """Elimina un proyecto de la biblioteca."""
+    if _is_script(request):
+        proyecto = get_project(project_id)
+        if proyecto is not None:
+            _deny_foreign_project(request, proyecto)
     if not delete_project(project_id):
         raise http_error(404, "err.project_not_found")
     return MessageResponse(message="ok")
@@ -2241,7 +2440,7 @@ def delete_project_endpoint(
 def run_project_endpoint(
     request: Request,
     project_id: str,
-    user: str = _auth,
+    user: str = _script_auth_dep,
 ) -> CreateSessionResponse:
     """Ejecuta un proyecto en una sesión nueva de tmux.
 
@@ -2257,13 +2456,25 @@ def run_project_endpoint(
     if not proj.commands:
         raise http_error(400, "err.project_no_commands")
 
+    # Se revalida aquí porque Willy puede haber editado el proyecto en el
+    # panel: lo que el token llega a ejecutar es lo guardado ahora, no lo que
+    # se comprobó al crearlo. La carpeta se resuelve también ahora, por si un
+    # enlace simbólico ha cambiado de destino.
+    run_cwd = proj.cwd
+    run_space = proj.space
+    if _is_script(request):
+        _deny_foreign_project(request, proj)
+        run_cwd = _check_script_project(request, proj.commands, proj.cwd)
+        if run_space not in {s.id for s in space_store.list_spaces()}:
+            run_space = space_store.get_or_create_space(_SCRIPT_SPACE_TITLE)
+
     base = _tmux_safe_label(proj.title)
     name = _next_label_name(base)
     first, rest = proj.commands[0], proj.commands[1:]
 
     def _try_create(n: str) -> str | None:
         try:
-            if create_session(n, command=first, cwd=proj.cwd):
+            if create_session(n, command=first, cwd=run_cwd):
                 return n
         except TmuxError as exc:
             raise http_from(500, exc) from exc
@@ -2289,9 +2500,9 @@ def run_project_endpoint(
     # La sesión nace en el espacio del proyecto: es lo que hace que abrir
     # `?space=<id>` enseñe algo. Un espacio borrado a mano deja de existir
     # sin que la biblioteca se entere, y eso no puede tumbar el lanzamiento.
-    if proj.space:
+    if run_space:
         try:
-            space_store.assign(name, proj.space)
+            space_store.assign(name, run_space)
         except SpaceError:
             pass
 
@@ -2301,9 +2512,11 @@ def run_project_endpoint(
 
     audit.record(
         "run-project", request=request, user=user, target=name,
-        detail={"project_id": project_id, "cwd": proj.cwd,
+        detail={"project_id": project_id, "cwd": run_cwd,
                 "commands": proj.commands},
     )
+    if _is_script(request):
+        _script_use(request).update(project_id=project_id, session=name)
     return CreateSessionResponse(name=name, created=True)
 
 

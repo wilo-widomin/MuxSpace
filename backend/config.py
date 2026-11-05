@@ -197,3 +197,14 @@ CORS_ORIGINS: list[str] = _get_str_list(
 DIR_SUGGESTION_ROOTS: list[str] = _get_str_list(
     "MUXSPACE_DIR_SUGGESTION_ROOTS", ["~"]
 )
+
+# --- Token de scripts (ver `script_token.py` y `script_policy.py`) ---
+# Con lo que debe empezar el único comando que el token puede dejar guardado.
+# Sin valor no se puede crear nada con token: la lista blanca de opciones que
+# viene detrás solo tiene sentido sobre un programa que haya elegido Willy.
+SCRIPT_COMMAND_PREFIX: str = os.getenv("MUXSPACE_SCRIPT_COMMAND_PREFIX", "").strip()
+
+# Carpeta dentro de la cual deben estar los proyectos creados con token.
+SCRIPT_CWD_ROOT: str = (
+    os.getenv("MUXSPACE_SCRIPT_CWD_ROOT", "").strip() or "~/proyectos/mvp-lab-proyectos"
+)

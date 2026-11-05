@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 
+import events
 from datafiles import write_private
 from errors import AppError
 
@@ -127,19 +128,48 @@ def list_spaces() -> list[Space]:
     return spaces
 
 
+def _announce_spaces() -> None:
+    """Avisa a las pestañas: aquí pasa todo cambio, venga de donde venga."""
+    events.publish({"type": "spaces-changed"})
+
+
+def _create_locked(data: dict, title: str) -> Space:
+    orders = [s.get("order", 0) for s in data["spaces"]]
+    space = Space(
+        id=f"sp_{secrets.token_hex(6)}",
+        title=title,
+        order=(max(orders) + 1) if orders else 0,
+    )
+    data["spaces"].append(space.to_dict())
+    _write(data)
+    return space
+
+
 def create_space(title: str) -> Space:
     title = _clean_title(title)
     with _lock:
-        data = _read()
-        orders = [s.get("order", 0) for s in data["spaces"]]
-        space = Space(
-            id=f"sp_{secrets.token_hex(6)}",
-            title=title,
-            order=(max(orders) + 1) if orders else 0,
-        )
-        data["spaces"].append(space.to_dict())
-        _write(data)
+        space = _create_locked(_read(), title)
+    _announce_spaces()
     return space
+
+
+def get_or_create_space(title: str) -> str:
+    """Id del espacio con ese título, creándolo si no existe.
+
+    Busca y crea dentro del mismo bloqueo: dos altas simultáneas no pueden
+    dejar dos espacios homónimos. Sin distinguir mayúsculas, igual que abrir
+    un proyecto en pestaña nueva.
+    """
+    title = _clean_title(title)
+    wanted = title.casefold()
+    with _lock:
+        data = _read()
+        for entry in data["spaces"]:
+            if str(entry.get("title", "")).strip().casefold() == wanted:
+                return entry["id"]
+        space = _create_locked(data, title)
+    _announce_spaces()
+    return space.id
 
 
 def update_space(space_id: str, title: str) -> Space:
@@ -150,10 +180,11 @@ def update_space(space_id: str, title: str) -> Space:
             if entry.get("id") == space_id:
                 entry["title"] = title
                 _write(data)
-                return Space(
-                    id=space_id, title=title, order=entry.get("order", 0)
-                )
-    raise SpaceError("err.space_not_found", {"id": space_id})
+                break
+        else:
+            raise SpaceError("err.space_not_found", {"id": space_id})
+    _announce_spaces()
+    return Space(id=space_id, title=title, order=entry.get("order", 0))
 
 
 def delete_space(space_id: str) -> None:
@@ -174,6 +205,7 @@ def delete_space(space_id: str) -> None:
             if sid != space_id
         }
         _write(data)
+    _announce_spaces()
 
 
 def assignments() -> dict[str, str]:

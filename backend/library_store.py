@@ -43,6 +43,7 @@ from threading import Lock
 from typing import Optional
 from urllib.parse import urlparse
 
+import events
 from datafiles import write_private
 from errors import AppError
 
@@ -143,6 +144,9 @@ class Project:
     # que exista: quien lo comprueba es la capa HTTP, que sí ve los dos
     # almacenes (ver `_project_info` en `main.py`).
     space: Optional[str] = None
+    # Creado con el token de scripts. Es lo que limita ese token a sus propios
+    # proyectos; solo lo pone el alta por esa vía y editar no lo cambia.
+    script_owned: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -244,6 +248,8 @@ def _load_raw() -> _Library:
                 # vez de rechazar el proyecto entero: leer nunca lanza.
                 links=_normalize_links(item.get("links"), strict=False),
                 space=str(item.get("space") or "").strip() or None,
+                # `is True`: un valor raro en disco no puede dar permisos.
+                script_owned=item.get("script_owned") is True,
             )
         )
 
@@ -565,6 +571,11 @@ def delete_link(link_id: str) -> bool:
 # ---------------------------------------------------------------------- #
 # Proyectos                                                               #
 # ---------------------------------------------------------------------- #
+def _announce_projects() -> None:
+    """Avisa a las pestañas: aquí pasa todo cambio, venga de donde venga."""
+    events.publish({"type": "projects-changed"})
+
+
 def list_projects() -> list[Project]:
     """Devuelve todos los proyectos guardados, en orden de inserción."""
     with _lock:
@@ -581,7 +592,12 @@ def get_project(project_id: str) -> Optional[Project]:
 
 
 def add_project(
-    title: str, cwd: Optional[str], commands: list[str], links=None, space=None
+    title: str,
+    cwd: Optional[str],
+    commands: list[str],
+    links=None,
+    space=None,
+    script_owned: bool = False,
 ) -> Project:
     """Crea y persiste un proyecto nuevo. Devuelve el proyecto creado."""
     title, cwd, cmds, lnks, space_id = _validate_project(
@@ -591,11 +607,12 @@ def add_project(
         lib = _load_raw()
         created = Project(
             id=secrets.token_hex(4), title=title, cwd=cwd, commands=cmds,
-            links=lnks, space=space_id,
+            links=lnks, space=space_id, script_owned=script_owned,
         )
         lib.projects.append(created)
         _persist(lib)
-        return created
+    _announce_projects()
+    return created
 
 
 def update_project(
@@ -620,8 +637,11 @@ def update_project(
                 p.links = lnks
                 p.space = space_id
                 _persist(lib)
-                return p
-        return None
+                break
+        else:
+            return None
+    _announce_projects()
+    return p
 
 
 def delete_project(project_id: str) -> bool:
@@ -638,7 +658,8 @@ def delete_project(project_id: str) -> bool:
             if pid != project_id
         }
         _persist(lib)
-        return True
+    _announce_projects()
+    return True
 
 
 # ---------------------------------------------------------------------- #

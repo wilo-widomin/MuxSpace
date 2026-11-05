@@ -1,12 +1,14 @@
 ---
 dominio: sesiones
 accion: estado-del-grid
-actualizado: 2026-09-16
+actualizado: 2026-11-05
 archivos:
   - frontend/src/App.jsx
   - frontend/src/lib/grid.js
   - frontend/src/components/SessionGrid.jsx
   - frontend/src/spaces.js
+  - frontend/src/useAttentionEvents.js
+  - frontend/src/lib/coalesce.js
 depende_de: [espacios/_dominio]
 ---
 
@@ -28,6 +30,24 @@ orden, y por eso ningún sondeo puede reabrir una ventana que el usuario cerró.
 Claves de `localStorage`: `muxspace:hidden-sessions`, `muxspace:session-order`,
 `muxspace:grid-layout`, `muxspace:grid-sizes:{cols}x{rows}`, `sidebarCollapsed`,
 `muxspace-sidebar-width`.
+
+## Cuándo se recarga cada lista
+
+| Lista | Cuándo |
+|---|---|
+| Sesiones | sondeo cada 8 s, parado con la pestaña oculta, y tras cada acción |
+| Proyectos | evento `projects-changed` del bus, al montar y tras cada acción |
+| Espacios | evento `spaces-changed` del bus, al montar y tras cada acción |
+| Todo lo anterior, y comandos, textos y enlaces | al reconectar el bus |
+
+El evento solo dice qué lista ha cambiado y la lista se vuelve a pedir, así que
+da igual quién hizo el cambio: un script, otro aparato u otra pestaña. El bus no
+tiene memoria, y por eso reconectar lo pide todo: lo emitido con la conexión
+caída se ha perdido. Una recarga no publica nada, de modo que no hay bucle, y
+`coalesce` junta en una sola las ráfagas (un alta con token son dos eventos).
+
+Lo que se está escribiendo en un formulario no se pierde: su estado vive en
+`Sidebar`, y estas listas solo le llegan como propiedades.
 
 ## Reglas
 
@@ -61,3 +81,7 @@ Claves de `localStorage`: `muxspace:hidden-sessions`, `muxspace:session-order`,
   recuperan otros tamaños. Parece que «se pierden» y no es un bug.
 - Un `space` guardado en sessionStorage que ya no existe (borrado desde otra
   pestaña) deja el grid vacío: no hay saneo contra la lista cargada.
+- Comandos, textos rápidos y enlaces no publican evento: solo se recargan al
+  reconectar o tras una acción de esa pestaña.
+- Si otro borra el proyecto que se está editando, el formulario sigue abierto y
+  con lo escrito, y al guardar sale el error de que no existe.

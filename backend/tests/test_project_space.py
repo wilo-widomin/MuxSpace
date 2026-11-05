@@ -211,3 +211,30 @@ def test_la_migracion_conserva_los_enlaces_del_proyecto(data_dir: Path) -> None:
         ("https://ok.example", "Panel")
     ]
     assert (migrado.cwd, migrado.commands) == ("/srv", ["bun dev"])
+
+
+@pytest.mark.parametrize(
+    ("tecleado", "guardado"),
+    [
+        ("muxspace-e2e proyecto de prueba", "muxspace-e2e proyecto de prueba"),
+        ("Diseño web", "Diseño web"),
+        ("a/b\\c", "a_b_c"),
+    ],
+)
+def test_el_titulo_de_un_proyecto_conserva_lo_que_se_escribio(
+    client_no_auth, tecleado: str, guardado: str
+) -> None:
+    """El título es un texto para leer; el nombre de la sesión se sanea al lanzar.
+
+    Al endurecer `_slug_session_name` para las sesiones, «Diseño web» pasó a
+    guardarse como «Dise-o-web». Las barras sí se siguen cambiando, como antes.
+    """
+    cuerpo = {"title": tecleado, "cwd": None, "commands": ["true"]}
+
+    creado = client_no_auth.post("/api/projects", json=cuerpo).json()
+    assert creado["title"] == guardado
+
+    editado = client_no_auth.put(
+        f"/api/projects/{creado['id']}", json={**cuerpo, "space": creado["space"]}
+    ).json()
+    assert editado["title"] == guardado

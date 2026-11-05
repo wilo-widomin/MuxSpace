@@ -817,6 +817,9 @@ def test_biblioteca_el_formato_en_disco_es_el_declarado(data_dir: Path) -> None:
                 # `test_project_space.py`), pero la biblioteca por sí sola no
                 # inventa espacios.
                 "space": None,
+                # Creado con el token de scripts. Los proyectos viejos del
+                # disco no traen la clave y se leen como `false`.
+                "script_owned": False,
             }
         ],
         # Qué sesión de tmux salió de qué proyecto. Vacío mientras no se

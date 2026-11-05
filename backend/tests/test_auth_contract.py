@@ -71,22 +71,20 @@ RUTAS_PUBLICAS = frozenset({"/api/health", "/api/login", "/api/logout"})
 # el diff de este archivo.
 RUTAS_CON_SECRETO_DEL_HOST = frozenset({"/api/attention/{name}"})
 
-# Rutas que un script del host puede usar con su propio secreto
+# Rutas que un script del host puede usar con su propio token
 # (`script_token`), también ENUMERADAS y por método: en un mismo path puede
 # haber métodos que siguen siendo solo del panel, como `PUT /api/projects/{id}`.
-# Son las justas para crear un proyecto, lanzarlo y borrarlo con su sesión y
-# su espacio. Ampliarla es una decisión de seguridad y tiene que verse aquí.
+# Son las justas para crear un proyecto, lanzarlo, matar su sesión y borrarlo.
+# Ni sesiones ni espacios se listan: el token no ve lo que no creó, y sus
+# proyectos van a un espacio fijo que pone el servidor. Ampliarla es una
+# decisión de seguridad y tiene que verse aquí.
 RUTAS_CON_TOKEN_DE_SCRIPTS = frozenset(
     {
         ("GET", "/api/projects"),
         ("POST", "/api/projects"),
         ("POST", "/api/projects/{project_id}/run"),
         ("DELETE", "/api/projects/{project_id}"),
-        ("GET", "/api/sessions"),
         ("POST", "/api/kill-session/{name}"),
-        ("GET", "/api/spaces"),
-        ("POST", "/api/spaces"),
-        ("DELETE", "/api/spaces/{space_id}"),
     }
 )
 
@@ -372,44 +370,47 @@ def test_el_token_de_scripts_acaba_en_require_auth(r: APIRoute) -> None:
     assert main._script_auth in _dependencias(r.dependant)
 
 
-def test_el_token_de_scripts_no_abre_ninguna_otra_ruta(client: TestClient) -> None:
-    """Fuera de su lista, el secreto de los scripts responde 401 en todas."""
+def test_el_token_de_scripts_no_abre_ninguna_otra_ruta(
+    client_local: TestClient,
+) -> None:
+    """Fuera de su lista, el token responde 401 en todas, desde la máquina."""
     import script_token
 
-    cabecera = {main._SCRIPT_TOKEN_HEADER: script_token.script_token()}
+    cabecera = {main._SCRIPT_TOKEN_HEADER: script_token.generate()[0]}
     casos = [(r.path, m) for r in _PROTEGIDAS + _CON_SECRETO for m in _metodos(r)]
     for path, metodo in casos:
-        resp = client.request(metodo, _url(path), headers=cabecera)
+        resp = client_local.request(metodo, _url(path), headers=cabecera)
         assert resp.status_code == 401, f"{metodo} {path}: {resp.status_code}"
 
 
-def test_el_token_de_scripts_llega_a_sus_rutas(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Con el secreto, cada ruta de la lista deja de responder 401."""
+def test_el_token_de_scripts_llega_a_sus_rutas(client_local: TestClient) -> None:
+    """Con el token, cada ruta de la lista deja de responder 401.
+
+    Sin tmux de por medio: con un proyecto que no existe y una sesión sin
+    vincular, ninguna llega a ejecutar nada.
+    """
     import script_token
 
-    # Sin esto, las rutas de sesiones hablarían con el tmux real del usuario.
-    monkeypatch.setattr(main, "list_sessions", list)
-    monkeypatch.setattr(main, "kill_session", lambda name: False)
-    cabecera = {main._SCRIPT_TOKEN_HEADER: script_token.script_token()}
+    cabecera = {main._SCRIPT_TOKEN_HEADER: script_token.generate()[0]}
     for metodo, path in RUTAS_CON_TOKEN_DE_SCRIPTS:
-        resp = client.request(metodo, _url(path), headers=cabecera)
+        resp = client_local.request(metodo, _url(path), headers=cabecera)
         assert resp.status_code != 401, f"{metodo} {path}"
 
 
 def test_el_secreto_de_avisos_no_abre_las_rutas_de_scripts(
-    client: TestClient,
+    client_local: TestClient,
 ) -> None:
     """Los dos secretos no son intercambiables."""
     import attention_store
+    import script_token
 
+    script_token.generate()
     cabeceras = {
         main._SCRIPT_TOKEN_HEADER: attention_store.hook_token(),
         main._HOOK_TOKEN_HEADER: attention_store.hook_token(),
     }
     for metodo, path in RUTAS_CON_TOKEN_DE_SCRIPTS:
-        resp = client.request(metodo, _url(path), headers=cabeceras)
+        resp = client_local.request(metodo, _url(path), headers=cabeceras)
         assert resp.status_code == 401, f"{metodo} {path}"
 
 

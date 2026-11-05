@@ -36,7 +36,7 @@ ORIGIN = "http://testserver"
 for _var in [k for k in os.environ if k.startswith("MUXSPACE_")]:
     del os.environ[_var]
 
-# Se fijan LAS DIECISIETE que lee config.py, no solo las que interesan a un test
+# Se fijan LAS DIECINUEVE que lee config.py, no solo las que interesan a un test
 # concreto: cualquiera que se deje sin fijar la rellena el `backend/.env` del
 # usuario (que es su despliegue real) y los tests pasarían a comportarse
 # distinto según la máquina.
@@ -79,6 +79,11 @@ os.environ.update(
         # los tests del registro midieran la máquina en vez del código.
         "MUXSPACE_WORKLOG_MODE": "measured",
         "MUXSPACE_WORKLOG_MAX_DAY_HOURS": "10",
+        # Sin prefijo el token no crea nada, y la raíz no existe: lo que quiera
+        # probar otra cosa lo fija en `test_script_token.py`, y un olvido se
+        # queda en un rechazo en vez de tocar el home del usuario.
+        "MUXSPACE_SCRIPT_COMMAND_PREFIX": "",
+        "MUXSPACE_SCRIPT_CWD_ROOT": "/nonexistent/muxspace-tests",
     }
 )
 
@@ -175,8 +180,14 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     # y arrastraría el valor entre tests.
     monkeypatch.setattr(attention_store, "_TOKEN_PATH", datos / "attention_token")
     monkeypatch.setattr(attention_store, "_token", None)
-    monkeypatch.setattr(script_token, "_TOKEN_PATH", datos / "script_token")
-    monkeypatch.setattr(script_token, "_token", None)
+    # Las huellas del token de scripts, con su caché de proceso y su contador
+    # de fallos: un test no puede heredar ni el token ni el bloqueo de otro.
+    monkeypatch.setattr(
+        script_token, "_HASHES_PATH", datos / "script_token_hashes.json"
+    )
+    monkeypatch.setattr(script_token, "_signature", None)
+    monkeypatch.setattr(script_token, "_hashes", ())
+    monkeypatch.setattr(script_token, "_failures", {})
     monkeypatch.setattr(auth, "_BANNED_PATH", datos / "banned_ips.json")
     monkeypatch.setattr(chime_store, "_STORE_PATH", datos / "chime.json")
     monkeypatch.setattr(chime_store, "AUDIO_DIR", datos / "chime")
@@ -256,6 +267,20 @@ def client(data_dir: Path):
     # `with`: sin él, TestClient no ejecuta el lifespan y la app queda a medio
     # arrancar respecto de cómo corre en producción.
     with TestClient(main.app) as c:
+        yield c
+
+
+@pytest.fixture
+def client_local(data_dir: Path):
+    """Cliente que entra por la propia máquina, como el token de scripts exige.
+
+    `TestClient` se presenta por defecto con la IP `testclient`, que no es
+    loopback. Lo que cambia es el cliente de la prueba y no el control de
+    `main._is_local_client`, que sigue siendo el de producción.
+    """
+    from fastapi.testclient import TestClient
+
+    with TestClient(main.app, client=("127.0.0.1", 50000)) as c:
         yield c
 
 

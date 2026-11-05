@@ -28,7 +28,11 @@ solo toca lo que creó él.
 
 En `backend/.env`:
 
-    MUXSPACE_SCRIPT_COMMAND_PREFIX="CLAUDIFY_PROJECT=mvp-lab-skills claude"
+    MUXSPACE_SCRIPT_COMMAND_PREFIX="claude"
+
+Con ese prefijo, el comando no puede llevar variables delante: cada entrevista
+tiene su propio proyecto en Claudify, así que `CLAUDIFY_PROJECT` debe llegar
+por los avisos instalados en su carpeta, no por el comando.
     # Opcional; este es el valor por defecto.
     MUXSPACE_SCRIPT_CWD_ROOT=~/proyectos/mvp-lab-proyectos
 

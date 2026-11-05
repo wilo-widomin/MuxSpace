@@ -181,6 +181,18 @@ def servidor_tmux(tmp_path_factory: pytest.TempPathFactory):
         "nada que ver con lo que se prueba"
     )
 
+    # Una sesión que vive tanto como el servidor. Sin ella, matar el canario de
+    # `tmux_aislado` deja el servidor vacío, tmux lo apaga, y una `new-session`
+    # que llegue en ese instante se conecta a un servidor moribundo y sale con
+    # 1 («server exited unexpectedly»). Medido: 1 de cada 400 con tmux 3.4 bajo
+    # carga, y en las dos ejecuciones de CI con tmux 3.6a.
+    subprocess.run(
+        [str(wrapper), "new-session", "-d", "-s", "muxspace-ancla"],
+        capture_output=True,
+        timeout=10,
+        check=True,
+    )
+
     yield wrapper
 
     subprocess.run([str(wrapper), "kill-server"], capture_output=True, timeout=10)

@@ -1,6 +1,6 @@
 ---
 dominio: atencion
-actualizado: 2026-09-07
+actualizado: 2026-11-05
 archivos:
   - backend/attention_store.py
   - backend/chime_store.py
@@ -32,10 +32,12 @@ Documentación para humanos: `docs/avisos-de-atencion.md`.
   secreto que autoriza a marcar (`data/attention_token`, 0600, creado en el
   arranque).
 - `events.py` — bus en proceso. Reparte a las pestañas suscritas y no guarda
-  nada.
+  nada. Lo usan también proyectos y espacios para avisar de que han cambiado:
+  ver [estado del grid](../sesiones/estado-del-grid.md).
 - `main.py` — `POST/DELETE /api/attention/{name}`, `DELETE /api/attention`, el
   WebSocket `/api/events` y el campo `attention` de `SessionInfo`.
-- `useAttentionEvents.js` — el WebSocket del cliente, con reconexión.
+- `useAttentionEvents.js` — el WebSocket del cliente, con reconexión y un aviso
+  de que hay que ponerse al día al volver.
 - `chime.js` — la campanilla: el catálogo de sonidos, la síntesis con
   WebAudio y la reproducción del audio propio.
 - `chime_store.py` — la preferencia (qué suena, volumen, silencio) en

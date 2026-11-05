@@ -8,6 +8,7 @@ archivos:
   - backend/errors.py
   - backend/logs.py
   - backend/script_token.py
+  - backend/script_policy.py
   - backend/main.py
   - frontend/src/components/LoginScreen.jsx
   - frontend/src/api.js
@@ -42,8 +43,9 @@ ni ve ni valida.
 
 - Hay **dos secretos del host**, y solo dos, cada uno con sus rutas enumeradas
   en `test_auth_contract.py`. El de `data/attention_token` autoriza a marcar
-  atención (`POST /api/attention`); ver `atencion/_dominio`. El de
-  `data/script_token` autoriza a crear, lanzar y borrar proyectos; ver
+  atención (`POST /api/attention`); ver `atencion/_dominio`. El token de
+  scripts, del que solo se guarda la huella, autoriza a crear, lanzar y borrar
+  sus propios proyectos desde la máquina; ver
   [Token de scripts](token-de-scripts.md).
 - Con `AUTH_ENABLED=false` el único control anti-CSRF que queda es el guard de
   Origin: configurar mal `CORS_ORIGINS` abre POSTs desde otro sitio contra un
@@ -72,4 +74,5 @@ ni ve ni valida.
   terminal» obliga a descartar a mano baneo, Origin, cookie y sesión.
 - `POST /api/logout-all` revoca también la sesión de quien llama, exige auth y
   no está en la interfaz: solo por curl.
-- `logout` no se audita; las lecturas tampoco.
+- `logout` no se audita; las lecturas del panel tampoco. Las del token de
+  scripts sí.

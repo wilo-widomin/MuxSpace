@@ -1,9 +1,10 @@
 ---
 dominio: espacios
-actualizado: 2026-08-28
+actualizado: 2026-11-05
 archivos:
   - backend/space_store.py
   - backend/main.py
+  - backend/events.py
   - frontend/src/spaces.js
   - frontend/src/components/sidebar/SpacesBar.jsx
 depende_de: [sesiones/_dominio, biblioteca/_dominio]
@@ -40,6 +41,10 @@ espacio mira cada pestaña, no.
   sesión con el mismo nombre no herede el espacio.
 - Asignar a un id inexistente da 400 `err.space_not_found`; el endpoint
   comprueba antes que la sesión exista en tmux.
+- Crear, renombrar o borrar publica `spaces-changed` en el bus desde el propio
+  store. Asignar sesiones no: eso viaja en el listado de sesiones.
+- `get_or_create_space` busca y crea dentro del mismo bloqueo, sin distinguir
+  mayúsculas. Lo usa el token de scripts para su espacio fijo **Entrevistas**.
 
 ## Trampas
 

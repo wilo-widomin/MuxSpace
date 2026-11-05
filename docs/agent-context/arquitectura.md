@@ -94,3 +94,7 @@ llamar al ejecutable.
 - `kill-server` de tmux es asíncrono: vuelve cuando ha mandado la orden, no
   cuando el servidor ha muerto. Encadenar `kill-server` + `new-session` falla
   ~6 % de las veces; el andamiaje de tests espera de verdad.
+- Matar **la última sesión** de un servidor de tmux lo apaga, y una
+  `new-session` que llegue en ese instante sale con 1 («server exited
+  unexpectedly»). En tests se evita con una sesión ancla que vive tanto como el
+  servidor (`test_pty_bridge.py`).

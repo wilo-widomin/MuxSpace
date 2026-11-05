@@ -42,6 +42,7 @@ import config
 import events
 import library_store
 import logs
+import script_token
 import space_store
 import upload_store
 import worklog
@@ -570,6 +571,8 @@ async def lifespan(app: FastAPI):
     # lo LEE, y un fichero que aparece al primer uso no existe todavía cuando
     # se instala el hook. Ver `docs/avisos-de-atencion.md`.
     attention_store.hook_token()
+    # Lo mismo para el secreto de los scripts: quien lo usa lo LEE del fichero.
+    script_token.script_token()
     migrados = _migrar_espacios_de_proyectos()
     if migrados:
         _log.info("Espacio asignado a %d proyectos que no tenían", migrados)
@@ -740,6 +743,24 @@ async def _security_headers(request: Request, call_next):
 # Dependencia de autenticación reutilizable (sesión por cookie o HTTP
 # Basic para clientes CLI). Con la auth desactivada devuelve "anonymous".
 _auth = Depends(require_auth)
+
+_SCRIPT_TOKEN_HEADER = "X-Muxspace-Script-Token"  # noqa: S105 — es el nombre de una cabecera, no un secreto.
+
+
+def _script_auth(request: Request) -> str:
+    """Autoriza a un script del host con su secreto, o a la sesión del panel.
+
+    Solo la declaran las rutas que un script necesita para crear, lanzar y
+    borrar un proyecto. Sin secreto válido cae en `require_auth`, así que el
+    panel sigue llamándolas igual. Las rutas están enumeradas en
+    `test_auth_contract.py`: ampliarlas tiene que verse en ese diff.
+    """
+    if script_token.token_matches(request.headers.get(_SCRIPT_TOKEN_HEADER)):
+        return "script"
+    return require_auth(request)
+
+
+_script_auth_dep = Depends(_script_auth)
 
 
 # ----------------------------------------------------------------------
@@ -1552,7 +1573,7 @@ def _project_of(
 
 
 @app.get("/api/sessions", response_model=list[SessionInfo])
-def get_sessions(user: str = _auth) -> list[SessionInfo]:
+def get_sessions(user: str = _script_auth_dep) -> list[SessionInfo]:
     """Devuelve el catálogo de sesiones de tmux y el espacio de cada una."""
     try:
         sessions = list_sessions()
@@ -1679,7 +1700,7 @@ def spawn_terminal_endpoint(
 
 @app.post("/api/kill-session/{name}", response_model=KillSessionResponse)
 def kill_session_endpoint(
-    request: Request, name: str, user: str = _auth
+    request: Request, name: str, user: str = _script_auth_dep
 ) -> KillSessionResponse:
     """Termina la sesión de tmux `name` con `tmux kill-session`.
 
@@ -1913,13 +1934,15 @@ async def events_ws(websocket: WebSocket) -> None:
 # Espacios: agrupar sesiones por cliente / categoría / proyecto           #
 # ---------------------------------------------------------------------- #
 @app.get("/api/spaces", response_model=list[SpaceInfo])
-def get_spaces(user: str = _auth) -> list[SpaceInfo]:
+def get_spaces(user: str = _script_auth_dep) -> list[SpaceInfo]:
     """Espacios existentes, en orden. "Sin asignar" es virtual y no sale."""
     return [SpaceInfo(**s.to_dict()) for s in space_store.list_spaces()]
 
 
 @app.post("/api/spaces", response_model=SpaceInfo, status_code=201)
-def create_space_endpoint(body: SpaceBody, user: str = _auth) -> SpaceInfo:
+def create_space_endpoint(
+    body: SpaceBody, user: str = _script_auth_dep
+) -> SpaceInfo:
     try:
         return SpaceInfo(**space_store.create_space(body.title).to_dict())
     except SpaceError as exc:
@@ -1937,7 +1960,9 @@ def update_space_endpoint(
 
 
 @app.delete("/api/spaces/{space_id}", response_model=MessageResponse)
-def delete_space_endpoint(space_id: str, user: str = _auth) -> MessageResponse:
+def delete_space_endpoint(
+    space_id: str, user: str = _script_auth_dep
+) -> MessageResponse:
     """Borra el espacio; sus sesiones vuelven a "Sin asignar", intactas."""
     try:
         space_store.delete_space(space_id)
@@ -2161,7 +2186,7 @@ def _project_info(proj, known_spaces: set[str] | None = None) -> ProjectInfo:
 
 
 @app.get("/api/projects", response_model=list[ProjectInfo])
-def get_projects(user: str = _auth) -> list[ProjectInfo]:
+def get_projects(user: str = _script_auth_dep) -> list[ProjectInfo]:
     """Devuelve todos los proyectos guardados en la biblioteca."""
     known = {s.id for s in space_store.list_spaces()}
     return [_project_info(p, known) for p in list_projects()]
@@ -2170,7 +2195,7 @@ def get_projects(user: str = _auth) -> list[ProjectInfo]:
 @app.post("/api/projects", response_model=ProjectInfo, status_code=201)
 def create_project(
     body: ProjectCreateBody,
-    user: str = _auth,
+    user: str = _script_auth_dep,
 ) -> ProjectInfo:
     """Crea un proyecto nuevo en la biblioteca."""
     # El título se usa como nombre de la sesión al ejecutar el proyecto, así
@@ -2229,7 +2254,7 @@ def update_project_endpoint(
 @app.delete("/api/projects/{project_id}", response_model=MessageResponse)
 def delete_project_endpoint(
     project_id: str,
-    user: str = _auth,
+    user: str = _script_auth_dep,
 ) -> MessageResponse:
     """Elimina un proyecto de la biblioteca."""
     if not delete_project(project_id):
@@ -2241,7 +2266,7 @@ def delete_project_endpoint(
 def run_project_endpoint(
     request: Request,
     project_id: str,
-    user: str = _auth,
+    user: str = _script_auth_dep,
 ) -> CreateSessionResponse:
     """Ejecuta un proyecto en una sesión nueva de tmux.
 

@@ -71,6 +71,25 @@ RUTAS_PUBLICAS = frozenset({"/api/health", "/api/login", "/api/logout"})
 # el diff de este archivo.
 RUTAS_CON_SECRETO_DEL_HOST = frozenset({"/api/attention/{name}"})
 
+# Rutas que un script del host puede usar con su propio secreto
+# (`script_token`), también ENUMERADAS y por método: en un mismo path puede
+# haber métodos que siguen siendo solo del panel, como `PUT /api/projects/{id}`.
+# Son las justas para crear un proyecto, lanzarlo y borrarlo con su sesión y
+# su espacio. Ampliarla es una decisión de seguridad y tiene que verse aquí.
+RUTAS_CON_TOKEN_DE_SCRIPTS = frozenset(
+    {
+        ("GET", "/api/projects"),
+        ("POST", "/api/projects"),
+        ("POST", "/api/projects/{project_id}/run"),
+        ("DELETE", "/api/projects/{project_id}"),
+        ("GET", "/api/sessions"),
+        ("POST", "/api/kill-session/{name}"),
+        ("GET", "/api/spaces"),
+        ("POST", "/api/spaces"),
+        ("DELETE", "/api/spaces/{space_id}"),
+    }
+)
+
 # Suelo del censo, no cifra exacta (hoy son 32 rutas protegidas). Un número
 # exacto obligaría a tocar este archivo en cada endpoint nuevo y acabaría
 # actualizándose a ciegas; un suelo solo salta cuando el censo se DERRUMBA,
@@ -247,10 +266,19 @@ _CON_SECRETO = [
     if r.path in RUTAS_CON_SECRETO_DEL_HOST and not _protege(r)
 ]
 
+_CON_TOKEN = [
+    r
+    for r in rutas_api(main.app)
+    if any((m, r.path) in RUTAS_CON_TOKEN_DE_SCRIPTS for m in _metodos(r))
+    and not _protege(r)
+]
+
 _PROTEGIDAS = [
     r
     for r in rutas_api(main.app)
-    if r.path not in RUTAS_PUBLICAS and r not in _CON_SECRETO
+    if r.path not in RUTAS_PUBLICAS
+    and r not in _CON_SECRETO
+    and r not in _CON_TOKEN
 ]
 
 # El método entra en el id porque un mismo path aparece varias veces con
@@ -260,7 +288,9 @@ _PROTEGIDAS = [
 _IDS_RUTAS = [f"{'+'.join(_metodos(r))} {r.path}" for r in _PROTEGIDAS]
 
 # Pares (ruta, método) para los tests que hacen el recorrido real.
-_CASOS = [(r, m) for r in _PROTEGIDAS + _CON_SECRETO for m in _metodos(r)]
+_CASOS = [
+    (r, m) for r in _PROTEGIDAS + _CON_SECRETO + _CON_TOKEN for m in _metodos(r)
+]
 _IDS_CASOS = [f"{m} {r.path}" for r, m in _CASOS]
 
 
@@ -290,7 +320,8 @@ def test_las_rutas_publicas_son_exactamente_las_declaradas() -> None:
     igual); comprobar solo que las de la lista están abiertas deja pasar una
     ruta nueva sin autenticar.
     """
-    abiertas = set(rutas_api_sin_auth(main.app, RUTAS_CON_SECRETO_DEL_HOST))
+    excusadas = RUTAS_CON_SECRETO_DEL_HOST | {p for _, p in RUTAS_CON_TOKEN_DE_SCRIPTS}
+    abiertas = set(rutas_api_sin_auth(main.app, excusadas))
     assert abiertas == set(RUTAS_PUBLICAS), (
         f"Rutas abiertas no declaradas: {sorted(abiertas - RUTAS_PUBLICAS)}; "
         f"entradas obsoletas en RUTAS_PUBLICAS: "
@@ -327,6 +358,59 @@ def test_el_secreto_del_host_abre_solo_lo_suyo(client: TestClient) -> None:
     assert client.post("/api/attention/x").status_code == 401
     # El secreto no vale para nada más que marcar.
     assert client.get("/api/sessions", headers=cabecera).status_code == 401
+
+
+def test_las_rutas_del_token_de_scripts_son_exactamente_las_declaradas() -> None:
+    """Igualdad en las dos direcciones, y por método."""
+    reales = {(m, r.path) for r in _CON_TOKEN for m in _metodos(r)}
+    assert reales == RUTAS_CON_TOKEN_DE_SCRIPTS
+
+
+@pytest.mark.parametrize("r", _CON_TOKEN, ids=[r.path for r in _CON_TOKEN])
+def test_el_token_de_scripts_acaba_en_require_auth(r: APIRoute) -> None:
+    """Sin secreto válido, estas rutas siguen exigiendo una sesión del panel."""
+    assert main._script_auth in _dependencias(r.dependant)
+
+
+def test_el_token_de_scripts_no_abre_ninguna_otra_ruta(client: TestClient) -> None:
+    """Fuera de su lista, el secreto de los scripts responde 401 en todas."""
+    import script_token
+
+    cabecera = {main._SCRIPT_TOKEN_HEADER: script_token.script_token()}
+    casos = [(r.path, m) for r in _PROTEGIDAS + _CON_SECRETO for m in _metodos(r)]
+    for path, metodo in casos:
+        resp = client.request(metodo, _url(path), headers=cabecera)
+        assert resp.status_code == 401, f"{metodo} {path}: {resp.status_code}"
+
+
+def test_el_token_de_scripts_llega_a_sus_rutas(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Con el secreto, cada ruta de la lista deja de responder 401."""
+    import script_token
+
+    # Sin esto, las rutas de sesiones hablarían con el tmux real del usuario.
+    monkeypatch.setattr(main, "list_sessions", list)
+    monkeypatch.setattr(main, "kill_session", lambda name: False)
+    cabecera = {main._SCRIPT_TOKEN_HEADER: script_token.script_token()}
+    for metodo, path in RUTAS_CON_TOKEN_DE_SCRIPTS:
+        resp = client.request(metodo, _url(path), headers=cabecera)
+        assert resp.status_code != 401, f"{metodo} {path}"
+
+
+def test_el_secreto_de_avisos_no_abre_las_rutas_de_scripts(
+    client: TestClient,
+) -> None:
+    """Los dos secretos no son intercambiables."""
+    import attention_store
+
+    cabeceras = {
+        main._SCRIPT_TOKEN_HEADER: attention_store.hook_token(),
+        main._HOOK_TOKEN_HEADER: attention_store.hook_token(),
+    }
+    for metodo, path in RUTAS_CON_TOKEN_DE_SCRIPTS:
+        resp = client.request(metodo, _url(path), headers=cabeceras)
+        assert resp.status_code == 401, f"{metodo} {path}"
 
 
 def test_el_censo_de_rutas_no_esta_vacio() -> None:

@@ -1,12 +1,13 @@
 ---
 dominio: acceso
-actualizado: 2026-08-28
+actualizado: 2026-11-05
 archivos:
   - backend/auth.py
   - backend/audit.py
   - backend/config.py
   - backend/errors.py
   - backend/logs.py
+  - backend/script_token.py
   - backend/main.py
   - frontend/src/components/LoginScreen.jsx
   - frontend/src/api.js
@@ -39,10 +40,11 @@ ni ve ni valida.
 
 ## Invariantes
 
-- Hay **una segunda puerta**, y solo una: el secreto de
-  `data/attention_token` autoriza a marcar atención (`POST /api/attention`) a
-  un proceso del host sin cookie ni contraseña. No sirve para nada más y está
-  enumerada en `test_auth_contract.py`. Ver `atencion/_dominio`.
+- Hay **dos secretos del host**, y solo dos, cada uno con sus rutas enumeradas
+  en `test_auth_contract.py`. El de `data/attention_token` autoriza a marcar
+  atención (`POST /api/attention`); ver `atencion/_dominio`. El de
+  `data/script_token` autoriza a crear, lanzar y borrar proyectos; ver
+  [Token de scripts](token-de-scripts.md).
 - Con `AUTH_ENABLED=false` el único control anti-CSRF que queda es el guard de
   Origin: configurar mal `CORS_ORIGINS` abre POSTs desde otro sitio contra un
   panel que da shell.
@@ -54,6 +56,7 @@ ni ve ni valida.
 
 - [Login y sesión](login-y-sesion.md)
 - [Cabeceras y CSP](cabeceras-y-csp.md)
+- [Token de scripts](token-de-scripts.md)
 
 ## Trampas
 

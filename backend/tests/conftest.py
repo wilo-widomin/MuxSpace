@@ -103,6 +103,7 @@ import claude_transcript  # noqa: E402
 import config  # noqa: E402
 import library_store  # noqa: E402
 import main  # noqa: E402
+import script_token  # noqa: E402
 import space_store  # noqa: E402
 import tmux_service  # noqa: E402
 import upload_store  # noqa: E402
@@ -174,6 +175,8 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     # y arrastraría el valor entre tests.
     monkeypatch.setattr(attention_store, "_TOKEN_PATH", datos / "attention_token")
     monkeypatch.setattr(attention_store, "_token", None)
+    monkeypatch.setattr(script_token, "_TOKEN_PATH", datos / "script_token")
+    monkeypatch.setattr(script_token, "_token", None)
     monkeypatch.setattr(auth, "_BANNED_PATH", datos / "banned_ips.json")
     monkeypatch.setattr(chime_store, "_STORE_PATH", datos / "chime.json")
     monkeypatch.setattr(chime_store, "AUDIO_DIR", datos / "chime")

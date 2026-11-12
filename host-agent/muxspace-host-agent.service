@@ -1,0 +1,34 @@
+[Unit]
+Description=Agente del host de MuxSpace (solo sabe apagar el ordenador)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Lo pone install.sh: dirección, puerto, archivo del token y orígenes permitidos.
+EnvironmentFile=/etc/muxspace-host-agent/agent.env
+ExecStart=/usr/bin/python3 -I /usr/local/lib/muxspace-host-agent/host_agent.py
+Restart=on-failure
+RestartSec=5
+
+# Corre como root porque `systemctl poweroff` lo exige; lo demás, cerrado.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+# AF_UNIX hace falta para hablar con systemd; AF_INET*, para escuchar.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

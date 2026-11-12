@@ -1,6 +1,6 @@
 ---
 dominio: i18n
-actualizado: 2026-08-28
+actualizado: 2026-11-12
 archivos:
   - frontend/src/i18n/index.jsx
   - frontend/src/i18n/locales/es.json
@@ -37,7 +37,7 @@ vive en un solo sitio.
 
 Plano, `zona.snake_case`. Zonas vigentes: `app.`, `clock.`, `compose.`,
 `dashboard.`, `err.`, `form.`, `grid.`, `lang.`, `login.`, `modal.`, `paste.`,
-`pause.`, `sidebar.`, `spaces.`, `term.`, `tile.`, `transcript.`, `upload.`.
+`pause.`, `poweroff.`, `settings.`, `sidebar.`, `spaces.`, `term.`, `tile.`, `transcript.`, `upload.`.
 
 ## Invariantes
 

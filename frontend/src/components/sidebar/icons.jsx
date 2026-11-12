@@ -280,3 +280,22 @@ export function LinkIcon() {
     </svg>
   )
 }
+
+export function PowerIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="0.875rem"
+      height="0.875rem"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18.4 6.6a9 9 0 1 1-12.8 0" />
+      <line x1="12" y1="2" x2="12" y2="12" />
+    </svg>
+  )
+}

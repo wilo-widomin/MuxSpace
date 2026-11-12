@@ -36,7 +36,7 @@ ORIGIN = "http://testserver"
 for _var in [k for k in os.environ if k.startswith("MUXSPACE_")]:
     del os.environ[_var]
 
-# Se fijan LAS DIECINUEVE que lee config.py, no solo las que interesan a un test
+# Se fijan LAS VEINTIUNA que lee config.py, no solo las que interesan a un test
 # concreto: cualquiera que se deje sin fijar la rellena el `backend/.env` del
 # usuario (que es su despliegue real) y los tests pasarían a comportarse
 # distinto según la máquina.
@@ -84,6 +84,10 @@ os.environ.update(
         # queda en un rechazo en vez de tocar el home del usuario.
         "MUXSPACE_SCRIPT_COMMAND_PREFIX": "",
         "MUXSPACE_SCRIPT_CWD_ROOT": "/nonexistent/muxspace-tests",
+        # Sin agente del host configurado: el apagado nunca sale a la red en
+        # los tests. Los que lo prueban fijan `config` y sustituyen `send`.
+        "MUXSPACE_HOST_POWEROFF_URL": "",
+        "MUXSPACE_HOST_POWEROFF_TOKEN": "",
     }
 )
 

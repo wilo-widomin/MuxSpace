@@ -208,3 +208,10 @@ SCRIPT_COMMAND_PREFIX: str = os.getenv("MUXSPACE_SCRIPT_COMMAND_PREFIX", "").str
 SCRIPT_CWD_ROOT: str = (
     os.getenv("MUXSPACE_SCRIPT_CWD_ROOT", "").strip() or "~/proyectos/mvp-lab-proyectos"
 )
+
+# Apagar el ordenador host desde el panel (ver docs/apagar-host.md). Los dos
+# valores van juntos: con cualquiera vacío la función no existe, el endpoint
+# contesta que no está habilitada y el frontend esconde el botón. La dirección
+# y el token son de la red de Willy, así que solo viven en `backend/.env`.
+HOST_POWEROFF_URL: str = os.getenv("MUXSPACE_HOST_POWEROFF_URL", "").strip()
+HOST_POWEROFF_TOKEN: str = os.getenv("MUXSPACE_HOST_POWEROFF_TOKEN", "").strip()

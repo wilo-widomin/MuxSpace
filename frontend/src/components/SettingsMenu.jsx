@@ -1,8 +1,12 @@
+import { useEffect, useState } from 'react'
+
+import { api } from '../api.js'
 import { useT } from '../i18n/index.jsx'
 import { LanguagePicker } from './LanguagePicker.jsx'
 import { ScalePicker } from './ScalePicker.jsx'
+import { HostPoweroffDialog } from './HostPoweroffDialog.jsx'
 import { Modal } from './sidebar/Modal.jsx'
-import { BellIcon, BoltIcon, LinkIcon } from './sidebar/icons.jsx'
+import { BellIcon, BoltIcon, LinkIcon, PowerIcon } from './sidebar/icons.jsx'
 
 /**
  * Menú de ajustes del panel: la puerta única a las preferencias que no son
@@ -21,6 +25,23 @@ import { BellIcon, BoltIcon, LinkIcon } from './sidebar/icons.jsx'
  */
 export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets, onOpenLinks }) {
   const { t } = useT()
+  // La función existe solo si el servidor la tiene configurada. Mientras no se
+  // sabe, o si la consulta falla, no se enseña: un botón que no sirve es peor
+  // que su ausencia.
+  const [poweroffWord, setPoweroffWord] = useState(null)
+  const [poweroffOpen, setPoweroffOpen] = useState(false)
+  useEffect(() => {
+    let vivo = true
+    api
+      .capabilities()
+      .then((c) => {
+        if (vivo && c?.host_poweroff) setPoweroffWord(c.host_poweroff_word)
+      })
+      .catch(() => {})
+    return () => {
+      vivo = false
+    }
+  }, [])
   const opciones = [
     {
       key: 'chime',
@@ -44,6 +65,11 @@ export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets, onOpenLinks
       onClick: onOpenLinks,
     },
   ]
+  if (poweroffOpen) {
+    return (
+      <HostPoweroffDialog word={poweroffWord} onClose={() => setPoweroffOpen(false)} />
+    )
+  }
   return (
     <Modal title={t('settings.title')} onClose={onClose}>
       <ul className="space-y-2">
@@ -87,6 +113,25 @@ export function SettingsMenu({ onClose, onOpenChime, onOpenSnippets, onOpenLinks
         </span>
         <ScalePicker />
       </div>
+      {poweroffWord && (
+        <button
+          type="button"
+          onClick={() => setPoweroffOpen(true)}
+          className="mt-2 flex w-full items-center gap-3 rounded border border-panel-border px-3 py-3 text-left transition hover:border-red-400 hover:bg-panel-bg"
+        >
+          <span className="shrink-0 text-red-400">
+            <PowerIcon />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-xs font-medium text-gray-100">
+              {t('poweroff.title')}
+            </span>
+            <span className="block text-xs text-panel-muted">
+              {t('settings.poweroff_hint')}
+            </span>
+          </span>
+        </button>
+      )}
     </Modal>
   )
 }

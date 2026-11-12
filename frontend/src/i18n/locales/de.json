@@ -412,5 +412,16 @@
   "links.edit": "Link bearbeiten",
   "links.delete": "Link löschen",
   "err.link_url_required": "Eine Adresse ist nötig.",
-  "err.link_not_found": "Dieser Link existiert nicht mehr."
+  "err.link_not_found": "Dieser Link existiert nicht mehr.",
+  "settings.poweroff_hint": "Fährt den Computer herunter, auf dem diese virtuelle Maschine läuft",
+  "poweroff.title": "Host-Computer herunterfahren",
+  "poweroff.warning": "Achtung! Dadurch wird der Host-Computer heruntergefahren. Auch diese virtuelle Maschine und das Panel werden ausgeschaltet und lassen sich von hier aus nicht wieder einschalten: Das muss von Hand am Computer geschehen.",
+  "poweroff.type_word": "Zum Bestätigen tippe {word}",
+  "poweroff.confirm": "Computer herunterfahren",
+  "poweroff.sending": "Wird gesendet…",
+  "poweroff.sent": "Befehl gesendet. Der Computer fährt in wenigen Sekunden herunter.",
+  "err.host_poweroff_disabled": "Das Herunterfahren des Computers ist in diesem Panel nicht aktiviert.",
+  "err.host_poweroff_confirmation": "Das Bestätigungswort ist nicht korrekt.",
+  "err.host_poweroff_unreachable": "Der Host-Computer ist nicht erreichbar.",
+  "err.host_poweroff_rejected": "Der Host-Computer hat den Befehl abgelehnt (Code {status})."
 }

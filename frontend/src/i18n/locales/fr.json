@@ -412,5 +412,16 @@
   "links.edit": "Modifier le lien",
   "links.delete": "Supprimer le lien",
   "err.link_url_required": "Une adresse est requise.",
-  "err.link_not_found": "Ce lien n'existe plus."
+  "err.link_not_found": "Ce lien n'existe plus.",
+  "settings.poweroff_hint": "Éteint l'ordinateur sur lequel tourne cette machine virtuelle",
+  "poweroff.title": "Éteindre l'ordinateur hôte",
+  "poweroff.warning": "Attention ! Cela éteint l'ordinateur hôte. Cette machine virtuelle et le panneau seront éteints aussi, et ne pourront pas être rallumés d'ici : il faudra le faire à la main sur l'ordinateur.",
+  "poweroff.type_word": "Pour confirmer, tapez {word}",
+  "poweroff.confirm": "Éteindre l'ordinateur",
+  "poweroff.sending": "Envoi…",
+  "poweroff.sent": "Commande envoyée. L'ordinateur s'éteindra dans quelques secondes.",
+  "err.host_poweroff_disabled": "L'extinction de l'ordinateur n'est pas activée dans ce panneau.",
+  "err.host_poweroff_confirmation": "Le mot de confirmation n'est pas correct.",
+  "err.host_poweroff_unreachable": "Impossible de joindre l'ordinateur hôte.",
+  "err.host_poweroff_rejected": "L'ordinateur hôte a refusé la commande (code {status})."
 }

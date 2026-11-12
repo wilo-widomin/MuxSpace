@@ -412,5 +412,16 @@
   "links.edit": "Editar a ligação",
   "links.delete": "Eliminar a ligação",
   "err.link_url_required": "É necessário um endereço.",
-  "err.link_not_found": "Essa ligação já não existe."
+  "err.link_not_found": "Essa ligação já não existe.",
+  "settings.poweroff_hint": "Desliga o computador onde corre esta máquina virtual",
+  "poweroff.title": "Desligar o computador anfitrião",
+  "poweroff.warning": "Atenção! Isto desliga o computador anfitrião. Esta máquina virtual e o painel também serão desligados e não poderão ser ligados de novo a partir daqui: será preciso fazê-lo à mão no computador.",
+  "poweroff.type_word": "Para confirmar, escreva {word}",
+  "poweroff.confirm": "Desligar o computador",
+  "poweroff.sending": "A enviar…",
+  "poweroff.sent": "Ordem enviada. O computador desligar-se-á dentro de alguns segundos.",
+  "err.host_poweroff_disabled": "O desligamento do computador não está ativado neste painel.",
+  "err.host_poweroff_confirmation": "A palavra de confirmação não está correta.",
+  "err.host_poweroff_unreachable": "Não foi possível contactar o computador anfitrião.",
+  "err.host_poweroff_rejected": "O computador anfitrião rejeitou a ordem (código {status})."
 }

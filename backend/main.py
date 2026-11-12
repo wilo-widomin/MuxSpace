@@ -41,6 +41,7 @@ import chime_store
 import claude_transcript
 import config
 import events
+import host_poweroff
 import library_store
 import logs
 import script_policy
@@ -69,7 +70,7 @@ from dir_suggestions import (
     resolve_within_roots,
     suggest as suggest_dirs,
 )
-from errors import http_error, http_from
+from errors import AppError, http_error, http_from
 from library_store import (
     LibraryError,
     add_command,
@@ -992,6 +993,61 @@ def logout_all(
 def me(user: str = _auth) -> UserResponse:
     """Devuelve el usuario autenticado; 401 si no hay sesión válida."""
     return UserResponse(user=user)
+
+
+class CapabilitiesResponse(BaseModel):
+    host_poweroff: bool
+    host_poweroff_word: str | None = None
+
+
+class HostPoweroffRequest(BaseModel):
+    confirmation: str = ""
+
+
+@app.get("/api/capabilities", response_model=CapabilitiesResponse)
+def capabilities(user: str = _auth) -> CapabilitiesResponse:
+    """Qué funciones opcionales están configuradas, para que la interfaz esconda
+    las que no existen en este despliegue."""
+    on = host_poweroff.enabled()
+    return CapabilitiesResponse(
+        host_poweroff=on,
+        host_poweroff_word=host_poweroff.CONFIRMATION_WORD if on else None,
+    )
+
+
+@app.post("/api/host/poweroff", response_model=MessageResponse)
+def host_poweroff_endpoint(
+    request: Request, body: HostPoweroffRequest, user: str = _auth
+) -> MessageResponse:
+    """Apaga el ordenador host. También apaga esta VM y el panel.
+
+    Solo sesión de persona (`_auth`): el token de scripts no pasa por aquí.
+    Exige la palabra de confirmación y deja su rastro en la auditoría, sea cual
+    sea el resultado.
+    """
+
+    def finish(result: str) -> None:
+        audit.record(
+            "host-poweroff",
+            request=request,
+            user=user,
+            target="host",
+            detail={"result": result},
+        )
+
+    if not host_poweroff.enabled():
+        finish("disabled")
+        raise http_error(404, "err.host_poweroff_disabled")
+    if not host_poweroff.confirmation_ok(body.confirmation):
+        finish("bad-confirmation")
+        raise http_error(400, "err.host_poweroff_confirmation")
+    try:
+        host_poweroff.send()
+    except AppError as exc:
+        finish(exc.code.removeprefix("err.host_poweroff_"))
+        raise HTTPException(status_code=502, detail=exc.detail) from exc
+    finish("accepted")
+    return MessageResponse(message="poweroff-requested")
 
 
 @app.get("/api/dir-suggestions", response_model=DirSuggestionsResponse)

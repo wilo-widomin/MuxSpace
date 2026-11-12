@@ -71,6 +71,16 @@ export const api = {
     }),
   logout: () => request('/api/logout', { method: 'POST' }),
   me: () => request('/api/me'),
+  // Qué funciones opcionales hay en este despliegue (hoy: apagar el host).
+  capabilities: () => request('/api/capabilities'),
+  // Pide apagar el ordenador host. Solo con la palabra de confirmación que
+  // anunció `capabilities`; el servidor la vuelve a comprobar.
+  hostPoweroff: (confirmation) =>
+    request('/api/host/poweroff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmation }),
+    }),
   listSessions: () => request('/api/sessions'),
   // ---- Avisos de atención ----
   // Apagar la marca de una sesión: el usuario ya la ha atendido. No existe

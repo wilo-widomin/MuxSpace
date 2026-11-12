@@ -1,6 +1,6 @@
 ---
 dominio: acceso
-actualizado: 2026-11-05
+actualizado: 2026-11-12
 archivos:
   - backend/auth.py
   - backend/audit.py
@@ -12,6 +12,7 @@ archivos:
   - backend/main.py
   - frontend/src/components/LoginScreen.jsx
   - frontend/src/api.js
+  - backend/host_poweroff.py
   - docs/mtls.md
 depende_de: [i18n/_dominio]
 ---
@@ -46,7 +47,8 @@ ni ve ni valida.
   atención (`POST /api/attention`); ver `atencion/_dominio`. El token de
   scripts, del que solo se guarda la huella, autoriza a crear, lanzar y borrar
   sus propios proyectos desde la máquina; ver
-  [Token de scripts](token-de-scripts.md).
+  [Token de scripts](token-de-scripts.md). Un tercer secreto, el del agente del
+  host, **sale** del panel en vez de entrar: ver [Apagar el host](apagar-host.md).
 - Con `AUTH_ENABLED=false` el único control anti-CSRF que queda es el guard de
   Origin: configurar mal `CORS_ORIGINS` abre POSTs desde otro sitio contra un
   panel que da shell.
@@ -59,6 +61,7 @@ ni ve ni valida.
 - [Login y sesión](login-y-sesion.md)
 - [Cabeceras y CSP](cabeceras-y-csp.md)
 - [Token de scripts](token-de-scripts.md)
+- [Apagar el host](apagar-host.md)
 
 ## Trampas
 

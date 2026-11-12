@@ -1,7 +1,7 @@
 ---
 dominio: acceso
 accion: login-y-sesion
-actualizado: 2026-09-07
+actualizado: 2026-11-12
 archivos:
   - backend/auth.py
   - backend/main.py
@@ -55,7 +55,7 @@ depende_de: [i18n/_dominio]
 Cada línea: `ts` (ISO UTC), `ip`, `user`, `action`, `target`, `detail`.
 Acciones: `login`, `login-failed`, `logout-all`, `create-session`,
 `spawn-terminal`, `kill-session`, `rename-session`, `send-command`, `launch`,
-`run-project`, `upload`. Nunca contraseñas ni tokens; un fallo al escribir no
+`run-project`, `upload`, `host-poweroff`. Nunca contraseñas ni tokens; un fallo al escribir no
 tumba la petición.
 
 Los campos `command` y `text` del `detail` pasan por `audit.redactar()` antes

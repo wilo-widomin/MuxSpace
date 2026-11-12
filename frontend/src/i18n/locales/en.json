@@ -412,5 +412,16 @@
   "links.edit": "Edit link",
   "links.delete": "Delete link",
   "err.link_url_required": "An address is required.",
-  "err.link_not_found": "That link no longer exists."
+  "err.link_not_found": "That link no longer exists.",
+  "settings.poweroff_hint": "Shuts down the computer this virtual machine runs on",
+  "poweroff.title": "Shut down the host computer",
+  "poweroff.warning": "Warning! This shuts down the host computer. This virtual machine and the panel will go down too, and they cannot be turned back on from here: it has to be done by hand on the computer.",
+  "poweroff.type_word": "To confirm, type {word}",
+  "poweroff.confirm": "Shut down the computer",
+  "poweroff.sending": "Sending…",
+  "poweroff.sent": "Command sent. The computer will shut down in a few seconds.",
+  "err.host_poweroff_disabled": "Shutting down the computer is not enabled in this panel.",
+  "err.host_poweroff_confirmation": "The confirmation word is not correct.",
+  "err.host_poweroff_unreachable": "The host computer could not be reached.",
+  "err.host_poweroff_rejected": "The host computer rejected the command (code {status})."
 }

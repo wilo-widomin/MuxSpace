@@ -412,5 +412,16 @@
   "links.edit": "Modifica il collegamento",
   "links.delete": "Elimina il collegamento",
   "err.link_url_required": "Serve un indirizzo.",
-  "err.link_not_found": "Quel collegamento non esiste più."
+  "err.link_not_found": "Quel collegamento non esiste più.",
+  "settings.poweroff_hint": "Spegne il computer su cui gira questa macchina virtuale",
+  "poweroff.title": "Spegni il computer host",
+  "poweroff.warning": "Attenzione! Questo spegne il computer host. Si spegneranno anche questa macchina virtuale e il pannello, e da qui non si potranno riaccendere: bisognerà farlo a mano sul computer.",
+  "poweroff.type_word": "Per confermare, scrivi {word}",
+  "poweroff.confirm": "Spegni il computer",
+  "poweroff.sending": "Invio…",
+  "poweroff.sent": "Comando inviato. Il computer si spegnerà tra pochi secondi.",
+  "err.host_poweroff_disabled": "Lo spegnimento del computer non è abilitato in questo pannello.",
+  "err.host_poweroff_confirmation": "La parola di conferma non è corretta.",
+  "err.host_poweroff_unreachable": "Impossibile contattare il computer host.",
+  "err.host_poweroff_rejected": "Il computer host ha rifiutato il comando (codice {status})."
 }

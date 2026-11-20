@@ -1,6 +1,6 @@
 ---
 dominio: extension
-actualizado: 2026-10-13
+actualizado: 2026-11-20
 archivos:
   - extension/manifest.json
   - extension/src/background.js
@@ -27,7 +27,8 @@ Paquete aparte: su propio `package.json`, su lockfile y su job de CI.
 
 ## Cómo habla con el backend
 
-**Nunca hace `fetch` por su cuenta.** El panel está tras certificado de cliente
+**El service worker nunca hace `fetch` por su cuenta** (la página del popup solo
+en el atajo de abajo). El panel está tras certificado de cliente
 y cookie de sesión, que pertenecen a la pestaña; así que la extensión inyecta
 código en una pestaña del panel (`chrome.scripting.executeScript` con
 `world: 'MAIN'`) y es esa pestaña la que llama a la API con sus credenciales.
@@ -40,21 +41,34 @@ nada pregunta por `GET /api/me` (`probeSession`, clasificado por
 inyectar —falta el certificado de cliente y la pestaña enseña la página de
 error de Chrome— o el panel falla).
 
+**Atajo previo desde el popup** (`projectsByShortcut` en `popup.js`): antes de
+pedir nada al service worker, la página del popup hace `fetch` a `/api/me` y
+`/api/projects` con `credentials: 'include'`, si el permiso de host ya está
+concedido y con tope de 3 s. Solo con 200 y datos válidos pinta y guarda la
+lista y no se abre ninguna ventana. Con 401, red, TLS, tiempo agotado o
+cualquier otra cosa se sigue por el flujo de siempre. **No está comprobado**
+que ese `fetch` lleve cookie (`SameSite=Lax`) ni certificado de cliente: por
+eso es un atajo que no puede empeorar nada.
+
 **La pestaña puente nunca se abre en la ventana del usuario.** Si no hay
 ninguna pestaña del panel, `panelBridge` abre el panel en una ventana
-emergente **minimizada** (`type: 'popup'`). Si la puente fuera una pestaña de
-la ventana del usuario, Chrome la traería al frente al pedir el certificado y
-taparía la ventana de login.
+emergente **minimizada** (`type: 'popup'`), solo para el sondeo (con sesión no
+parpadea nada). Si la puente fuera una pestaña de la ventana del usuario,
+Chrome la traería al frente al pedir el certificado y taparía la ventana de
+login.
 
-Si no es `ok`, `loginInWindow` pone delante una ventana emergente (480×720,
-centrada sobre la ventana normal con foco). Si la puente es la de la
-extensión, es esa misma ventana, que sale de minimizada. Si la puente es una
-pestaña del usuario, se abre una nueva. Ahí sale el selector de certificado
+**Una puente minimizada nunca se restaura.** Si no es `ok`, `loginInWindow`
+decide con `loginWindowPlan` (`lib/login.js`): puente de la extensión →
+`replace` (se cierra y se abre otra ventana ya visible, 480×720, centrada
+sobre la ventana normal y con foco, que pasa a ser la puente); pestaña del
+usuario → `open` (ventana nueva aparte, y al entrar se cierra y se recarga la
+pestaña, `renewBridge`). Ahí sale el selector de certificado
 de Chrome si hace falta, y después el login del panel. Se sondea `/api/me`
 cada 1,5 s hasta 5 minutos. En cuanto hay sesión se sigue por donde se iba:
-- **Si la ventana era la puente:** se queda hasta que quien llama termina de
-  preguntar y la cierra (`closeBridge`).
-- **Si no:** se cierra, y la pestaña del usuario se recarga (`renewBridge`). Pasa igual al abrir un proyecto y al
+- **Si la ventana es ahora la puente** (`replace`): se queda hasta que quien
+  llama termina de preguntar y la cierra (`closeBridge`).
+- **Si no** (`open`): se cierra, y la pestaña del usuario se recarga
+  (`renewBridge`). Pasa igual al abrir un proyecto y al
 refrescar la lista (que ocurre al abrir el popup); en el segundo caso, al
 volver, se reabre el popup con `chrome.action.openPopup()` para que la lista
 aparezca sin otro clic.
@@ -77,12 +91,12 @@ repo**. Ahí viven también la caché `projects` y el mapa `projectGroups`
 - `lib/panel.js` — normalizar el origen, construir la URL con `?space=`.
 - `lib/projects.js` — ordenar y filtrar (sin acentos, sin mayúsculas).
 - `lib/sessions.js` — qué sesiones adoptar y si hace falta lanzar el proyecto.
-- `lib/login.js` — clasificar la respuesta de `/api/me` y centrar la ventana
-  de login.
+- `lib/login.js` — clasificar la respuesta de `/api/me`, decidir si la puente
+  se sustituye por una ventana visible y centrar la ventana de login.
 - `lib/group.js` — color estable por id, URLs previstas y reconciliación con lo
   que ya hay abierto.
 - `background.js` es el único que toca las APIs de Chrome; `popup.js` y
-  `options.js` no tienen lógica propia.
+  `options.js` no tienen lógica propia, salvo el atajo del popup.
 
 ## Acciones documentadas
 
@@ -102,18 +116,16 @@ repo**. Ahí viven también la caché `projects` y el mapa `projectGroups`
 - Mientras falta el certificado, `/api/me` ni falla ni contesta. La única
   señal es el silencio, así que `waitForSession` pregunta a la puente
   minimizada cada 200 ms y, si en 1,5 s no hay respuesta, la da por
-  `unreachable` y saca la ventana. Con sesión contesta en unos cientos de ms.
-  Un 401 saca la ventana enseguida y sin recargar.
+  `unreachable` y la sustituye por una ventana visible. Con sesión contesta en unos cientos de ms.
+  Un 401 saca la ventana enseguida.
 - `probeSession` inyecta con `injectImmediately` y un tope de 3 s. Mientras
   se espera el certificado la página nunca llega a `document_idle`, y una
-  inyección normal se quedaba colgada: la ventana nunca salía de minimizada.
+  inyección normal se quedaba colgada: la ventana de login nunca salía.
 - En macOS, el selector de certificado que nace con la ventana minimizada no
-  se pinta al restaurarla (solo al cambiar de escritorio o algo parecido).
-  Por eso `showBridgeWindow` **recarga la pestaña** (solo si fue
-  `unreachable`) después de sacarla: la petición vuelve a empezar con la
-  ventana visible. La ventana de login que se abre aparte
-  (`openLoginWindow`) nace ya visible. Chrome recuerda el certificado elegido
-  hasta que se cierra.
+  se pinta al restaurarla (deducido, no reproducido). Por eso no se
+  restaura: se sustituye la puente por una ventana nueva y visible
+  (`openLoginWindow`). Chrome recuerda el certificado elegido hasta que se
+  cierra.
 - Con el panel caído también se abre la ventana de login (no se distingue de
   «falta el certificado»): enseña el error de Chrome, que al menos explica
   qué pasa.

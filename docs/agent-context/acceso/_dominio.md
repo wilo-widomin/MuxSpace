@@ -1,6 +1,6 @@
 ---
 dominio: acceso
-actualizado: 2026-11-12
+actualizado: 2026-11-20
 archivos:
   - backend/auth.py
   - backend/audit.py
@@ -65,6 +65,12 @@ ni ve ni valida.
 
 ## Trampas
 
+- **El foco automático del login no abre el desplegable de contraseñas**
+  (`LoginScreen.jsx`): el campo Usuario se enfoca por código estando
+  `readOnly` y se libera, sin pasar por el estado de React, con el primer
+  gesto (tecla, puntero, toque) o a los 300 ms. Es un truco de mejor esfuerzo:
+  la decisión final es de Chrome y no se ha comprobado en un navegador real.
+  Los tests (`LoginScreen.test.jsx`) solo cubren el campo.
 - **Un solo worker, obligatorio**: las sesiones y los contadores viven en el
   proceso. Con varios, un login contra uno da 401 en el otro y el rate-limit
   permite N×5 intentos.

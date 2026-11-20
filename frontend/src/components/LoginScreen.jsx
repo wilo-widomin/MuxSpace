@@ -1,5 +1,12 @@
-import React, { useId, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import { useT } from '../i18n/index.jsx'
+
+// Lo que tarda el campo Usuario en dejar de ser de solo lectura aunque nadie
+// lo toque (por si el primer gesto es de un lector de pantallas, que no genera
+// eventos de teclado ni de puntero en la página). Chrome decide si abre el
+// desplegable de contraseñas guardadas en el instante de enfocar, así que
+// basta con que el campo sea de solo lectura durante ese instante.
+export const AUTOFOCUS_LOCK_MS = 300
 
 // Pantalla de inicio de sesión (HTTP Basic). Las credenciales se
 // validan haciendo una petición real a /api/sessions.
@@ -11,6 +18,32 @@ export default function LoginScreen({ onSubmit, error }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const usernameRef = useRef(null)
+
+  // Foco automático sin desplegable de contraseñas: se enfoca el campo estando
+  // `readOnly` (Chrome no ofrece las guardadas a un campo que no se puede
+  // editar) y se libera con el primer gesto del usuario o pasado un instante.
+  // Se toca el DOM directamente, no un estado: la liberación tiene que ser
+  // síncrona para que la primera tecla pulsada ya entre en el campo.
+  useEffect(() => {
+    const input = usernameRef.current
+    if (!input) return undefined
+    input.readOnly = true
+    input.focus()
+    const unlock = () => {
+      input.readOnly = false
+    }
+    const timer = setTimeout(unlock, AUTOFOCUS_LOCK_MS)
+    return () => {
+      clearTimeout(timer)
+      unlock()
+    }
+  }, [])
+
+  // El primer gesto del usuario libera el campo antes de que él actúe sobre él.
+  const unlockOnGesture = (e) => {
+    e.currentTarget.readOnly = false
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -42,7 +75,10 @@ export default function LoginScreen({ onSubmit, error }) {
           className="mb-4 w-full rounded border border-panel-border bg-panel-bg px-3 py-2 text-sm outline-none focus:border-panel-accent"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          autoFocus
+          ref={usernameRef}
+          onKeyDown={unlockOnGesture}
+          onPointerDown={unlockOnGesture}
+          onTouchStart={unlockOnGesture}
           autoComplete="username"
         />
 

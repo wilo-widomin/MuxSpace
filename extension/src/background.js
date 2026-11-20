@@ -7,7 +7,13 @@
 // le devuelve. Así no hay que tocar ni el CORS ni la cookie del backend.
 
 import { groupColor, plannedUrls, reconcileGroup } from './lib/group.js'
-import { centeredBounds, loginWindowPlan, sessionState } from './lib/login.js'
+import {
+  centeredBounds,
+  loginAction,
+  loginFocusUpdates,
+  loginWindowPlan,
+  sessionState,
+} from './lib/login.js'
 import { isAuthError, isPanelUrl, originPattern, panelSpaceUrl } from './lib/panel.js'
 import { needsLaunch, sessionsToAdopt } from './lib/sessions.js'
 import {
@@ -305,12 +311,13 @@ async function openLoginWindow(origin) {
  * @returns {Promise<{bridge: {tabId: number, opened: boolean, windowId?: number}, renew: boolean}>}
  *   La puente con la que seguir y si hay que recargarla (la del usuario).
  */
-async function loginInWindow(origin, bridge, estado) {
+async function loginInWindow(origin, bridge, estado, onWindow) {
   const plan = loginWindowPlan(bridge, estado)
   if (plan === 'replace') await closeBridge(bridge)
   const ventana = await openLoginWindow(origin)
   const tabId = ventana.tabs[0].id
   const windowId = ventana.id
+  onWindow(windowId)
   const nueva = plan === 'replace'
 
   let cerrada = false
@@ -341,18 +348,37 @@ async function loginInWindow(origin, bridge, estado) {
   }
 }
 
-// La ventana de login que esté abierta. Abrir el popup dos veces, o abrir un
-// proyecto mientras se refresca la lista, no debe sacar dos ventanas: la
-// segunda petición espera a la misma.
+// El login que esté en curso y su ventana. Abrir el popup dos veces, o abrir
+// un proyecto mientras se refresca la lista, no debe sacar dos ventanas ni
+// una puente auxiliar nueva: quien llega después pone delante la ventana que ya
+// hay (puede estar tapada) y espera a ese mismo login. `windowId` es null hasta
+// que la ventana existe.
 let loginEnCurso = null
 
 function loginOnce(origin, bridge, estado) {
   if (!loginEnCurso) {
-    loginEnCurso = loginInWindow(origin, bridge, estado).finally(() => {
-      loginEnCurso = null
+    const actual = { windowId: null, promise: null }
+    actual.promise = loginInWindow(origin, bridge, estado, (id) => {
+      actual.windowId = id
+    }).finally(() => {
+      if (loginEnCurso === actual) loginEnCurso = null
     })
+    loginEnCurso = actual
   }
-  return loginEnCurso
+  return loginEnCurso.promise
+}
+
+/** Pone delante la ventana del login en curso, aunque esté tapada o minimizada. */
+async function focusLoginWindow() {
+  const windowId = loginEnCurso?.windowId
+  if (windowId == null) return // aún naciendo: ya nace con el foco
+  try {
+    for (const cambios of loginFocusUpdates(await chrome.windows.get(windowId))) {
+      await chrome.windows.update(windowId, cambios)
+    }
+  } catch {
+    // La ventana pudo cerrarse justo ahora: el login en curso terminará solo.
+  }
 }
 
 /**
@@ -363,15 +389,31 @@ function loginOnce(origin, bridge, estado) {
  * @returns {Promise<{projects: Array, bridge: {tabId: number, opened: boolean, windowId?: number}, loggedIn: boolean}>}
  */
 async function loadProjects(origin) {
-  let bridge = await panelBridge(origin)
+  // Con un login ya en curso no se crea puente auxiliar: sería una ventana
+  // minimizada más, huérfana en el dock cuando acabara el login.
+  let bridge = loginAction(loginEnCurso !== null) === 'join' ? null : await panelBridge(origin)
   let loggedIn = false
   try {
-    const estado = await waitForSession(bridge, BRIDGE_PATIENCE_MS)
+    const estado = bridge ? await waitForSession(bridge, BRIDGE_PATIENCE_MS) : 'login'
     if (estado !== 'ok') {
-      const entrada = await loginOnce(origin, bridge, estado)
+      if (loginAction(loginEnCurso !== null) === 'join') {
+        // Otro login se adelantó mientras se sondeaba: la puente propia sobra
+        // (si es la del usuario, `closeBridge` no la toca).
+        if (bridge) await closeBridge(bridge)
+        bridge = null
+        const enCurso = loginEnCurso
+        await focusLoginWindow()
+        await enCurso.promise
+        // Tras entrar, puente propia: la del login en curso es de quien lo
+        // lanzó y la cierra él.
+        bridge = await panelBridge(origin)
+        if (!bridge.opened) bridge = await renewBridge(origin, bridge)
+      } else {
+        const entrada = await loginOnce(origin, bridge, estado)
+        bridge = entrada.bridge
+        if (entrada.renew) bridge = await renewBridge(origin, bridge)
+      }
       loggedIn = true
-      bridge = entrada.bridge
-      if (entrada.renew) bridge = await renewBridge(origin, bridge)
       if ((await waitForSession(bridge, RENEWED_PATIENCE_MS)) !== 'ok') {
         throw new ExtensionError('Se inició sesión, pero el panel sigue sin responder.')
       }
@@ -386,7 +428,7 @@ async function loadProjects(origin) {
     // La puente que abrió la extensión se abrió solo para preguntar: si la
     // pregunta falla, no tiene por qué quedarse, salvo que sea la ventana de
     // login con el usuario aún dentro (`keepWindow`).
-    if (!err.keepWindow) await closeBridge(bridge)
+    if (bridge && !err.keepWindow) await closeBridge(bridge)
     throw err
   }
 }

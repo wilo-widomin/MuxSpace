@@ -73,6 +73,18 @@ refrescar la lista (que ocurre al abrir el popup); en el segundo caso, al
 volver, se reabre el popup con `chrome.action.openPopup()` para que la lista
 aparezca sin otro clic.
 
+**Un solo login en curso** (`loginOnce`, que guarda también el `windowId` de
+su ventana). Si ya hay uno —la ventana puede estar tapada por otra— quien llega
+después (`loginAction` → `join`) **no crea puente auxiliar** (quedaría
+minimizada y huérfana en el dock): pone delante esa ventana
+(`focusLoginWindow`, con `loginFocusUpdates`: `state: 'normal'` aparte si
+estuviera minimizada, y `focused` + `drawAttention`) y espera a ese login. Al
+terminar, abre su propia puente (`panelBridge`, y `renewBridge` si es una
+pestaña del usuario); la ventana-puente del login es de quien lo lanzó y la
+cierra él. Si la puente propia ya existía cuando otro login se adelantó, se
+cierra antes de unirse. El estado se limpia al acabar el login, también por
+error o cierre.
+
 Cerrar la ventana o agotar la espera da `AuthError` (`needsLogin: true`) y el
 popup enseña «Iniciar sesión en el panel», que reintenta el refresco.
 
@@ -92,7 +104,8 @@ repo**. Ahí viven también la caché `projects` y el mapa `projectGroups`
 - `lib/projects.js` — ordenar y filtrar (sin acentos, sin mayúsculas).
 - `lib/sessions.js` — qué sesiones adoptar y si hace falta lanzar el proyecto.
 - `lib/login.js` — clasificar la respuesta de `/api/me`, decidir si la puente
-  se sustituye por una ventana visible y centrar la ventana de login.
+  se sustituye por una ventana visible, si se empieza un login o se une al que
+  hay en curso, y cómo poner delante su ventana; centrar la ventana de login.
 - `lib/group.js` — color estable por id, URLs previstas y reconciliación con lo
   que ya hay abierto.
 - `background.js` es el único que toca las APIs de Chrome; `popup.js` y
@@ -129,8 +142,10 @@ repo**. Ahí viven también la caché `projects` y el mapa `projectGroups`
 - Con el panel caído también se abre la ventana de login (no se distingue de
   «falta el certificado»): enseña el error de Chrome, que al menos explica
   qué pasa.
-- La ventana de login es una sola (`loginOnce`): abrir un proyecto mientras se
-  refresca espera a la misma ventana. Las pestañas de ventanas emergentes no
+- La ventana de login es una sola (`loginOnce`): abrir un proyecto o pulsar de
+  nuevo la extensión mientras hay un login espera a la misma ventana y la pone
+  delante. Sin esto, la puente auxiliar nueva quedaba minimizada y huérfana
+  (diagnosticado leyendo el código en macOS, no reproducido). Las pestañas de ventanas emergentes no
   cuentan como puente del usuario (`windowType: 'normal'`).
 - Una pestaña de una ventana emergente no se puede agrupar ni mover a una
   ventana normal. Por eso abrir un proyecto cierra la puente y abre todas las

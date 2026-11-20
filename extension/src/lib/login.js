@@ -56,3 +56,34 @@ export function loginWindowPlan(bridge, state) {
   if (state === 'ok') return 'none'
   return bridge.opened ? 'replace' : 'open'
 }
+
+/**
+ * ¿Hay que empezar un login o unirse al que ya está en curso?
+ *
+ * - `start`: no hay ninguno; se crea la puente y, si hace falta, se abre la
+ *   ventana de login.
+ * - `join`: ya hay una ventana de login abierta (quizá tapada por otra). No se
+ *   crea puente auxiliar nueva —quedaría minimizada y huérfana en el dock—:
+ *   se pone delante esa ventana y se espera a ese mismo login.
+ *
+ * @param {boolean} loginInProgress
+ * @returns {'start'|'join'}
+ */
+export function loginAction(loginInProgress) {
+  return loginInProgress ? 'join' : 'start'
+}
+
+/**
+ * Llamadas a `chrome.windows.update` (en orden y por separado) para traer
+ * delante una ventana de login que puede estar tapada o minimizada. El estado
+ * va aparte del foco: juntos, Chrome puede ignorar uno de los dos.
+ *
+ * @param {{state?: string}|null} win - La ventana, como la devuelve `windows.get`.
+ * @returns {Array<{state?: 'normal', focused?: true, drawAttention?: true}>}
+ */
+export function loginFocusUpdates(win) {
+  const updates = []
+  if (win?.state === 'minimized') updates.push({ state: 'normal' })
+  updates.push({ focused: true, drawAttention: true })
+  return updates
+}

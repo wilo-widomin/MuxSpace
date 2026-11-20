@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { centeredBounds, loginWindowPlan, sessionState } from './login.js'
+import {
+  centeredBounds,
+  loginAction,
+  loginFocusUpdates,
+  loginWindowPlan,
+  sessionState,
+} from './login.js'
 
 describe('sessionState', () => {
   it('una respuesta buena de /api/me es que hay sesión', () => {
@@ -59,5 +65,34 @@ describe('loginWindowPlan', () => {
   it('una pestaña del usuario no se toca: la ventana se abre aparte', () => {
     expect(loginWindowPlan({ opened: false }, 'login')).toBe('open')
     expect(loginWindowPlan({ opened: false }, 'unreachable')).toBe('open')
+  })
+})
+
+describe('loginAction', () => {
+  it('sin login en curso se empieza uno', () => {
+    expect(loginAction(false)).toBe('start')
+  })
+
+  it('con un login en curso se une a él, sin puente nueva', () => {
+    expect(loginAction(true)).toBe('join')
+  })
+})
+
+describe('loginFocusUpdates', () => {
+  it('una ventana tapada solo recibe el foco', () => {
+    expect(loginFocusUpdates({ state: 'normal' })).toEqual([
+      { focused: true, drawAttention: true },
+    ])
+  })
+
+  it('una minimizada se restaura antes, en llamada aparte', () => {
+    expect(loginFocusUpdates({ state: 'minimized' })).toEqual([
+      { state: 'normal' },
+      { focused: true, drawAttention: true },
+    ])
+  })
+
+  it('sin datos de la ventana se intenta el foco', () => {
+    expect(loginFocusUpdates(null)).toEqual([{ focused: true, drawAttention: true }])
   })
 })

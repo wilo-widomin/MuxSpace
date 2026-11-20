@@ -26,7 +26,7 @@ en el espacio del proyecto y sus enlaces, y el proyecto con terminal viva.
    clic. La puente de la extensión nace como ventana emergente minimizada; si
    hace falta login se sustituye por la ventana de login visible, y la que
    quede se cierra tras `ensureProjectReady`.
-3. Cargar los proyectos por el puente y cachearlos.
+3. Cargar los proyectos por el puente (no se guardan en ningún sitio).
 4. `ensureProjectReady`: pedir las sesiones, mover al espacio del proyecto las
    suyas que estén en otro (`sessionsToAdopt`) y lanzarlo si no le queda
    ninguna (`needsLaunch`). **Los fallos de este paso no abortan**: se acumulan
@@ -50,7 +50,7 @@ en el espacio del proyecto y sus enlaces, y el proyecto con terminal viva.
 
 - Si se pierde el mapa `projectGroups` **y** se ha renombrado el proyecto, el
   vínculo se rompe y aparece un grupo duplicado.
-- Desinstalar la extensión borra origen, caché y mapa; recargarla no.
+- Desinstalar la extensión borra origen y mapa; recargarla no.
 - La puente no se recicla como pestaña del grupo: vive en una ventana
   emergente y Chrome no deja agruparla ni moverla. Se cierra siempre, también
   si la apertura falla.

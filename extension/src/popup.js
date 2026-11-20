@@ -1,8 +1,8 @@
 // El popup no sabe nada del panel: pide al service worker y pinta.
 
 import { originPattern } from './lib/panel.js'
-import { filterProjects } from './lib/projects.js'
-import { readPanelOrigin, writeProjects } from './lib/storage.js'
+import { filterProjects, listView } from './lib/projects.js'
+import { readPanelOrigin } from './lib/storage.js'
 
 const lista = document.getElementById('proyectos')
 const aviso = document.getElementById('aviso')
@@ -108,7 +108,6 @@ async function projectsByShortcut() {
     if (respuesta.status !== 200) return null
     const lista = await respuesta.json()
     if (!Array.isArray(lista)) return null
-    await writeProjects(lista)
     return lista
   } catch {
     return null
@@ -116,26 +115,22 @@ async function projectsByShortcut() {
 }
 
 async function refrescar() {
+  // Mientras no se confirma la sesión no se pinta ninguna lista: ni la de la
+  // vez anterior ni la vacía. El aviso es lo único que se ve.
+  proyectos = []
+  lista.replaceChildren()
   mostrarAviso('Preguntando al panel…')
   const atajo = await projectsByShortcut()
-  if (atajo) {
-    proyectos = atajo
-    pintar()
-    return
-  }
-  const respuesta = await chrome.runtime.sendMessage({ type: 'refreshProjects' })
-  if (!respuesta?.ok) {
+  const respuesta = atajo ? null : await chrome.runtime.sendMessage({ type: 'refreshProjects' })
+  const vista = listView(atajo, respuesta)
+  if (vista.kind === 'error') {
     // Sin sesión, el service worker abre la ventana de login y este popup se
     // cierra antes de llegar aquí. Si se llega es porque esa ventana se cerró
     // o se agotó la espera: se ofrece volver a intentarlo.
-    mostrarAviso(
-      respuesta?.error || 'No se pudo leer el panel.',
-      true,
-      Boolean(respuesta?.needsLogin),
-    )
+    mostrarAviso(vista.message, true, vista.needsLogin)
     return
   }
-  proyectos = respuesta.projects
+  proyectos = vista.projects
   pintar()
 }
 
@@ -159,12 +154,6 @@ buscar.addEventListener('keydown', (e) => {
   if (primero) primero.click()
 })
 
-// Al abrir se pinta la copia guardada —es instantáneo— y en paralelo se pide
-// la lista de verdad. Si no hay copia, solo queda esperar al panel.
-chrome.runtime.sendMessage({ type: 'cachedProjects' }).then((respuesta) => {
-  if (respuesta?.ok && respuesta.projects.length > 0) {
-    proyectos = respuesta.projects
-    pintar()
-  }
-  refrescar()
-})
+// Al abrir solo se pregunta al panel: la lista se pinta cuando hay sesión
+// confirmada, nunca antes.
+refrescar()

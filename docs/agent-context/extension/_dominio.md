@@ -44,7 +44,7 @@ error de Chrome— o el panel falla).
 **Atajo previo desde el popup** (`projectsByShortcut` en `popup.js`): antes de
 pedir nada al service worker, la página del popup hace `fetch` a `/api/me` y
 `/api/projects` con `credentials: 'include'`, si el permiso de host ya está
-concedido y con tope de 3 s. Solo con 200 y datos válidos pinta y guarda la
+concedido y con tope de 3 s. Solo con 200 y datos válidos pinta la
 lista y no se abre ninguna ventana. Con 401, red, TLS, tiempo agotado o
 cualquier otra cosa se sigue por el flujo de siempre. **No está comprobado**
 que ese `fetch` lleve cookie (`SameSite=Lax`) ni certificado de cliente: por
@@ -95,13 +95,23 @@ selector de certificado se lo lleva; además el panel prohíbe que lo enmarquen
 
 La dirección del panel se escribe en las opciones, se normaliza y se guarda en
 `chrome.storage.local` (`panelOrigin`); **no hay ninguna por defecto en el
-repo**. Ahí viven también la caché `projects` y el mapa `projectGroups`
-(`projectId -> groupId`).
+repo**. Ahí vive también el mapa `projectGroups`
+(`projectId -> groupId`). **La lista de proyectos no se guarda**: no hay caché.
+
+**El popup no pinta ninguna lista hasta confirmar la sesión.** Al abrir solo
+enseña «Preguntando al panel…» (`refrescar` en `popup.js`); la lista sale
+únicamente del atajo o de `refreshProjects` con sesión confirmada
+(`listView` en `lib/projects.js`). Panel caído, sin permiso de host, sin
+certificado o `needsLogin` dan un aviso (con «Iniciar sesión en el panel» si
+hace falta), nunca una lista vieja. Antes se pintaba la copia guardada al
+instante; se quitó porque sin sesión se veía la lista un momento. Si había una
+clave `projects` de versiones anteriores, queda inerte en `chrome.storage.local`.
 
 ## Piezas
 
 - `lib/panel.js` — normalizar el origen, construir la URL con `?space=`.
-- `lib/projects.js` — ordenar y filtrar (sin acentos, sin mayúsculas).
+- `lib/projects.js` — ordenar y filtrar (sin acentos, sin mayúsculas) y decidir
+  qué enseña el popup tras preguntar al panel (`listView`: lista o aviso).
 - `lib/sessions.js` — qué sesiones adoptar y si hace falta lanzar el proyecto.
 - `lib/login.js` — clasificar la respuesta de `/api/me`, decidir si la puente
   se sustituye por una ventana visible, si se empieza un login o se une al que
@@ -119,7 +129,7 @@ repo**. Ahí viven también la caché `projects` y el mapa `projectGroups`
 
 - Los permisos de host son **opcionales** y se piden en runtime al guardar el
   origen: si se deniegan, nada funciona y el error dice «no se pudo hablar con
-  el panel». Cambiar el origen no revoca el anterior ni invalida la caché.
+  el panel». Cambiar el origen no revoca el anterior ni borra el mapa de grupos.
 - Se lee `sessionStorage['muxspace:active-space']` **dentro** de la pestaña del
   panel, porque el panel borra `?space=` de la URL en cuanto lo obedece; sin
   eso habría que recargar la pestaña del usuario en cada apertura.

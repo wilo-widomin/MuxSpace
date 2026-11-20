@@ -1,7 +1,7 @@
 ---
 dominio: extension
 accion: abrir-proyecto
-actualizado: 2026-10-13
+actualizado: 2026-11-20
 archivos:
   - extension/src/background.js
   - extension/src/lib/group.js
@@ -23,8 +23,9 @@ en el espacio del proyecto y sus enlaces, y el proyecto con terminal viva.
 2. Comprobar la sesión con `GET /api/me`. Sin ella (o sin alcanzar el panel
    por falta de certificado), abrir la ventana de login aparte y esperar a
    que el usuario entre; después se sigue por donde iba, sin pedirle otro
-   clic. La puente de la extensión es una ventana emergente minimizada y se
-   cierra tras `ensureProjectReady`.
+   clic. La puente de la extensión nace como ventana emergente minimizada; si
+   hace falta login se sustituye por la ventana de login visible, y la que
+   quede se cierra tras `ensureProjectReady`.
 3. Cargar los proyectos por el puente y cachearlos.
 4. `ensureProjectReady`: pedir las sesiones, mover al espacio del proyecto las
    suyas que estén en otro (`sessionsToAdopt`) y lanzarlo si no le queda

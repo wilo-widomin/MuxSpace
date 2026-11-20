@@ -7,7 +7,7 @@
 // le devuelve. Así no hay que tocar ni el CORS ni la cookie del backend.
 
 import { groupColor, plannedUrls, reconcileGroup } from './lib/group.js'
-import { centeredBounds, sessionState } from './lib/login.js'
+import { centeredBounds, loginWindowPlan, sessionState } from './lib/login.js'
 import { isAuthError, isPanelUrl, originPattern, panelSpaceUrl } from './lib/panel.js'
 import { needsLaunch, sessionsToAdopt } from './lib/sessions.js'
 import {
@@ -140,8 +140,11 @@ function waitForLoad(tabId, timeoutMs = LOAD_TIMEOUT_MS) {
  * Si no hay ninguna, se abre en una **ventana emergente minimizada**, nunca
  * como pestaña de la ventana del usuario: si falta el certificado de cliente,
  * Chrome trae al frente la pestaña que lo pide, y en la ventana del usuario
- * eso tapaba a la de login. Así, si hace falta entrar, esa misma ventana se
- * pone delante y hace de ventana de login (`loginInWindow`).
+ * eso tapaba a la de login. Minimizada solo sirve para el sondeo: con sesión
+ * (lo habitual) no parpadea nada. Si resulta que hace falta entrar, **no se
+ * restaura**: se cierra y `loginInWindow` abre otra ya visible, porque en
+ * macOS el selector de certificado que nace con la ventana minimizada no se
+ * pinta al restaurarla.
  *
  * @param {string} origin
  * @returns {Promise<{tabId: number, opened: boolean, windowId?: number}>}
@@ -267,34 +270,6 @@ async function frontWindow() {
   }
 }
 
-/**
- * Pone delante la ventana puente, centrada sobre la del usuario, y la recarga.
- *
- * Son dos llamadas porque Chrome no deja cambiar posición y tamaño a la vez
- * que se saca una ventana de minimizada.
- *
- * La recarga es lo que hace aparecer el selector de certificado: en macOS,
- * el que nació con la ventana minimizada no se pinta al restaurarla, solo
- * cuando la ventana recibe un evento del sistema (cambiar de escritorio, por
- * ejemplo). Recargando, la petición que lo pide empieza ya con la ventana
- * visible.
- *
- * @param {number} windowId
- * @param {number} tabId
- * @param {boolean} reload - Solo hace falta si no se alcanzó el panel; con
- *   la pantalla de login ya pintada, recargar solo la haría parpadear.
- */
-async function showBridgeWindow(windowId, tabId, reload) {
-  const delante = await frontWindow()
-  await chrome.windows.update(windowId, { state: 'normal' })
-  await chrome.windows.update(windowId, {
-    focused: true,
-    ...LOGIN_WINDOW,
-    ...centeredBounds(delante, LOGIN_WINDOW),
-  })
-  if (reload) await chrome.tabs.reload(tabId)
-}
-
 /** Abre el panel en una ventana emergente visible, centrada sobre la del usuario. */
 async function openLoginWindow(origin) {
   return chrome.windows.create({
@@ -314,10 +289,12 @@ async function openLoginWindow(origin) {
  * la dirección— y teclear la contraseña en el login del panel, que es el
  * sitio al que pertenece. Mientras tanto se sondea `/api/me`.
  *
- * La ventana es la propia puente cuando la abrió la extensión: se saca de
- * minimizada y, al entrar, se deja para que quien llama la cierre cuando
- * acabe de preguntar. Si la puente es una pestaña del usuario, se abre una
- * ventana nueva y se cierra en cuanto hay sesión.
+ * La ventana siempre es nueva y nace visible (`openLoginWindow`). Si la puente
+ * era una ventana de la extensión, se cierra antes (`loginWindowPlan`: nunca
+ * se restaura una minimizada) y la ventana nueva pasa a ser la puente: al
+ * entrar se deja para que quien llama la cierre cuando acabe de preguntar.
+ * Si la puente es una pestaña del usuario, la ventana se cierra en cuanto hay
+ * sesión y esa pestaña se recarga (`renew`).
  *
  * No va en el popup de la extensión porque el popup se cierra al perder el
  * foco, y el selector de certificado se lo lleva.
@@ -325,19 +302,16 @@ async function openLoginWindow(origin) {
  * @param {string} origin
  * @param {{tabId: number, opened: boolean, windowId?: number}} bridge
  * @param {'login'|'unreachable'} estado - Lo que contestó la puente.
- * @returns {Promise<number>} La pestaña donde se inició sesión.
+ * @returns {Promise<{bridge: {tabId: number, opened: boolean, windowId?: number}, renew: boolean}>}
+ *   La puente con la que seguir y si hay que recargarla (la del usuario).
  */
 async function loginInWindow(origin, bridge, estado) {
-  let tabId = bridge.tabId
-  let windowId = bridge.windowId
-  const propia = !bridge.opened
-  if (propia) {
-    const ventana = await openLoginWindow(origin)
-    tabId = ventana.tabs[0].id
-    windowId = ventana.id
-  } else {
-    await showBridgeWindow(windowId, tabId, estado === 'unreachable')
-  }
+  const plan = loginWindowPlan(bridge, estado)
+  if (plan === 'replace') await closeBridge(bridge)
+  const ventana = await openLoginWindow(origin)
+  const tabId = ventana.tabs[0].id
+  const windowId = ventana.id
+  const nueva = plan === 'replace'
 
   let cerrada = false
   const alCerrar = (id) => {
@@ -352,8 +326,9 @@ async function loginInWindow(origin, bridge, estado) {
         throw new AuthError('Se cerró la ventana del panel sin iniciar sesión.')
       }
       if ((await probeSession(tabId)) === 'ok') {
-        if (propia) await chrome.windows.remove(windowId).catch(() => {})
-        return tabId
+        if (nueva) return { bridge: { tabId, opened: true, windowId }, renew: false }
+        await chrome.windows.remove(windowId).catch(() => {})
+        return { bridge, renew: true }
       }
     }
     // La ventana se queda como está: cerrarla mientras el usuario puede estar
@@ -393,9 +368,10 @@ async function loadProjects(origin) {
   try {
     const estado = await waitForSession(bridge, BRIDGE_PATIENCE_MS)
     if (estado !== 'ok') {
-      const donde = await loginOnce(origin, bridge, estado)
+      const entrada = await loginOnce(origin, bridge, estado)
       loggedIn = true
-      if (donde !== bridge.tabId) bridge = await renewBridge(origin, bridge)
+      bridge = entrada.bridge
+      if (entrada.renew) bridge = await renewBridge(origin, bridge)
       if ((await waitForSession(bridge, RENEWED_PATIENCE_MS)) !== 'ok') {
         throw new ExtensionError('Se inició sesión, pero el panel sigue sin responder.')
       }

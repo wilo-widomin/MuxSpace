@@ -36,3 +36,23 @@ export function centeredBounds(parent, size) {
     top: Math.round(top + (height - size.height) / 2),
   }
 }
+
+/**
+ * ¿Qué hacer con la puente para enseñar el login o el selector de certificado?
+ *
+ * - `none`: hay sesión, no hay nada que enseñar.
+ * - `replace`: la puente es una ventana de la extensión (nace minimizada).
+ *   Se cierra y se abre otra ya visible: nunca se restaura la minimizada,
+ *   porque en macOS el selector de certificado que nace con la ventana
+ *   minimizada no se pinta al restaurarla.
+ * - `open`: la puente es una pestaña del usuario, que no se toca; la ventana
+ *   de login se abre aparte.
+ *
+ * @param {{opened: boolean}} bridge
+ * @param {'ok'|'login'|'unreachable'} state
+ * @returns {'none'|'replace'|'open'}
+ */
+export function loginWindowPlan(bridge, state) {
+  if (state === 'ok') return 'none'
+  return bridge.opened ? 'replace' : 'open'
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { centeredBounds, sessionState } from './login.js'
+import { centeredBounds, loginWindowPlan, sessionState } from './login.js'
 
 describe('sessionState', () => {
   it('una respuesta buena de /api/me es que hay sesión', () => {
@@ -42,5 +42,22 @@ describe('centeredBounds', () => {
   it('sin datos de la ventana de delante, deja que Chrome elija', () => {
     expect(centeredBounds(null, { width: 480, height: 720 })).toBeNull()
     expect(centeredBounds({ left: 0, top: 0 }, { width: 480, height: 720 })).toBeNull()
+  })
+})
+
+describe('loginWindowPlan', () => {
+  it('con sesión no hay ventana que enseñar', () => {
+    expect(loginWindowPlan({ opened: true }, 'ok')).toBe('none')
+    expect(loginWindowPlan({ opened: false }, 'ok')).toBe('none')
+  })
+
+  it('una puente de la extensión se sustituye por una ventana visible, sea login o certificado', () => {
+    expect(loginWindowPlan({ opened: true }, 'login')).toBe('replace')
+    expect(loginWindowPlan({ opened: true }, 'unreachable')).toBe('replace')
+  })
+
+  it('una pestaña del usuario no se toca: la ventana se abre aparte', () => {
+    expect(loginWindowPlan({ opened: false }, 'login')).toBe('open')
+    expect(loginWindowPlan({ opened: false }, 'unreachable')).toBe('open')
   })
 })

@@ -1,6 +1,8 @@
 // El popup no sabe nada del panel: pide al service worker y pinta.
 
+import { originPattern } from './lib/panel.js'
 import { filterProjects } from './lib/projects.js'
+import { readPanelOrigin, writeProjects } from './lib/storage.js'
 
 const lista = document.getElementById('proyectos')
 const aviso = document.getElementById('aviso')
@@ -72,8 +74,55 @@ async function abrir(projectId, boton) {
   window.close()
 }
 
+// Tope del atajo: si falta el certificado, la petición puede quedarse en
+// silencio, y el atajo no debe retrasar el flujo de siempre más que esto.
+const SHORTCUT_TIMEOUT_MS = 3000
+
+/**
+ * Atajo: pedir la lista directamente desde esta página, sin abrir ventanas.
+ *
+ * Solo sirve si el `fetch` de la página del popup lleva la cookie de sesión y
+ * el certificado de cliente; no está comprobado que lo haga en todos los
+ * casos. Por eso es un atajo y nada más: cualquier cosa que no sea una
+ * respuesta 200 con datos válidos devuelve `null` y se sigue por el flujo de
+ * siempre (el service worker, con su puente y su ventana de login).
+ *
+ * @returns {Promise<Array|null>} Los proyectos, o `null` si no hubo atajo.
+ */
+async function projectsByShortcut() {
+  try {
+    const origin = await readPanelOrigin()
+    if (!origin) return null
+    // Sin permiso de host ya concedido (se pide en las opciones) no se
+    // intenta: pedirlo aquí abriría un aviso sin que el usuario lo espere.
+    if (!(await chrome.permissions.contains({ origins: [originPattern(origin)] }))) return null
+    const pedir = (ruta) =>
+      fetch(`${origin}${ruta}`, {
+        credentials: 'include',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(SHORTCUT_TIMEOUT_MS),
+      })
+    const yo = await pedir('/api/me')
+    if (yo.status !== 200) return null
+    const respuesta = await pedir('/api/projects')
+    if (respuesta.status !== 200) return null
+    const lista = await respuesta.json()
+    if (!Array.isArray(lista)) return null
+    await writeProjects(lista)
+    return lista
+  } catch {
+    return null
+  }
+}
+
 async function refrescar() {
   mostrarAviso('Preguntando al panel…')
+  const atajo = await projectsByShortcut()
+  if (atajo) {
+    proyectos = atajo
+    pintar()
+    return
+  }
   const respuesta = await chrome.runtime.sendMessage({ type: 'refreshProjects' })
   if (!respuesta?.ok) {
     // Sin sesión, el service worker abre la ventana de login y este popup se

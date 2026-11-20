@@ -18,7 +18,7 @@ está, porque el panel borra el `?space=` de la URL en cuanto lo obedece.
 
 ## Cómo llega a los proyectos
 
-**La extensión nunca habla con el backend.** El panel está detrás de un
+**El service worker nunca habla con el backend.** (Solo el popup hace un atajo al abrirse: pide la lista directamente y, si no funciona, sigue por lo de abajo.) El panel está detrás de un
 certificado de cliente y de una cookie de sesión que pertenecen a la pestaña,
 no a la extensión. Así que quien pide `/api/projects` es **siempre una
 pestaña del panel**: la extensión inyecta la petición en una que ya tengas

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { filterProjects, normalizar, sortProjects } from './projects.js'
+import { filterProjects, listView, normalizar, sortProjects } from './projects.js'
 
 const PROYECTOS = [
   { id: '1', title: 'SOCIAL-VIDEO-DOWNLOADER' },
@@ -79,5 +79,37 @@ describe('normalizar', () => {
   it('lo que no es texto no rompe', () => {
     expect(normalizar(null)).toBe('')
     expect(normalizar(undefined)).toBe('')
+  })
+})
+
+describe('listView', () => {
+  const uno = [{ id: 1, title: 'A' }]
+
+  it('la lista del atajo se pinta sin preguntar más', () => {
+    expect(listView(uno, null)).toEqual({ kind: 'list', projects: uno })
+  })
+
+  it('una respuesta ok del service worker se pinta', () => {
+    expect(listView(null, { ok: true, projects: uno })).toEqual({ kind: 'list', projects: uno })
+  })
+
+  it('sin sesión es un aviso con el botón de entrar, nunca una lista', () => {
+    expect(listView(null, { ok: false, error: 'Sin sesión', needsLogin: true })).toEqual({
+      kind: 'error',
+      message: 'Sin sesión',
+      needsLogin: true,
+    })
+  })
+
+  it('panel caído o sin respuesta es un aviso genérico sin botón de entrar', () => {
+    expect(listView(null, undefined)).toEqual({
+      kind: 'error',
+      message: 'No se pudo leer el panel.',
+      needsLogin: false,
+    })
+  })
+
+  it('un ok sin lista válida no pinta nada', () => {
+    expect(listView(null, { ok: true }).kind).toBe('error')
   })
 })

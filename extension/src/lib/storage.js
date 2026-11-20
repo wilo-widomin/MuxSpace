@@ -1,10 +1,9 @@
 // Lo que la extensión guarda entre aperturas. Nada de esto son datos del
-// usuario: es la dirección de su panel, una copia de la lista de proyectos
-// para poder pintar el popup sin esperar, y a qué grupo de pestañas
-// corresponde cada proyecto.
+// usuario: es la dirección de su panel y a qué grupo de pestañas corresponde
+// cada proyecto. La lista de proyectos no se guarda: el popup solo la pinta
+// cuando el panel la acaba de dar con la sesión confirmada.
 
 const ORIGIN_KEY = 'panelOrigin'
-const PROJECTS_KEY = 'projects'
 const GROUPS_KEY = 'projectGroups'
 
 /** @returns {Promise<string>} Origen del panel, o '' si no está configurado. */
@@ -16,25 +15,6 @@ export async function readPanelOrigin() {
 /** @param {string} origin */
 export async function writePanelOrigin(origin) {
   await chrome.storage.local.set({ [ORIGIN_KEY]: origin })
-}
-
-/**
- * Copia de la lista de proyectos.
- *
- * Existe para que el popup pinte algo al abrirse: pedirla al panel obliga a
- * tener una pestaña suya delante y tarda. La copia se refresca en cuanto se
- * consigue hablar con el panel.
- *
- * @returns {Promise<Array>}
- */
-export async function readProjects() {
-  const data = await chrome.storage.local.get(PROJECTS_KEY)
-  return Array.isArray(data[PROJECTS_KEY]) ? data[PROJECTS_KEY] : []
-}
-
-/** @param {Array} projects */
-export async function writeProjects(projects) {
-  await chrome.storage.local.set({ [PROJECTS_KEY]: projects })
 }
 
 /** @returns {Promise<Record<string, number>>} `id de proyecto -> id de grupo`. */

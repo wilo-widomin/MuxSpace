@@ -48,13 +48,13 @@ el popup. Filtra según se escribe, **busca en cualquier parte del nombre** (no
 solo al principio) y no le importan las tildes ni las mayúsculas. Enter abre
 el primero de la lista, así que un proyecto son tres letras y un Enter.
 
-El popup pinta la lista guardada de la última vez y en paralelo se la vuelve
-a pedir al panel, así que la primera vez tarda lo que tarde en responder.
+El popup enseña «Preguntando al panel…» y pinta la lista solo cuando el panel
+la da con la sesión confirmada; sin sesión no se ve ninguna lista.
 
 ## Revertir
 
 Quitar la extensión en `chrome://extensions`. No deja nada en el panel: todo
-lo que guarda —la dirección, la copia de la lista de proyectos y a qué grupo
+lo que guarda —la dirección y a qué grupo
 fue cada uno— vive en el almacenamiento de la extensión y se va con ella.
 
 ## Navegadores

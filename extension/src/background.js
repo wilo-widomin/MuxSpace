@@ -19,9 +19,7 @@ import { needsLaunch, sessionsToAdopt } from './lib/sessions.js'
 import {
   readPanelOrigin,
   readProjectGroups,
-  readProjects,
   rememberProjectGroup,
-  writeProjects,
 } from './lib/storage.js'
 
 /** Error con mensaje ya listo para enseñar en el popup. */
@@ -422,7 +420,6 @@ async function loadProjects(origin) {
     if (!Array.isArray(salida)) {
       throw new ExtensionError('El panel devolvió algo que no es una lista de proyectos.')
     }
-    await writeProjects(salida)
     return { projects: salida, bridge, loggedIn }
   } catch (err) {
     // La puente que abrió la extensión se abrió solo para preguntar: si la
@@ -690,7 +687,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (loggedIn) await chrome.action.openPopup().catch(() => {})
       return { projects }
     },
-    cachedProjects: async () => ({ projects: await readProjects() }),
   }
   const accion = acciones[message?.type]
   if (!accion) return false

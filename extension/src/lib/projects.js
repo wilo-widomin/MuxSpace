@@ -59,3 +59,27 @@ export function filterProjects(projects, query) {
   if (!busqueda) return ordenados
   return ordenados.filter((p) => normalizar(p?.title).includes(busqueda))
 }
+
+/**
+ * Qué enseña el popup tras preguntar al panel.
+ *
+ * La lista solo sale de una respuesta con la sesión confirmada: la del atajo
+ * (`/api/me` y `/api/projects` con 200) o la del service worker con `ok`.
+ * Cualquier otra cosa es un aviso, nunca una lista vieja ni vacía.
+ *
+ * @param {Array|null} shortcut Lista del atajo, o `null` si no hubo atajo.
+ * @param {{ok?: boolean, projects?: Array, error?: string, needsLogin?: boolean}|null|undefined} response
+ *   Respuesta del service worker (`null` si el atajo bastó).
+ * @returns {{kind: 'list', projects: Array} | {kind: 'error', message: string, needsLogin: boolean}}
+ */
+export function listView(shortcut, response) {
+  if (Array.isArray(shortcut)) return { kind: 'list', projects: shortcut }
+  if (response?.ok && Array.isArray(response.projects)) {
+    return { kind: 'list', projects: response.projects }
+  }
+  return {
+    kind: 'error',
+    message: response?.error || 'No se pudo leer el panel.',
+    needsLogin: Boolean(response?.needsLogin),
+  }
+}

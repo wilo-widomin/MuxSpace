@@ -87,3 +87,31 @@ export function loginFocusUpdates(win) {
   updates.push({ focused: true, drawAttention: true })
   return updates
 }
+
+/** Tipo del mensaje con el que el service worker avisa de que hay ventana de login. */
+export const LOGIN_STARTED = 'loginStarted'
+
+/**
+ * ¿Es este mensaje el aviso de que se abrió (o se puso delante) la ventana de
+ * login? El popup lo escucha para cerrarse: el login se hace en esa ventana y
+ * el popup ya no tiene nada que enseñar.
+ *
+ * @param {any} message
+ * @returns {boolean}
+ */
+export function isLoginStarted(message) {
+  return message?.type === LOGIN_STARTED
+}
+
+/**
+ * ¿Es esperable el fallo de `chrome.runtime.sendMessage` al avisar al popup?
+ * Si el popup ya no existe, Chrome rechaza con «Receiving end does not exist»
+ * (o «message port closed»): no es un error, solo que nadie escuchaba.
+ *
+ * @param {any} err
+ * @returns {boolean}
+ */
+export function isNoReceiverError(err) {
+  const texto = String(err?.message ?? err ?? '')
+  return /receiving end does not exist|message port closed|message channel closed/i.test(texto)
+}

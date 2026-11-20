@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  LOGIN_STARTED,
   centeredBounds,
+  isLoginStarted,
+  isNoReceiverError,
   loginAction,
   loginFocusUpdates,
   loginWindowPlan,
@@ -94,5 +97,25 @@ describe('loginFocusUpdates', () => {
 
   it('sin datos de la ventana se intenta el foco', () => {
     expect(loginFocusUpdates(null)).toEqual([{ focused: true, drawAttention: true }])
+  })
+})
+
+describe('aviso de login al popup', () => {
+  it('reconoce solo el mensaje loginStarted', () => {
+    expect(isLoginStarted({ type: LOGIN_STARTED })).toBe(true)
+    expect(isLoginStarted({ type: 'refreshProjects' })).toBe(false)
+    expect(isLoginStarted(undefined)).toBe(false)
+    expect(isLoginStarted(null)).toBe(false)
+  })
+
+  it('tolera que no haya popup escuchando', () => {
+    expect(
+      isNoReceiverError(new Error('Could not establish connection. Receiving end does not exist.')),
+    ).toBe(true)
+    expect(
+      isNoReceiverError(new Error('The message port closed before a response was received.')),
+    ).toBe(true)
+    expect(isNoReceiverError(new Error('otra cosa'))).toBe(false)
+    expect(isNoReceiverError(undefined)).toBe(false)
   })
 })

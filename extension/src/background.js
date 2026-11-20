@@ -8,7 +8,9 @@
 
 import { groupColor, plannedUrls, reconcileGroup } from './lib/group.js'
 import {
+  LOGIN_STARTED,
   centeredBounds,
+  isNoReceiverError,
   loginAction,
   loginFocusUpdates,
   loginWindowPlan,
@@ -358,6 +360,7 @@ function loginOnce(origin, bridge, estado) {
     const actual = { windowId: null, promise: null }
     actual.promise = loginInWindow(origin, bridge, estado, (id) => {
       actual.windowId = id
+      notifyLoginStarted()
     }).finally(() => {
       if (loginEnCurso === actual) loginEnCurso = null
     })
@@ -366,10 +369,22 @@ function loginOnce(origin, bridge, estado) {
   return loginEnCurso.promise
 }
 
+/**
+ * Avisa al popup de que hay ventana de login (nueva o puesta delante) para que
+ * se cierre sin esperar a perder el foco. Si no hay popup, Chrome rechaza con
+ * «Receiving end does not exist»: es lo normal y se ignora.
+ */
+function notifyLoginStarted() {
+  chrome.runtime.sendMessage({ type: LOGIN_STARTED }).catch((err) => {
+    if (!isNoReceiverError(err)) console.warn('No se pudo avisar al popup del login:', err)
+  })
+}
+
 /** Pone delante la ventana del login en curso, aunque esté tapada o minimizada. */
 async function focusLoginWindow() {
   const windowId = loginEnCurso?.windowId
-  if (windowId == null) return // aún naciendo: ya nace con el foco
+  if (windowId == null) return // aún naciendo: ya nace con el foco y avisará al nacer
+  notifyLoginStarted()
   try {
     for (const cambios of loginFocusUpdates(await chrome.windows.get(windowId))) {
       await chrome.windows.update(windowId, cambios)

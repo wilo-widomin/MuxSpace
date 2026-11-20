@@ -85,6 +85,18 @@ cierra él. Si la puente propia ya existía cuando otro login se adelantó, se
 cierra antes de unirse. El estado se limpia al acabar el login, también por
 error o cierre.
 
+**El popup se cierra en cuanto sale la ventana de login.** El service worker
+manda `chrome.runtime.sendMessage({type: 'loginStarted'})` (`notifyLoginStarted`)
+al abrir la ventana (`loginOnce`) y al ponerla delante (`focusLoginWindow`),
+antes de esperar al resultado; el popup lo escucha (`isLoginStarted`) y hace
+`window.close()`. Sin popup, `sendMessage` rechaza con «Receiving end does not
+exist» y se ignora (`isNoReceiverError`). Vale igual al abrir un proyecto: el
+popup se queda en «Abriendo…» sin nada que hacer mientras se entra, y la
+apertura sigue sola en el service worker. Que el popup cerrado deje sin
+destinatario a `sendResponse` no rompe nada: el worker responde a un puerto
+cerrado y Chrome lo descarta. Al entrar, `refreshProjects` reabre el popup
+(`openPopup`); abrir un proyecto no, porque termina enfocando el grupo.
+
 Cerrar la ventana o agotar la espera da `AuthError` (`needsLogin: true`) y el
 popup enseña «Iniciar sesión en el panel», que reintenta el refresco.
 

@@ -23,7 +23,7 @@ en el espacio del proyecto y sus enlaces, y el proyecto con terminal viva.
 2. Comprobar la sesión con `GET /api/me`. Sin ella (o sin alcanzar el panel
    por falta de certificado), abrir la ventana de login aparte y esperar a
    que el usuario entre; después se sigue por donde iba, sin pedirle otro
-   clic. La puente de la extensión nace como ventana emergente minimizada; si
+   clic. Al salir la ventana de login el popup se cierra (aviso `loginStarted`). La puente de la extensión nace como ventana emergente minimizada; si
    hace falta login se sustituye por la ventana de login visible, y la que
    quede se cierra tras `ensureProjectReady`.
 3. Cargar los proyectos por el puente (no se guardan en ningún sitio).

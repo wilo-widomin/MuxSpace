@@ -49,7 +49,8 @@ solo al principio) y no le importan las tildes ni las mayúsculas. Enter abre
 el primero de la lista, así que un proyecto son tres letras y un Enter.
 
 El popup enseña «Preguntando al panel…» y pinta la lista solo cuando el panel
-la da con la sesión confirmada; sin sesión no se ve ninguna lista.
+la da con la sesión confirmada; sin sesión no se ve ninguna lista: se abre la ventana de login y el popup se
+cierra solo; al entrar, vuelve a abrirse con la lista.
 
 ## Revertir
 

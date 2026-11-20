@@ -1,6 +1,7 @@
 // El popup no sabe nada del panel: pide al service worker y pinta.
 
 import { originPattern } from './lib/panel.js'
+import { isLoginStarted } from './lib/login.js'
 import { filterProjects, listView } from './lib/projects.js'
 import { readPanelOrigin } from './lib/storage.js'
 
@@ -152,6 +153,15 @@ buscar.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return
   const primero = lista.querySelector('button')
   if (primero) primero.click()
+})
+
+// El service worker avisa en cuanto abre (o pone delante) la ventana de login:
+// el login se hace allí, y el popup no tiene nada que enseñar mientras tanto.
+// Cerrarse aquí evita quedarse visible con «Preguntando al panel…» hasta que
+// Chrome lo cierre por perder el foco. Al volver con sesión, el service worker
+// reabre el popup (`openPopup`) con la lista.
+chrome.runtime.onMessage.addListener((message) => {
+  if (isLoginStarted(message)) window.close()
 })
 
 // Al abrir solo se pregunta al panel: la lista se pinta cuando hay sesión

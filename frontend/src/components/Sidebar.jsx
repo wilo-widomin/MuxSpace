@@ -15,12 +15,14 @@ import { LinkSettings } from './LinkSettings.jsx'
 import { WebLinksMenu } from './WebLinksMenu.jsx'
 import {
   ChartIcon,
+  ChatIcon,
   CheckIcon,
   ClockIcon,
   PauseIcon,
   GearIcon,
   PencilIcon,
   PlusIcon,
+  SearchIcon,
   SpaceIcon,
   TrashIcon,
 } from './sidebar/icons.jsx'
@@ -90,6 +92,9 @@ export default function Sidebar({
   onRunCommand,
   onRunProject,
   onRunProjectInNewTab,
+  // Abre las conversaciones pasadas de Claude: sin argumento, la búsqueda
+  // global; con un proyecto, su pestaña «Sesiones».
+  onOpenClaudeSessions,
   onSaveCommand,
   onUpdateCommand,
   onDeleteCommand,
@@ -646,6 +651,14 @@ export default function Sidebar({
         >
           <ChartIcon />
         </a>
+        <button
+          onClick={() => onOpenClaudeSessions(null)}
+          title={t('csessions.open_global')}
+          aria-label={t('csessions.open_global')}
+          className="mt-2 rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+        >
+          <SearchIcon />
+        </button>
         <WebLinksMenu links={webLinks} compacto />
         {/* Abajo del todo, como en el pie del sidebar abierto: plegar la
             barra no puede esconder los ajustes del panel. `mt-auto` lo
@@ -1084,6 +1097,17 @@ export default function Sidebar({
               >
                 <PlusIcon />
               </button>
+              {/* La búsqueda global en conversaciones pasadas de Claude vive
+                  aquí y no en la cabecera: la cabecera ya va justa de iconos
+                  y uno más se sale de la barra al subir el tamaño del panel. */}
+              <button
+                onClick={() => onOpenClaudeSessions(null)}
+                title={t('csessions.open_global')}
+                aria-label={t('csessions.open_global')}
+                className="shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-panel-bg hover:text-gray-100"
+              >
+                <SearchIcon />
+              </button>
               <button
                 onClick={() => toggleSection('projects')}
                 title={t('sidebar.projects')}
@@ -1133,6 +1157,19 @@ export default function Sidebar({
                         >
                           {p.title}
                         </span>
+                        {p.cwd && (
+                          <button
+                            onClick={(e) => {
+                              e.currentTarget.blur()
+                              onOpenClaudeSessions(p)
+                            }}
+                            title={t('csessions.open_project')}
+                            aria-label={t('csessions.open_project')}
+                            className="shrink-0 rounded p-1.5 text-panel-muted transition hover:bg-panel-surface hover:text-gray-100"
+                          >
+                            <ChatIcon />
+                          </button>
+                        )}
                         <button
                           onClick={() => startProjEdit(p)}
                           title={t('sidebar.edit_project')}

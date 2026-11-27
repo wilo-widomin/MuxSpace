@@ -14,6 +14,7 @@ import { useAttentionEvents } from './useAttentionEvents.js'
 import { armChime, chime, configure as configureChime } from './lib/chime.js'
 import GapQuestion from './components/GapQuestion.jsx'
 import Dashboard from './components/Dashboard.jsx'
+import { ClaudeSessions } from './components/ClaudeSessions.jsx'
 import { useT } from './i18n/index.jsx'
 import { SCALE_EVENT, readScale } from './uiScale.js'
 
@@ -74,6 +75,9 @@ export default function App() {
   const [spaces, setSpaces] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  // Pantalla de conversaciones pasadas de Claude: null cerrada, o
+  // `{project}` (null = búsqueda global).
+  const [claudeSessions, setClaudeSessions] = useState(null)
 
   // Espacio que mira esta pestaña. En sessionStorage: cada pestaña elige el
   // suyo y lo recuerda al recargar, pero no se lo impone a las demás.
@@ -733,6 +737,24 @@ export default function App() {
     await handleSelect(res.name)
   }
 
+  // ---- Retomar una conversación de Claude en una terminal del grid ----
+  // El backend crea la sesión con `claude --resume <id>` en la carpeta de la
+  // conversación. Desde un proyecto nace en el espacio del proyecto (lo asigna
+  // el backend) y aquí solo se salta a él, como al ejecutarlo; sin proyecto, o
+  // con un proyecto sin espacio, va al espacio que se mira. Si falla, el error
+  // vuelve a la pantalla de sesiones, que lo enseña sin cerrarse.
+  const handleResumeClaudeSession = async (sessionId, projectId) => {
+    const res = await api.claudeSessionOpen(sessionId, projectId)
+    const proj = projectId ? projects.find((p) => p.id === projectId) : null
+    const projectSpace =
+      proj?.space && spaces.some((s) => s.id === proj.space) ? proj.space : null
+    if (projectSpace) setActiveSpace(projectSpace)
+    else await assignToActiveSpace(res.name)
+    await loadSessions(true)
+    setClaudeSessions(null)
+    await handleSelect(res.name)
+  }
+
   // ---- Ejecutar un Proyecto en su propio espacio, en una pestaña nueva ----
   // El espacio se busca por título del proyecto y se crea si no existe, así
   // que acaba siendo un espacio dedicado a ese proyecto. De ahí que baste
@@ -912,6 +934,7 @@ export default function App() {
         onRunCommand={handleRunCommand}
         onRunProject={handleRunProject}
         onRunProjectInNewTab={handleRunProjectInNewTab}
+        onOpenClaudeSessions={(project) => setClaudeSessions({ project })}
         onSaveCommand={handleSaveCommand}
         onUpdateCommand={handleUpdateCommand}
         onDeleteCommand={handleDeleteCommand}
@@ -923,6 +946,13 @@ export default function App() {
         layout={layout}
         onSetLayout={changeLayout}
       />
+      {claudeSessions && (
+        <ClaudeSessions
+          project={claudeSessions.project}
+          onClose={() => setClaudeSessions(null)}
+          onResume={handleResumeClaudeSession}
+        />
+      )}
       {!sidebarCollapsed && <Resizer orientation="vertical" onDrag={resizeSidebar} />}
       <main className="h-full flex-1 overflow-hidden">
         <SessionGrid

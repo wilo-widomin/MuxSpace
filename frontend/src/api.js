@@ -23,6 +23,10 @@ export class ApiError extends Error {
     this.code = coded ? coded.code : null
     this.params = coded?.params || {}
     this.technical = coded?.technical || null
+    // El cuerpo codificado entero: el 503 de las sesiones de Claude trae el
+    // mensaje y el comando del API (`mensaje`, `detail`) y el 409 las
+    // coincidencias (`matches`).
+    this.body = coded || {}
   }
 }
 
@@ -410,5 +414,57 @@ export const api = {
   deleteUpload: (path) =>
     request(`/api/uploads?path=${encodeURIComponent(path)}`, {
       method: 'DELETE',
+    }),
+
+  // ---- Sesiones de Claude Code (conversaciones pasadas) ----
+  // Todo lo consulta el servidor y se tira: aquí no se guarda nada. La
+  // búsqueda es POST para que lo buscado (puede ser una contraseña) no viaje
+  // en la URL ni acabe en un registro de accesos.
+  claudeSessions: (projectId) =>
+    request(
+      `/api/claude-sessions${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ''}`,
+    ),
+  claudeSessionsSearch: (body) =>
+    request('/api/claude-sessions/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  claudeSession: (
+    id,
+    { offset = 0, limit = 50, thinking = false, tools = false } = {},
+  ) =>
+    request(
+      `/api/claude-sessions/${encodeURIComponent(id)}?offset=${offset}&limit=${limit}` +
+        `${thinking ? '&thinking=1' : ''}${tools ? '&tools=1' : ''}`,
+    ),
+  // Markdown de la sesión como texto: el cliente lo baja como archivo.
+  claudeSessionExport: async (id) => {
+    const res = await fetch(`/api/claude-sessions/${encodeURIComponent(id)}/export`, {
+      cache: 'no-store',
+    })
+    if (!res.ok) {
+      let detail = { code: 'err.http', params: { status: res.status } }
+      try {
+        const body = await res.json()
+        if (body.detail && typeof body.detail === 'object' && body.detail.code) {
+          detail = body.detail
+        }
+      } catch {
+        // sin cuerpo JSON
+      }
+      throw new ApiError(res.status, detail)
+    }
+    return res.text()
+  },
+  claudeSessionResume: (id) =>
+    request(`/api/claude-sessions/${encodeURIComponent(id)}/resume`),
+  // Abre una terminal nueva que retoma la sesión. Con `projectId`, nace en el
+  // espacio del proyecto y vinculada a él.
+  claudeSessionOpen: (id, projectId) =>
+    request(`/api/claude-sessions/${encodeURIComponent(id)}/open-in-grid`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId || null }),
     }),
 }

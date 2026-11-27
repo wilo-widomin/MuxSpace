@@ -88,6 +88,9 @@ os.environ.update(
         # los tests. Los que lo prueban fijan `config` y sustituyen `send`.
         "MUXSPACE_HOST_POWEROFF_URL": "",
         "MUXSPACE_HOST_POWEROFF_TOKEN": "",
+        # Al puerto 9 (descarte): si un test olvida simular el API de sesiones,
+        # se queda en «caído» en vez de hablar con el del panel de Willy.
+        "MUXSPACE_CLAUDE_SESSIONS_URL": "http://127.0.0.1:9",
     }
 )
 

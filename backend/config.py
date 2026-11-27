@@ -215,3 +215,11 @@ SCRIPT_CWD_ROOT: str = (
 # y el token son de la red de Willy, así que solo viven en `backend/.env`.
 HOST_POWEROFF_URL: str = os.getenv("MUXSPACE_HOST_POWEROFF_URL", "").strip()
 HOST_POWEROFF_TOKEN: str = os.getenv("MUXSPACE_HOST_POWEROFF_TOKEN", "").strip()
+
+# API de sesiones de Claude Code (el del panel de proyectos de Willy, solo
+# lectura). El navegador nunca habla con él: lo consulta este servidor y tira
+# la respuesta, porque las conversaciones pueden llevar claves pegadas. Ver
+# `claude_sessions.py`.
+CLAUDE_SESSIONS_URL: str = (
+    os.getenv("MUXSPACE_CLAUDE_SESSIONS_URL", "http://127.0.0.1:9880").strip().rstrip("/")
+)

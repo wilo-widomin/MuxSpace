@@ -1,6 +1,6 @@
 ---
 dominio: acceso
-actualizado: 2026-11-20
+actualizado: 2026-11-27
 archivos:
   - backend/auth.py
   - backend/audit.py
@@ -54,7 +54,11 @@ ni ve ni valida.
   panel que da shell.
 - El backend arranca o no arranca: un `AUTH_MODE` desconocido, o una contraseña
   vacía o `admin` en modo `env`, es `ValueError` al importar la configuración.
-- Los errores viajan como `{code, params, technical}`, nunca como frase.
+- Los errores viajan como `{code, params, technical}`, nunca como frase. Salvo
+  el 503 de las conversaciones de Claude, que añade `mensaje` y `detail` del API
+  (ver `conversaciones-claude/`).
+- `/api/claude-sessions/*` es solo del panel (`_auth`, sin token de scripts) y
+  su auditoría no lleva nunca lo buscado.
 
 ## Acciones documentadas
 

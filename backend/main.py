@@ -38,6 +38,7 @@ from pydantic import BaseModel
 import attention_store
 import audit
 import chime_store
+import claude_sessions
 import claude_transcript
 import config
 import events
@@ -2573,6 +2574,199 @@ def run_project_endpoint(
     )
     if _is_script(request):
         _script_use(request).update(project_id=project_id, session=name)
+    return CreateSessionResponse(name=name, created=True)
+
+
+# ----------------------------------------------------------------------
+# Sesiones de Claude Code (conversaciones pasadas)
+# ----------------------------------------------------------------------
+# Todo pasa por aquí: el navegador nunca habla con el API de sesiones. Nada de
+# lo que devuelve se guarda ni se registra (ver `claude_sessions.py`): ni el
+# cuerpo, ni lo buscado. Por eso la búsqueda es un POST con la consulta en el
+# cuerpo y no un GET: la URL con la consulta quedaría en el registro de
+# accesos de uvicorn.
+class ClaudeSearchBody(BaseModel):
+    q: str
+    project_id: str | None = None
+    role: str = ""
+    regex: bool = False
+    kinds: list[str] = ["text"]
+    subagents: bool = False
+    sort: str = "date"
+    since: str | None = None
+    limit: int = 50
+
+
+class ClaudeOpenBody(BaseModel):
+    project_id: str | None = None
+
+
+def _claude_error(exc: claude_sessions.SessionsError) -> HTTPException:
+    return HTTPException(status_code=exc.status, detail=exc.detail)
+
+
+def _cwd_del_proyecto(project_id: str | None) -> str | None:
+    """Carpeta del proyecto a la que acotar. La pone el servidor, no el cliente."""
+    if not project_id:
+        return None
+    proj = get_project(project_id)
+    if proj is None:
+        raise http_error(404, "err.project_not_found")
+    if not proj.cwd:
+        raise http_error(400, "err.claude_sessions_project_no_cwd")
+    return proj.cwd
+
+
+@app.get("/api/claude-sessions")
+def claude_sessions_list(
+    project_id: str | None = None,
+    since: str | None = None,
+    limit: int = 100,
+    user: str = _auth,
+) -> dict:
+    """Sesiones por última actividad; con `project_id`, solo las de su carpeta."""
+    cwd = _cwd_del_proyecto(project_id)
+    try:
+        return {"sessions": claude_sessions.listar(cwd, since, limit)}
+    except claude_sessions.SessionsError as exc:
+        raise _claude_error(exc) from exc
+
+
+@app.post("/api/claude-sessions/search")
+def claude_sessions_search(
+    request: Request, body: ClaudeSearchBody, user: str = _auth
+) -> dict:
+    """Búsqueda global o, con `project_id`, dentro de un proyecto.
+
+    Se audita **que** se buscó, nunca qué.
+    """
+    cwd = _cwd_del_proyecto(body.project_id)
+    audit.record("claude-sessions-search", request=request, user=user)
+    try:
+        hits = claude_sessions.buscar(
+            body.q,
+            project_cwd=cwd,
+            role=body.role,
+            regex=body.regex,
+            kinds=body.kinds,
+            subagents=body.subagents,
+            sort=body.sort,
+            since=body.since,
+            limit=body.limit,
+        )
+    except claude_sessions.SessionsError as exc:
+        raise _claude_error(exc) from exc
+    return {"hits": hits}
+
+
+@app.get("/api/claude-sessions/{session_id}")
+def claude_session_read(
+    session_id: str,
+    offset: int = 0,
+    limit: int = 50,
+    thinking: bool = False,
+    tools: bool = False,
+    subagents: bool = False,
+    user: str = _auth,
+) -> dict:
+    """Una página de la conversación, de principio a fin."""
+    try:
+        return claude_sessions.leer(
+            session_id, offset=offset, limit=limit,
+            thinking=thinking, tools=tools, subagents=subagents,
+        )
+    except claude_sessions.SessionsError as exc:
+        raise _claude_error(exc) from exc
+
+
+@app.get("/api/claude-sessions/{session_id}/export")
+def claude_session_export(session_id: str, user: str = _auth) -> Response:
+    """La conversación en Markdown, como descarga."""
+    try:
+        texto, nombre = claude_sessions.exportar(session_id)
+    except claude_sessions.SessionsError as exc:
+        raise _claude_error(exc) from exc
+    return Response(
+        content=texto,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
+
+
+@app.get("/api/claude-sessions/{session_id}/resume")
+def claude_session_resume(session_id: str, user: str = _auth) -> dict:
+    """El comando para retomar la sesión a mano (`cd … && claude --resume …`)."""
+    try:
+        destino = claude_sessions.destino_de_retomar(session_id)
+    except claude_sessions.SessionsError as exc:
+        raise _claude_error(exc) from exc
+    return {"exists": destino["exists"], "command": destino["command"]}
+
+
+@app.post(
+    "/api/claude-sessions/{session_id}/open-in-grid",
+    response_model=CreateSessionResponse,
+)
+def claude_session_open_in_grid(
+    request: Request,
+    session_id: str,
+    body: ClaudeOpenBody | None = None,
+    user: str = _auth,
+) -> CreateSessionResponse:
+    """Abre una terminal nueva que retoma la conversación.
+
+    El comando se reconstruye aquí con el UUID validado y la carpeta citada
+    (`claude_sessions.destino_de_retomar`); lo único que viaja al shell es
+    `cd <carpeta> && claude --resume <uuid>`. Es el mismo camino que `launch`
+    y `run-project`: `create_session` y un nombre `Claude <8 hex>` con el
+    sufijo ` (N)` de siempre. Con `project_id` la sesión nace en el espacio
+    del proyecto y vinculada a él, como al ejecutarlo.
+    """
+    if not claude_sessions.uuid_valido(session_id):
+        raise http_error(400, "err.claude_session_id_invalid")
+    proj = None
+    if body and body.project_id:
+        proj = get_project(body.project_id)
+        if proj is None:
+            raise http_error(404, "err.project_not_found")
+    try:
+        destino = claude_sessions.destino_de_retomar(session_id)
+    except claude_sessions.SessionsError as exc:
+        raise _claude_error(exc) from exc
+    if not destino["exists"]:
+        raise http_error(409, "err.claude_session_cwd_missing")
+    if destino["session_id"].lower() != session_id.lower():
+        raise http_error(502, "err.claude_sessions_upstream")
+
+    command = f"claude --resume {destino['session_id']}"
+    base = _tmux_safe_label(f"Claude {session_id[:8]}")
+
+    def _try_create(n: str) -> str | None:
+        try:
+            if create_session(n, command=command, cwd=destino["cwd"]):
+                return n
+        except TmuxError as exc:
+            raise http_from(500, exc) from exc
+        return None
+
+    name = _try_create(_next_label_name(base))
+    if name is None:
+        # Carrera muy improbable: igual que en `run-project`, un reintento.
+        name = _try_create(_next_label_name(base))
+        if name is None:
+            raise http_error(409, "err.session_exists", name=base)
+
+    if proj is not None:
+        if proj.space:
+            try:
+                space_store.assign(name, proj.space)
+            except SpaceError:
+                pass
+        library_store.link_session(name, proj.id)
+    audit.record(
+        "claude-resume", request=request, user=user, target=name,
+        detail={"session_id": session_id, "project_id": proj.id if proj else None},
+    )
     return CreateSessionResponse(name=name, created=True)
 
 

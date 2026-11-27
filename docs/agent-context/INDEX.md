@@ -18,6 +18,7 @@ haber mirado su documento.
 | subir archivos, pegar imágenes para Claude, elegir o crear carpetas, rutas que se copian al portapapeles | `archivos/` |
 | login, cookie, sesión caducada, rate-limit, IPs baneadas, auditoría, CSP y cabeceras, mTLS y certificados de dispositivo, token de scripts, apagar el ordenador host | `acceso/` |
 | textos de la interfaz, traducciones, idiomas, plurales, mensajes de error que ve el usuario | `i18n/` |
+| buscar o leer conversaciones pasadas de Claude Code, la pestaña «Sesiones» de un proyecto, retomar una conversación en una terminal | `conversaciones-claude/` |
 | la extensión de Chrome, grupos de pestañas, abrir un proyecto desde el navegador | `extension/` |
 
 Transversal:

@@ -1,6 +1,6 @@
 ---
 dominio: i18n
-actualizado: 2026-11-12
+actualizado: 2026-11-27
 archivos:
   - frontend/src/i18n/index.jsx
   - frontend/src/i18n/locales/es.json
@@ -35,7 +35,7 @@ vive en un solo sitio.
 
 ## Convenio de claves
 
-Plano, `zona.snake_case`. Zonas vigentes: `app.`, `clock.`, `compose.`,
+Plano, `zona.snake_case`. Zonas vigentes: `app.`, `clock.`, `compose.`, `csessions.`,
 `dashboard.`, `err.`, `form.`, `grid.`, `lang.`, `login.`, `modal.`, `paste.`,
 `pause.`, `poweroff.`, `settings.`, `sidebar.`, `spaces.`, `term.`, `tile.`, `transcript.`, `upload.`.
 
